@@ -31,6 +31,7 @@ Groupes :
 - Explorateur : `explorer_select`, `explorer_list`, `explorer_open_markdown`, `explorer_directory`.
 - Terminal : `terminal_start`, `terminal_input`, `terminal_resize`, `terminal_close`.
 - PDF : `pdf_fetch`, `pdf_probe`.
+- Notifications : `notify_desktop`, adossé à `tauri-plugin-notification`.
 - MCP et agents : `mcp_reply`, `mcp_notify`, `mcp_cache_tools`, `mcp_link`, `agent_setup`, `agent_connected`.
 - Fenêtre : `set_window_material`.
 

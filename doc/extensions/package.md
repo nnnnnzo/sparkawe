@@ -11,7 +11,7 @@ Dans les deux cas, le contenu doit être à la racine du dossier ou du zip :
 extension.json
 index.js
 style.css          # optionnel
-icon.svg           # optionnel, pas encore consommé
+icon.svg           # optionnel, lu comme un masque teinté
 media/1.webp       # captures optionnelles
 ```
 
@@ -27,6 +27,8 @@ media/1.webp       # captures optionnelles
   "summary": "Affiche un message dans une tuile.",
   "description": "Description longue optionnelle.",
   "category": "Démonstration",
+  "icon": "icon.svg",
+  "color": "#769ac8",
   "entry": "index.js",
   "style": "style.css",
   "tileTypes": ["demo.hello.tile"],
@@ -43,12 +45,23 @@ Contraintes :
 - `name` : 1 à 80 caractères.
 - `entry` : fichier relatif `.js` ou `.mjs` existant.
 - `style` : fichier relatif `.css` existant, optionnel.
+- `icon` : fichier relatif `.svg` existant, 32 Kio max, optionnel.
+- `color` : `#rrggbb` ou `#rgb`, optionnel ; noms CSS et `rgb()` refusés.
 - `tileTypes` : 1 à 20 types, chacun préfixé par `<id>.`, unique.
 - `screenshots` : 0 à 8 fichiers `.webp`, `.png`, `.jpg` ou `.jpeg` existants.
 - `certification` interdit dans un paquet importé.
 - `summary` ≤ 400 caractères, `description` ≤ 4 000.
 
 Le backend refuse les chemins absolus, `..`, les séparateurs `\` et les liens symboliques. `.git` et `node_modules` sont ignorés lors de la copie et de l’extraction.
+
+## Icône et teinte
+
+`icon` et `color` donnent au paquet le même rendu qu’une extension intégrée : carte, hero et fiche du Store, en-tête du rail, et barre d’onglet quand la tuile n’a pas d’icône propre.
+
+- L’icône est un **masque CSS**, jamais du markup interprété : le SVG sert d’alpha et la couleur vient de `currentColor`. Aucun script du fichier ne s’exécute, et l’icône se teinte avec l’extension.
+- Conséquence : Spark ne peut pas réappliquer l’épaisseur de trait. Dessiner le SVG en viewBox 24, `fill="none"`, `stroke="currentColor"`, `stroke-width="1.7"`, et le tester à 16 px.
+- L’icône est servie par le protocole `asset` ; la CSP et la portée `$APPCONFIG/extensions/**` n’ont pas besoin d’être modifiées.
+- Sans `icon`, l’onglet affiche le glyphe générique ; sans `color`, l’icône reste neutre et les cartes retombent sur la teinte bleue du Store.
 
 ## Bundle
 
@@ -99,6 +112,7 @@ Le paquet est un **script classique**, pas un module ES :
 | Taille décompressée | 25 Mio |
 | Profondeur | 8 |
 | Types de tuiles | 20 |
+| Icône | 32 Kio |
 | Captures | 8 |
 | Zip téléchargé | 30 Mio |
 | Index de dépôt | 2 Mio |

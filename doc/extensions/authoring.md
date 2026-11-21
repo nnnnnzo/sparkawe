@@ -1,6 +1,6 @@
 # Publier une extension
 
-Il n’y a pas encore de CLI ni de template officiel. Un paquet se construit et se publie à la main ; `examples/hello-extension` sert de référence.
+Il n’y a pas encore de CLI ni de template officiel. Un paquet se construit et se publie à la main ; `examples/hello-extension` sert de référence minimale et `examples/sparklab-day` de paquet complet, avec deux tuiles, des actions et un fichier d’état.
 
 ## 1. Créer le dossier
 
@@ -9,6 +9,7 @@ mon-extension/
   extension.json
   index.js
   style.css
+  icon.svg            # optionnel
   media/1.webp        # optionnel
 ```
 
@@ -59,14 +60,26 @@ Règles :
 
 Pour un projet TypeScript/React, un build Vite en mode librairie avec React externalisé et un wrapper IIFE fonctionne. Le contrat qui compte est le script final, pas la chaîne de build.
 
-## 3. Captures
+## 3. Icône et teinte
+
+Deux champs optionnels suffisent pour que le paquet ressemble à une intégrée partout : carte, hero et fiche du Store, rail, barre d’onglet.
+
+```json
+{ "icon": "icon.svg", "color": "#769ac8" }
+```
+
+- Le SVG est lu comme un **masque** : seul son alpha compte. Dessiner en viewBox 24, `fill="none"`, `stroke="currentColor"`, `stroke-width="1.7"`, puis vérifier le rendu à 16 px. Spark ne réapplique pas l’épaisseur de trait.
+- `color` est une teinte du spectre ou une couleur assortie, en `#rrggbb` ou `#rgb`. Noms CSS et `rgb()` sont refusés à l’installation.
+- 32 Kio maximum. Un fichier absent ou trop lourd fait échouer l’import avec un message explicite.
+
+## 4. Captures
 
 - 1280×720 (16:9), thème sombre, données neutres.
 - 1 ou 2 captures par extension.
 - Pas de données personnelles, pas de captures dans les cartes du Store.
 - Les captures d’un paquet importé sont résolues depuis son manifeste.
 
-## 4. Packager
+## 5. Packager
 
 Le zip doit contenir les fichiers **à la racine**, pas un dossier parent :
 
@@ -83,7 +96,7 @@ Calculer l’empreinte :
 shasum -a 256 mon-extension-1.0.0.zip
 ```
 
-## 5. Publier un index
+## 6. Publier un index
 
 Un dépôt est un JSON statique :
 
@@ -109,7 +122,7 @@ Un dépôt est un JSON statique :
 
 Héberger l’index et les zips en HTTPS. En développement, `http://127.0.0.1` est accepté.
 
-## 6. Tester
+## 7. Tester
 
 Option locale, sans dépôt :
 
@@ -117,6 +130,8 @@ Option locale, sans dépôt :
 2. **Store › Sources** ;
 3. **Parcourir** ou coller le dossier ;
 4. **Installer**.
+
+Le paquet est copié dans la configuration de Spark : modifier les sources ne change rien tant que l’extension n’est pas réinstallée. Réinstaller depuis le même dossier suffit — Spark désactive, remplace, réactive, et le bundle et les styles sont rechargés sans redémarrer l’application. Augmenter `version` n’est utile qu’à la publication. L’état de l’extension et les tuiles ouvertes sont conservés.
 
 Option dépôt :
 
@@ -127,7 +142,7 @@ Option dépôt :
 
 `examples/registry.json` et les zips `examples/hello-extension*.zip` forment un dépôt de test local.
 
-## 7. Mettre à jour
+## 8. Mettre à jour
 
 - Incrémenter `version` dans `extension.json` et dans le nom du zip.
 - Recalculer le SHA-256.
@@ -140,6 +155,7 @@ Option dépôt :
 - [ ] identifiant stable, non réservé ;
 - [ ] `schema: 2`, version `x.y.z` ;
 - [ ] `entry` et `style` existent ;
+- [ ] `icon` en SVG, viewBox 24, trait 1.7, 32 Kio max ; `color` en hexadécimal ;
 - [ ] types de tuiles préfixés et uniques ;
 - [ ] bundle enregistré dans `window.SparkExtensions[id]` ;
 - [ ] React via `window.SparkRuntime` ;

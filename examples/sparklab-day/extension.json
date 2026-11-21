@@ -1,0 +1,16 @@
+{
+  "schema": 2,
+  "id": "sparklab.day",
+  "name": "Journée",
+  "version": "0.1.0",
+  "subtitle": "Minuteur et tâches",
+  "summary": "Un minuteur, un pomodoro et une liste de tâches qui partagent le même état.",
+  "description": "Journée réunit deux tuiles. Le minuteur compte à rebours ou enchaîne travail et pause ; la liste de tâches accepte les échéances écrites en français et se partage entre toutes les tuiles. Les deux se pilotent depuis un agent par des actions bornées.",
+  "category": "Productivité",
+  "icon": "icon.svg",
+  "color": "#b4bc82",
+  "entry": "index.js",
+  "style": "style.css",
+  "screenshots": ["media/timer.webp", "media/tasks.webp"],
+  "tileTypes": ["sparklab.day.timer", "sparklab.day.tasks"]
+}

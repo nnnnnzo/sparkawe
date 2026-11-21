@@ -97,7 +97,7 @@ Vite inclut les extensions présentes dans les sources au moment de la construct
 
 ### Importer une extension locale
 
-En mode développeur, ouvrez **Store › Sources** et collez le chemin d’un dossier contenant `extension.json`, un bundle `index.js` et éventuellement `style.css`. `examples/hello-extension` sert de paquet de démonstration.
+En mode développeur, ouvrez **Store › Sources** et collez le chemin d’un dossier contenant `extension.json`, un bundle `index.js`, éventuellement `style.css` et `icon.svg`. `examples/hello-extension` sert de paquet de démonstration.
 
 Le bundle est un script classique qui enregistre une fabrique dans `window.SparkExtensions["<id>"]` et reçoit React par `window.SparkRuntime`. Spark valide le manifeste, refuse les identifiants réservés, les chemins qui sortent du paquet et les liens symboliques, puis copie le dossier dans sa configuration. L’extension apparaît dans **Communautaires** et peut être activée, désactivée ou ouverte dans une tuile.
 

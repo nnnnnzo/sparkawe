@@ -14,7 +14,7 @@
 | `workspace-recovery.json` | front/Rust | Copie de secours lors d’une reprise. |
 | `settings-v1.json` | Rust | `{ "dev": boolean }`. |
 | `extensions.json` | Rust | Paquets installés, versions, sources. |
-| `extensions/<id>/<version>/` | Rust | Paquet extrait (`extension.json`, bundle, styles, médias). |
+| `extensions/<id>/<version>/` | Rust | Paquet extrait (`extension.json`, bundle, styles, icône, médias). |
 | `markdown-access.json` | Rust | Tokens de fichiers Markdown autorisés. |
 | `explorer-access.json` | Rust | Tokens de dossiers autorisés. |
 | `run/mcp.sock` | Rust | Socket MCP local. |

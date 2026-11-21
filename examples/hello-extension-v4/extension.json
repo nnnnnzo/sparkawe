@@ -1,0 +1,17 @@
+{
+  "schema": 2,
+  "id": "demo.hello",
+  "name": "Hello",
+  "version": "0.4.0",
+  "subtitle": "Tuile de démonstration",
+  "summary": "Affiche un message dans une tuile.",
+  "description": "Quatrième version de l’extension de démonstration : elle déclare une icône SVG et une teinte, reprises dans le Store, le rail et la barre d’onglet.",
+  "category": "Démonstration",
+  "icon": "icon.svg",
+  "color": "#769ac8",
+  "entry": "index.js",
+  "style": "style.css",
+  "tileTypes": [
+    "demo.hello.tile"
+  ]
+}

@@ -3,6 +3,7 @@ import type {
   ActionValue,
   Command,
   Dispose,
+  ServiceKey,
   SparkAPI,
   SparkExtension,
   Manifest,
@@ -220,6 +221,9 @@ export class Registry {
       .map((record) => record.extension.manifest);
   registerCommand = (command: Command) =>
     register(this.commands, command.id, { ...command, owner: core });
+  /** Service fourni par le noyau, disponible avant l’activation des extensions. */
+  registerService = (key: ServiceKey<unknown>, value: unknown) =>
+    register(this.services, key.id, value);
 
   async activate(extension: SparkExtension) {
     const owner = extension.manifest;

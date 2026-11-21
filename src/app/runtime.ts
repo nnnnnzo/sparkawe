@@ -20,6 +20,7 @@ import { report } from "../ui/errors.ts";
 import { discoverExtensions, installedEntry } from "./extensions.ts";
 import type { InstalledRecord } from "./installed.ts";
 import { Marketplace } from "./marketplace.ts";
+import { notifications, sparkNotifications } from "./notifications.ts";
 
 export async function createRuntime() {
   let state: WorkspaceState;
@@ -119,6 +120,9 @@ export async function createRuntime() {
       tabForTile: (tileId) => workspace.tabForTile(tileId)?.id,
     },
   );
+  // Un paquet importé n’a pas d’API Tauri dédiée : le noyau lui expose les
+  // capacités système par des services identifiés.
+  registry.registerService(sparkNotifications, notifications);
   async function installEntry(source: string) {
     const record = await invoke<InstalledRecord>("extension_install", {
       source,

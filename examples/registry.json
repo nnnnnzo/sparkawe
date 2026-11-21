@@ -13,6 +13,13 @@
       "category": "Démonstration",
       "versions": [
         {
+          "version": "0.4.0",
+          "url": "http://127.0.0.1:1420/examples/hello-extension-v4.zip",
+          "sha256": "a42e15623e0d42a37da70197b365dd6c150654a86f5d00ea97aa87f0b8083541",
+          "size": 1473,
+          "publishedAt": "2026-11-21T23:12:00Z"
+        },
+        {
           "version": "0.3.0",
           "url": "http://127.0.0.1:1420/examples/hello-extension-v3.zip",
           "sha256": "de32a34c288da8beee94218f896cfa08a126955e71ee352f6320edb7e7b50a5b",

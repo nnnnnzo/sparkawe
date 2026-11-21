@@ -29,6 +29,7 @@
     "allow-agent-setup",
     "allow-agent-connected",
     "allow-pdf-fetch",
-    "allow-pdf-probe"
+    "allow-pdf-probe",
+    "allow-notify-desktop"
   ]
 }

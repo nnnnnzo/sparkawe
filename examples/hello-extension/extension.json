@@ -7,6 +7,8 @@
   "summary": "Affiche un message dans une tuile.",
   "description": "Extension de démonstration pour vérifier l’import local, le chargement du bundle et le cycle activer/désactiver.",
   "category": "Démonstration",
+  "icon": "icon.svg",
+  "color": "#769ac8",
   "entry": "index.js",
   "style": "style.css",
   "tileTypes": ["demo.hello.tile"]

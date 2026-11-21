@@ -21,6 +21,7 @@ const MAX_BYTES: u64 = 25 * 1024 * 1024;
 const MAX_DEPTH: usize = 8;
 const MAX_TILE_TYPES: usize = 20;
 const MAX_SCREENSHOTS: usize = 8;
+const MAX_ICON_BYTES: u64 = 32 * 1024;
 const MAX_DOWNLOAD_BYTES: u64 = 30 * 1024 * 1024;
 const MAX_REGISTRY_BYTES: u64 = 2 * 1024 * 1024;
 const MAX_SOURCES: usize = 20;
@@ -107,6 +108,15 @@ fn valid_version(value: &str) -> bool {
         && parts.iter().all(|part| {
             !part.is_empty() && part.chars().all(|character| character.is_ascii_digit())
         })
+}
+
+/// Couleur d'extension : injectée dans une variable CSS, donc un hexadécimal
+/// strict. Les noms CSS et les fonctions (`rgb()`) sont refusés.
+fn valid_color(value: &str) -> bool {
+    let Some(hex) = value.strip_prefix('#') else {
+        return false;
+    };
+    matches!(hex.len(), 3 | 6) && hex.chars().all(|character| character.is_ascii_hexdigit())
 }
 
 fn safe_relative(value: &str) -> Result<PathBuf> {
@@ -202,6 +212,31 @@ fn validate_manifest(manifest: &Value, base: &Path) -> Result<String> {
     relative_file(manifest, "entry", base, &["js", "mjs"])?;
     if manifest.get("style").is_some() {
         relative_file(manifest, "style", base, &["css"])?;
+    }
+    if let Some(color) = manifest.get("color") {
+        let value = color
+            .as_str()
+            .ok_or("Le champ « color » doit être une chaîne.")?;
+        if !valid_color(value) {
+            return Err(format!(
+                "Couleur invalide : {value}. Attendu #rrggbb ou #rgb."
+            ));
+        }
+    }
+    if let Some(icon) = manifest.get("icon") {
+        if !icon.is_string() {
+            return Err("Le champ « icon » doit être une chaîne.".into());
+        }
+        let raw = relative_file(manifest, "icon", base, &["svg"])?;
+        let size = fs::metadata(base.join(&raw))
+            .map_err(|error| error.to_string())?
+            .len();
+        if size > MAX_ICON_BYTES {
+            return Err(format!(
+                "Icône trop volumineuse : {raw} ({} Kio max).",
+                MAX_ICON_BYTES / 1024
+            ));
+        }
     }
     let tile_types = manifest
         .get("tileTypes")
@@ -733,6 +768,56 @@ mod tests {
         let mut traversal = manifest();
         traversal["entry"] = "../index.js".into();
         assert!(validate_manifest(&traversal, &root).is_err());
+    }
+
+    #[test]
+    fn valide_l_icone_et_la_couleur_d_un_paquet() {
+        let (_, home) = temporary_storage();
+        let root = home.join("source");
+        write_package(&root, manifest());
+        fs::write(root.join("icon.svg"), "<svg></svg>").unwrap();
+
+        let mut decorated = manifest();
+        decorated["icon"] = "icon.svg".into();
+        decorated["color"] = "#769ac8".into();
+        assert!(validate_manifest(&decorated, &root).is_ok());
+
+        let mut short = manifest();
+        short["color"] = "#abc".into();
+        assert!(validate_manifest(&short, &root).is_ok());
+
+        let mut named = manifest();
+        named["color"] = "blue".into();
+        assert!(validate_manifest(&named, &root).is_err());
+
+        let mut broken = manifest();
+        broken["color"] = "#12".into();
+        assert!(validate_manifest(&broken, &root).is_err());
+
+        let mut missing = manifest();
+        missing["icon"] = "logo.svg".into();
+        assert!(validate_manifest(&missing, &root).is_err());
+
+        let mut wrong_kind = manifest();
+        wrong_kind["icon"] = "style.css".into();
+        assert!(validate_manifest(&wrong_kind, &root).is_err());
+
+        let mut heavy = manifest();
+        heavy["icon"] = "heavy.svg".into();
+        fs::write(
+            root.join("heavy.svg"),
+            vec![b'x'; (MAX_ICON_BYTES + 1) as usize],
+        )
+        .unwrap();
+        assert!(validate_manifest(&heavy, &root).is_err());
+    }
+
+    #[test]
+    fn valide_le_paquet_de_demonstration_journee() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/sparklab-day");
+        let bytes = fs::read(root.join("extension.json")).unwrap();
+        let manifest: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(validate_manifest(&manifest, &root).unwrap(), "sparklab.day");
     }
 
     #[test]

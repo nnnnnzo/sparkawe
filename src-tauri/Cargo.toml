@@ -17,5 +17,6 @@ ureq = "2"
 uuid = { version = "1", features = ["v4"] }
 sha2 = "0.10"
 zip = "2"
+tauri-plugin-notification = "2"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

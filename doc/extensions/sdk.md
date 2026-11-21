@@ -22,7 +22,7 @@ interface Manifest {
 }
 ```
 
-Les paquets importés utilisent un `extension.json` sérialisable, converti en `Manifest` côté front. Le champ `icon` d’un paquet importé n’est pas encore consommé ; l’icône par défaut est utilisée.
+Les paquets importés utilisent un `extension.json` sérialisable, converti en `Manifest` côté front. `color` est repris tel quel et `icon` devient un composant rendu en masque, teinté par `currentColor` ; l’icône du manifeste sert aussi de repli à la barre d’onglet.
 
 ## `SparkAPI`
 
@@ -165,6 +165,7 @@ Contrats existants :
 - `markdown.open@1`, `markdown.documents@1`, `markdown.document.saved`.
 - `data.tables@1`, `data.charts@1`, `data.table.changed`.
 - `preview.pdf@1`.
+- `spark.notifications@1` : service du noyau, `send({ title, body })`, disponible même pour un paquet importé. Il passe par le plugin de notification natif ; l’appelant garde son propre repli si l’OS refuse.
 
 Une extension peut consommer un service absent : `get` renvoie `undefined`. Une action qui le déclare dans `requires` n’est pas proposée.
 

@@ -15,7 +15,12 @@ export class TileViews {
           tiles: {
             ...api.tiles,
             register: ({ view, ...definition }) => {
-              const remove = api.tiles.register(definition);
+              // Un paquet importé ne fournit pas d’icône par tuile : celle du
+              // manifeste sert alors aussi dans la barre d’onglet.
+              const remove = api.tiles.register({
+                ...definition,
+                icon: definition.icon ?? manifest.icon,
+              });
               this.views.set(definition.type, view);
               const dispose = () => {
                 if (!disposers.delete(dispose)) return;

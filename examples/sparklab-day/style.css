@@ -1,0 +1,442 @@
+/* Journée — reprend la grammaire visuelle des tuiles intégrées : tokens du
+   thème, barre de 36 px, champs en `--muted`, un seul rayon. */
+
+.sparklab-day {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--tile);
+  color: var(--foreground);
+  container-type: inline-size;
+}
+
+/* ------------------------------------------------------------- barre */
+
+.sparklab-day-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sparklab-day-modes {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius);
+  background: var(--muted);
+}
+
+.sparklab-day-mode {
+  padding: 3px 8px;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.sparklab-day-mode:hover {
+  color: var(--foreground);
+}
+
+.sparklab-day-mode[aria-pressed="true"] {
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.sparklab-day-label {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.sparklab-day-label::placeholder {
+  color: var(--muted-foreground);
+}
+
+.sparklab-day-label:hover {
+  background: var(--muted);
+}
+
+.sparklab-day-label:focus-visible {
+  border-color: var(--ring);
+  background: var(--muted);
+}
+
+/* ------------------------------------------------------------ minuteur */
+
+.sparklab-day-face {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 12px;
+  text-align: center;
+}
+
+.sparklab-day-phase {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.sparklab-day-time {
+  font-size: clamp(40px, 8cqw, 96px);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Le cadran est un bouton : un clic ouvre la saisie de la durée. */
+button.sparklab-day-time {
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: clamp(40px, 8cqw, 96px);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+button.sparklab-day-time:hover {
+  background: var(--muted);
+}
+
+.sparklab-day-time.precise {
+  font-size: clamp(28px, 5.6cqw, 64px);
+  letter-spacing: -0.01em;
+}
+
+.sparklab-day-time-input {
+  width: 7ch;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--muted);
+  color: var(--foreground);
+  font: inherit;
+  font-size: clamp(36px, 7cqw, 80px);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.sparklab-day-scale {
+  display: block;
+  width: min(420px, 62%);
+  height: 2px;
+  border-radius: 1px;
+  overflow: hidden;
+  background: var(--muted);
+}
+
+.sparklab-day-scale i {
+  display: block;
+  height: 100%;
+  border-radius: 1px;
+  background: var(--spectral-lime);
+  transition: width 250ms linear;
+}
+
+.sparklab-day-hint {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+.sparklab-day-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.sparklab-day-presets {
+  display: flex;
+  gap: 2px;
+  margin-right: 4px;
+}
+
+.sparklab-day-preset {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.sparklab-day-preset:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.sparklab-day-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--radius);
+  background: var(--secondary);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.sparklab-day-button:hover {
+  background: var(--accent);
+}
+
+.sparklab-day-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.sparklab-day-primary:hover {
+  background: var(--primary);
+  opacity: 0.9;
+}
+
+.sparklab-day-ghost {
+  background: transparent;
+  color: var(--muted-foreground);
+}
+
+.sparklab-day-ghost:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+/* -------------------------------------------------------------- tâches */
+
+.sparklab-day-capture {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sparklab-day-capture input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--muted);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.sparklab-day-capture input::placeholder {
+  color: var(--muted-foreground);
+}
+
+.sparklab-day-capture input:focus-visible {
+  border-color: var(--ring);
+}
+
+.sparklab-day-add {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--radius);
+  background: var(--secondary);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.sparklab-day-add:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+.sparklab-day-add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sparklab-day-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px;
+}
+
+.sparklab-day-group {
+  margin: 0 0 6px;
+}
+
+.sparklab-day-group h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 8px 4px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.sparklab-day-count {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.sparklab-day-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: var(--radius);
+}
+
+.sparklab-day-row:hover {
+  background: var(--accent);
+}
+
+.sparklab-day-check {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: transparent;
+}
+
+.sparklab-day-check[aria-checked="true"] {
+  border-color: var(--spectral-lime);
+  background: var(--spectral-lime);
+  color: #151719;
+}
+
+.sparklab-day-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.sparklab-day-row[data-done="true"] .sparklab-day-title {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+
+.sparklab-day-dot {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--spectral-coral);
+}
+
+.sparklab-day-due {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.sparklab-day-due[data-late="true"] {
+  color: var(--destructive);
+}
+
+.sparklab-day-remove {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--muted-foreground);
+  opacity: 0;
+}
+
+.sparklab-day-row:hover .sparklab-day-remove,
+.sparklab-day-row:focus-within .sparklab-day-remove {
+  opacity: 1;
+}
+
+.sparklab-day-remove:hover {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.sparklab-day-empty {
+  margin: 16px 12px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------ tuile étroite */
+
+@container (max-width: 300px) {
+  .sparklab-day-label {
+    display: none;
+  }
+  .sparklab-day-time {
+    font-size: 32px;
+  }
+  .sparklab-day-presets {
+    display: none;
+  }
+}
+
+@container (max-width: 240px) {
+  .sparklab-day-due {
+    display: none;
+  }
+  .sparklab-day-modes {
+    flex: 1;
+    justify-content: space-between;
+  }
+}

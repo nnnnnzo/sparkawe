@@ -3,6 +3,7 @@ mod explorer;
 mod extensions;
 mod markdown;
 pub mod mcp;
+mod notifications;
 mod pdf;
 mod settings;
 mod storage;
@@ -57,6 +58,7 @@ fn copy_missing(from: &Path, to: &Path, skip: Option<&str>) -> std::io::Result<(
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(terminal::Sessions::default())
         .setup(|app| {
             let path = app.path().app_config_dir()?;
@@ -111,6 +113,7 @@ pub fn run() {
             agent_connected,
             pdf::pdf_fetch,
             pdf::pdf_probe,
+            notifications::notify_desktop,
         ])
         .build(tauri::generate_context!())
         .expect("Démarrage de Spark impossible");

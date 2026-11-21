@@ -44,8 +44,9 @@ Voir [le workspace](workspace.md) et [la persistance](../operations/persistence.
 ## Catalogue et chargement
 
 - Les intégrées sont découvertes par `import.meta.glob` (manifeste + module).
-- Les paquets importés sont listés par `extension_list` ; leur manifeste JSON est converti en `Manifest` côté front, avec `tier: "community"`.
+- Les paquets importés sont listés par `extension_list` ; leur manifeste JSON est converti en `Manifest` côté front, avec `tier: "community"`, leur `color` et une icône SVG rendue en masque.
 - Le bundle importé est un script classique chargé depuis le protocole `asset`. Il s’enregistre dans `window.SparkExtensions[id]` et reçoit React via `window.SparkRuntime`.
+- L’icône du manifeste sert aussi de repli pour la barre d’onglet quand une tuile n’en déclare pas.
 
 Voir [le format du paquet](../extensions/package.md).
 

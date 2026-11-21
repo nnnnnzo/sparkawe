@@ -15,7 +15,7 @@ Commandes actuelles : voir [le backend](../architecture/backend.md#commandes-tau
 ## Fenêtres et capabilities
 
 - Une seule fenêtre `main`.
-- `capabilities/main.json` couvre le workspace, les réglages, le PDF, le MCP, les agents, les extensions.
+- `capabilities/main.json` couvre le workspace, les réglages, le PDF, les notifications, le MCP, les agents, les extensions.
 - `capabilities/markdown.json`, `explorer.json` et `terminal.json` ajoutent les commandes de leurs modules à la fenêtre `main`.
 - Toutes les extensions importées s’exécutent dans `main` : elles partagent cette surface de permissions.
 
@@ -52,6 +52,10 @@ Le scope extensions permet de charger les paquets importés. `convertFileSrc` pr
 ## Dialogue
 
 `tauri-plugin-dialog` est initialisé. Le Store utilise le sélecteur de dossier de l’Explorateur (`explorer_select`) pour le bouton **Parcourir** de l’import local.
+
+## Notifications
+
+`tauri-plugin-notification` est initialisé. La commande `notify_desktop` (titre, corps optionnel) est exposée aux extensions par le service noyau `spark.notifications@1` ; un paquet importé n’appelle donc pas Tauri directement. Sur le bureau, la permission est accordée par défaut ; si l’OS refuse, la commande renvoie une erreur et l’appelant retombe sur son propre signal.
 
 ## Changement natif
 

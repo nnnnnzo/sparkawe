@@ -33,6 +33,7 @@ fn main() {
         "agent_connected",
         "pdf_fetch",
         "pdf_probe",
+        "notify_desktop",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))
         .expect("configuration Tauri invalide");
