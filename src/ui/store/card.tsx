@@ -49,7 +49,6 @@ export function StoreCard({
           {manifest.subtitle ?? manifest.category ?? "Extension"}
         </span>
         <span className="store-card-foot">
-          <span>{manifest.category ?? "Extension"}</span>
           <ChevronRight className="store-card-chevron" aria-hidden />
         </span>
       </span>

@@ -26,7 +26,6 @@ import {
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
-import { compareVersions } from "../../core/version.ts";
 import type { RemoteExtension } from "../../app/marketplace.ts";
 import type { Runtime } from "../../app/runtime.ts";
 import type { Manifest } from "../../sdk/index.ts";
@@ -175,57 +174,33 @@ function StoreRow({
 
 function RemoteCard({
   remote,
-  installed,
-  update,
-  busy,
-  onInstall,
+  onOpen,
 }: {
   remote: RemoteExtension;
-  installed: boolean;
-  update: boolean;
-  busy: boolean;
-  onInstall: () => void;
+  onOpen: () => void;
 }) {
   return (
-    <article className="store-remote-card">
-      <div className="store-remote-card-top">
-        <span className="store-remote-icon">
-          <Blocks />
-        </span>
-        <span className="store-remote-heading">
-          <span className="store-remote-card-name">
-            {remote.extension.name}
+    <button
+      type="button"
+      className="store-card store-card-grid"
+      aria-label={`Ouvrir ${remote.extension.name}`}
+      onClick={onOpen}
+    >
+      <span className="store-card-body">
+        <span className="store-card-top">
+          <span className="store-card-icon">
+            <Blocks size={26} strokeWidth={1.6} />
           </span>
-          <span className="store-remote-card-publisher">
-            {remote.extension.publisher ?? remote.source.name}
-          </span>
+          <span className="store-card-name">{remote.extension.name}</span>
         </span>
-      </div>
-      <p className="store-remote-card-summary">
-        {remote.extension.summary ??
-          remote.extension.subtitle ??
-          "Aucune description fournie."}
-      </p>
-      <div className="store-remote-card-foot">
-        <span className="store-remote-version">
-          {remote.version.version}
+        <span className="store-card-subtitle">
+          {remote.extension.publisher ?? remote.source.name}
         </span>
-        <Button
-          size="sm"
-          variant={update ? "default" : "outline"}
-          disabled={busy}
-          onClick={onInstall}
-        >
-          {busy
-            ? "Installation…"
-            : update
-              ? "Mettre à jour"
-              : installed
-                ? "Réinstaller"
-                : "Installer"}
-        </Button>
-      </div>
-    </article>
+        <span className="store-card-foot">
+          <ChevronRight className="store-card-chevron" aria-hidden />
+        </span>
+      </span>
+    </button>
   );
 }
 
@@ -401,12 +376,16 @@ export function StorePage({
   const mainRef = useRef<HTMLElement>(null);
   const origin = activeStoreView(route);
   const back = useCallback(() => setRoute(backRoute), []);
-  const originLabel = {
-    home: "Extensions",
-    updates: "Mises à jour",
-    installed: "Installées",
-    sources: "Sources",
-  }[origin];
+  const fromRepository =
+    route.view === "detail" && typeof route.from === "object";
+  const originLabel = fromRepository
+    ? "Dépôt"
+    : {
+        home: "Extensions",
+        updates: "Mises à jour",
+        installed: "Installées",
+        sources: "Sources",
+      }[origin];
 
   const catalog = useMemo(
     () => runtime.extensions.catalog,
@@ -650,14 +629,17 @@ export function StorePage({
     setRoute({ view: "repository", url });
   }, []);
 
-  const openDetail = useCallback((id: string) => {
+  const openDetail = useCallback((id: string, source?: string) => {
     setRoute((current) => ({
       view: "detail",
       id,
+      ...(source ? { source } : {}),
       from:
         current.view === "detail"
           ? (current.from ?? "home")
-          : activeStoreView(current),
+          : current.view === "repository"
+            ? { view: "repository", url: current.url }
+            : current.view,
     }));
   }, []);
 
@@ -819,10 +801,12 @@ export function StorePage({
                     <RemoteCard
                       key={`${remote.source.url}:${remote.extension.id}`}
                       remote={remote}
-                      installed={false}
-                      update={false}
-                      busy={remoteBusy === remote.extension.id}
-                      onInstall={() => void installRemote(remote)}
+                      onOpen={() =>
+                        openDetail(
+                          remote.extension.id,
+                          remote.source.url,
+                        )
+                      }
                     />
                   ))}
                 </div>
@@ -849,8 +833,16 @@ export function StorePage({
 
   const renderDetail = () => {
     if (route.view !== "detail") return null;
-    const manifest = byId.get(route.id);
-    if (!manifest) {
+    const local = byId.get(route.id);
+    const remote =
+      !local && route.source
+        ? runtime.marketplace.entries.find(
+            (entry) =>
+              entry.source.url === route.source &&
+              entry.extension.id === route.id,
+          )
+        : undefined;
+    if (!local && !remote) {
       return (
         <main className="store-main" ref={mainRef} tabIndex={-1}>
           <div className="store-content">
@@ -877,6 +869,18 @@ export function StorePage({
       );
     }
 
+    const manifest: Manifest = local ?? {
+      id: remote!.extension.id,
+      name: remote!.extension.name,
+      version: remote!.version.version,
+      subtitle: remote!.extension.subtitle,
+      summary: remote!.extension.summary,
+      description: remote!.extension.description,
+      category: remote!.extension.category,
+      tier: "community",
+      tileTypes: [],
+      screenshots: [],
+    };
     const active = activeIds.has(manifest.id);
     const isInstalled = installed.has(manifest.id);
     const bundled = tierOf(manifest) !== "community";
@@ -921,17 +925,28 @@ export function StorePage({
                 {manifest.subtitle ?? TIER_LABEL[tierOf(manifest)]}
               </p>
               <p className="store-detail-meta">
-                Spark · {manifest.version} ·{" "}
-                {manifest.category ?? TIER_LABEL[tierOf(manifest)]}
+                {remote
+                  ? `${remote.extension.publisher ?? remote.source.name} · ${manifest.version} · ${manifest.category ?? "Communautaire"}`
+                  : `Spark · ${manifest.version} · ${manifest.category ?? TIER_LABEL[tierOf(manifest)]}`}
               </p>
             </div>
             <div className="store-detail-actions">
-              {active && command && (
+              {remote && (
+                <Button
+                  disabled={remoteBusy === manifest.id}
+                  onClick={() => void installRemote(remote)}
+                >
+                  {remoteBusy === manifest.id
+                    ? "Installation…"
+                    : "Installer"}
+                </Button>
+              )}
+              {!remote && active && command && (
                 <Button onClick={() => openExtension(manifest.id)}>
                   Ouvrir
                 </Button>
               )}
-              {!active && (
+              {!remote && !active && (
                 <Button
                   disabled={busy}
                   onClick={() => void setEnabled(manifest.id, true)}
@@ -943,7 +958,7 @@ export function StorePage({
                       : "Installer"}
                 </Button>
               )}
-              {active && (
+              {!remote && active && (
                 <Button
                   variant="outline"
                   disabled={busy}
@@ -952,7 +967,7 @@ export function StorePage({
                   {busy ? "Désactivation…" : "Désactiver"}
                 </Button>
               )}
-              {active && command && (
+              {!remote && active && command && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -964,7 +979,7 @@ export function StorePage({
                   <Pin fill={pinned ? "currentColor" : "none"} />
                 </Button>
               )}
-              {manifest.tier === "community" && (
+              {!remote && manifest.tier === "community" && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -992,8 +1007,23 @@ export function StorePage({
               <dl className="store-meta-list">
                 <div className="store-meta-row">
                   <dt>Éditeur</dt>
-                  <dd>{certified ? "Spark" : "Tiers"}</dd>
+                  <dd>
+                    {remote
+                      ? (remote.extension.publisher ??
+                        remote.source.name)
+                      : certified
+                        ? "Spark"
+                        : "Tiers"}
+                  </dd>
                 </div>
+                {remote && (
+                  <div className="store-meta-row">
+                    <dt>Dépôt</dt>
+                    <dd title={remote.source.url}>
+                      {remote.source.name}
+                    </dd>
+                  </div>
+                )}
                 <div className="store-meta-row">
                   <dt>Version</dt>
                   <dd>{manifest.version}</dd>
@@ -1350,29 +1380,15 @@ export function StorePage({
           {failure && <p className="store-source-error">{failure}</p>}
           {entries.length ? (
             <div className="store-grid">
-              {entries.map((remote) => {
-                const local = catalog.find(
-                  (manifest) =>
-                    manifest.id === remote.extension.id,
-                );
-                const isInstalled = !!local;
-                const update =
-                  !!local &&
-                  compareVersions(
-                    remote.version.version,
-                    local.version,
-                  ) > 0;
-                return (
-                  <RemoteCard
-                    key={`${remote.source.url}:${remote.extension.id}`}
-                    remote={remote}
-                    installed={isInstalled}
-                    update={update}
-                    busy={remoteBusy === remote.extension.id}
-                    onInstall={() => void installRemote(remote)}
-                  />
-                );
-              })}
+              {entries.map((remote) => (
+                <RemoteCard
+                  key={`${remote.source.url}:${remote.extension.id}`}
+                  remote={remote}
+                  onOpen={() =>
+                    openDetail(remote.extension.id, remote.source.url)
+                  }
+                />
+              ))}
             </div>
           ) : (
             !failure && (

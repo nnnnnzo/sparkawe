@@ -45,8 +45,8 @@ Un dépôt est une URL HTTPS vers un index JSON statique. Il peut être ajouté 
 ## Découverte
 
 - La page **Sources** liste les dépôts.
-- Cliquer un dépôt ouvre une **galerie de dépôt** : une carte par extension distante, avec version, éditeur, résumé et action.
-- Les extensions distantes non installées apparaissent aussi dans la section **Communautaires** de Découvrir, avec un bouton **Installer**. La section se remplit dès l’ajout du dépôt, sans installation préalable.
+- Cliquer un dépôt ouvre une **galerie de dépôt** : une carte par extension distante, avec éditeur et résumé. Une carte ouvre la fiche ; l’installation se fait depuis la fiche.
+- Les extensions distantes non installées apparaissent aussi dans la section **Communautaires** de Découvrir. La section se remplit dès l’ajout du dépôt, sans installation préalable, et chaque carte ouvre la fiche avec **Installer**.
 - Le nombre d’extensions est affiché sur la carte du dépôt.
 - Après l’ajout d’un dépôt, le Store ouvre directement sa galerie. Les extensions sont visibles sans installation.
 - Une erreur d’index est affichée sous la carte et dans la galerie.
@@ -69,7 +69,7 @@ registry_fetch(url)
 - Si le paquet était déjà actif, il est désactivé puis rechargé.
 - Le dossier de l’ancienne version n’est pas supprimé ; l’état pointe la version courante.
 - Une erreur de téléchargement, d’empreinte, d’extraction ou de manifeste laisse l’installation précédente intacte.
-- Le bouton devient **Réinstaller** si le paquet est présent, **Mettre à jour** si une version supérieure est publiée.
+- La fiche distante propose **Installer**, puis **Réinstaller** si le paquet est présent, ou **Mettre à jour** si une version supérieure est publiée.
 
 ## Mises à jour
 

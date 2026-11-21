@@ -14,10 +14,10 @@ Le Store est une **page**, pas un dialog. Il est monté en overlay au-dessus du 
 
 - Hero « À la une » avec texte et tuile d’icône, sans capture.
 - Étagères horizontales « Intégrées » et « Officielles ».
-- Section « Communautaires » : les paquets connus localement ouvrent leur fiche, et les extensions d’un dépôt non installées apparaissent avec un bouton **Installer**. Ajouter un dépôt remplit donc cette section même sans installation.
+- Section « Communautaires » : les paquets connus localement et les extensions d’un dépôt non installées. Ajouter un dépôt remplit donc cette section même sans installation.
 - Chips de catégories et recherche sans accents.
-- Cartes textuelles : icône, nom, sceau éventuel, sous-titre factuel, catégorie. **Aucune capture dans les cartes.**
-- Toute la carte ouvre la fiche ; une carte distante non installée porte directement l’action d’installation.
+- Cartes textuelles : icône, nom, sceau éventuel, sous-titre factuel. **Aucune capture dans les cartes.** Toutes les cartes partagent la même apparence, quel que soit le niveau.
+- Toute la carte ouvre la fiche. Une fiche distante affiche **Installer** ; l’installation ne se fait pas depuis la carte.
 - Les cartes d’étagère prennent une fraction entière de la largeur : 4 au-dessus de 1 600 px, 3 de 1 200 à 1 600, 2 de 700 à 1 200, 1 en dessous. Pas de carte coupée ; les flèches défilent d’une page.
 
 ## Fiche
@@ -49,7 +49,7 @@ Le Store est une **page**, pas un dialog. Il est monté en overlay au-dessus du 
 - Import développeur : dossier local, avec bouton **Parcourir** (sélecteur natif) et chemin éditable.
 - Dépôts : formulaire d’ajout (nom optionnel + URL), puis liste des dépôts.
 - Chaque dépôt est une carte cliquable : nom, URL, nombre d’extensions, chevron, bouton de retrait.
-- Cliquer un dépôt ouvre une **galerie de dépôt** : les extensions distantes en cartes, avec version, éditeur, résumé et bouton Installer/Mettre à jour/Réinstaller.
+- Cliquer un dépôt ouvre une **galerie de dépôt** : les extensions distantes en cartes, avec éditeur et résumé. Une carte ouvre sa fiche ; l’installation se fait depuis la fiche.
 - Après l’ajout d’un dépôt, le Store ouvre directement sa galerie : les extensions sont visibles sans devoir installer quoi que ce soit.
 - Une erreur de chargement d’un index est affichée sous sa carte et dans la galerie.
 - Retirer un dépôt supprime ses entrées et son erreur.
@@ -62,6 +62,13 @@ Le Store est une **page**, pas un dialog. Il est monté en overlay au-dessus du 
 - 1280×720, thème sombre, données neutres.
 - Markdown, Données et OpenAlex ont deux captures ; les autres une.
 - Les captures d’un paquet importé sont résolues depuis son manifeste via le protocole `asset`.
+
+## Icône et teinte
+
+- Un paquet importé peut déclarer `icon` (SVG) et `color` dans son manifeste.
+- Les deux valeurs sont validées côté Rust à l’installation : `.svg` existant, 32 Kio max, couleur hexadécimale.
+- L’icône est rendue en masque teinté par `currentColor` ; l’aperçu du Store reste donc identique en clair, en sombre et en Transparent.
+- Sans ces champs, la carte garde le glyphe générique et la teinte bleue du Store.
 
 ## Interaction et accessibilité
 
