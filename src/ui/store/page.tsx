@@ -1,10 +1,9 @@
 import {
   ArrowLeft,
-  ArrowRight,
-  ArrowUpRight,
   Blocks,
   CheckCircle2,
   ChevronLeft,
+  ChevronRight,
   Compass,
   Library,
   PackageCheck,
@@ -39,6 +38,7 @@ import { SPECTRUM } from "../../shared/brand/index.tsx";
 import { report } from "../errors.ts";
 import { Icon } from "../icons.tsx";
 import { CertifiedBadge } from "./certified-badge.tsx";
+import { StoreCard } from "./card.tsx";
 import {
   FEATURED_IDS,
   TIER_LABEL,
@@ -46,10 +46,11 @@ import {
   isCertified,
   matchesQuery,
   stateLabel,
+  storeOrder,
   tierOf,
   type StoreRoute,
 } from "./data.ts";
-import { FeaturedShelf } from "./featured.tsx";
+import { FeaturedHero, Shelf } from "./featured.tsx";
 import "./style.css";
 
 const extensionColor = (manifest: Manifest) =>
@@ -86,66 +87,6 @@ function SidebarItem({
   );
 }
 
-function StoreCard({
-  manifest,
-  active,
-  installed,
-  onOpen,
-}: {
-  manifest: Manifest;
-  active: boolean;
-  installed: boolean;
-  onOpen: (id: string) => void;
-}) {
-  const certified = isCertified(manifest);
-  const style = {
-    "--ext-color": extensionColor(manifest),
-  } as CSSProperties;
-  return (
-    <button
-      type="button"
-      className="store-card"
-      style={style}
-      aria-label={`${manifest.name}${certified ? ", certifiée par Spark" : ""}. ${stateLabel(manifest, active, installed)}.`}
-      onClick={() => onOpen(manifest.id)}
-    >
-      <span className="store-card-top">
-        <span className="store-icon">
-          <Icon
-            glyph={manifest.icon}
-            extension={manifest}
-            size={30}
-            strokeWidth={1.6}
-          />
-        </span>
-        <span className="store-card-heading">
-          <span className="store-card-name">
-            {manifest.name}
-            {certified && (
-              <CertifiedBadge size={14} focusable={false} decorative />
-            )}
-          </span>
-          <span className="store-card-publisher">
-            Spark · {manifest.version}
-          </span>
-        </span>
-      </span>
-      <span className="store-card-summary">
-        {manifest.summary ?? "Aucune description fournie."}
-      </span>
-      <span className="store-card-foot">
-        <span>{manifest.category ?? "Extension"}</span>
-        <span className="store-card-state">
-          {stateLabel(manifest, active, installed)}
-        </span>
-        <span className="store-card-more">
-          Découvrir <ArrowRight />
-        </span>
-      </span>
-    </button>
-  );
-}
-
 function StoreRow({
   manifest,
   active,
@@ -177,7 +118,7 @@ function StoreRow({
         <button
           type="button"
           className="store-row-open"
-          aria-label={`${manifest.name}${isCertified(manifest) ? ", certifiée par Spark" : ""}`}
+          aria-label={`${manifest.name}${manifest.subtitle ? `, ${manifest.subtitle}` : ""}${isCertified(manifest) ? ", certifiée par Spark" : ""}`}
           onClick={onOpen}
         >
           {manifest.name}
@@ -186,7 +127,8 @@ function StoreRow({
           )}
         </button>
         <span className="store-row-meta">
-          {TIER_LABEL[tierOf(manifest)]} · {manifest.version}
+          {manifest.subtitle ?? TIER_LABEL[tierOf(manifest)]} ·{" "}
+          {manifest.version}
         </span>
       </span>
       <span className="store-row-state" data-active={active}>
@@ -214,6 +156,109 @@ function StoreRow({
   );
 }
 
+function ScreenshotGallery({ manifest }: { manifest: Manifest }) {
+  const screenshots = manifest.screenshots ?? [];
+  const ref = useRef<HTMLDivElement>(null);
+  const [atStart, setAtStart] = useState(true);
+  const [atEnd, setAtEnd] = useState(screenshots.length <= 1);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const update = () => {
+      setAtStart(element.scrollLeft <= 2);
+      setAtEnd(
+        element.scrollLeft + element.clientWidth >= element.scrollWidth - 2,
+      );
+    };
+    update();
+    element.addEventListener("scroll", update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => {
+      element.removeEventListener("scroll", update);
+      observer.disconnect();
+    };
+  }, [screenshots.length]);
+
+  const move = (direction: -1 | 1) => {
+    const element = ref.current;
+    if (!element) return;
+    const reduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    element.scrollBy({
+      left: direction * element.clientWidth * 0.8,
+      behavior: reduced ? "auto" : "smooth",
+    });
+  };
+
+  if (!screenshots.length)
+    return (
+      <div className="store-gallery store-gallery-empty" aria-hidden>
+        <Icon
+          glyph={manifest.icon}
+          extension={manifest}
+          size={64}
+          strokeWidth={1.3}
+        />
+        <span>{manifest.subtitle ?? manifest.name}</span>
+      </div>
+    );
+
+  return (
+    <section className="store-gallery" aria-label={`Aperçus de ${manifest.name}`}>
+      <div className="store-gallery-head">
+        <span className="store-gallery-label">
+          {screenshots.length > 1 ? "Aperçus" : "Aperçu"}
+        </span>
+        {screenshots.length > 1 && (
+          <div className="store-gallery-arrows">
+            <button
+              type="button"
+              aria-label="Aperçu précédent"
+              disabled={atStart}
+              onClick={() => move(-1)}
+            >
+              <ChevronLeft />
+            </button>
+            <button
+              type="button"
+              aria-label="Aperçu suivant"
+              disabled={atEnd}
+              onClick={() => move(1)}
+            >
+              <ChevronRight />
+            </button>
+          </div>
+        )}
+      </div>
+      <div
+        ref={ref}
+        className="store-gallery-track"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+          event.preventDefault();
+          move(event.key === "ArrowLeft" ? -1 : 1);
+        }}
+      >
+        {screenshots.map((source, index) => (
+          <figure className="store-gallery-item" key={source}>
+            <img
+              src={source}
+              alt={`Aperçu ${index + 1} de ${manifest.name}`}
+              loading={index === 0 ? "eager" : "lazy"}
+              draggable={false}
+            />
+          </figure>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function StorePage({
   runtime,
   onClose,
@@ -234,6 +279,7 @@ export function StorePage({
   );
   const [route, setRoute] = useState<StoreRoute>({ view: "home" });
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("Tout");
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
   const searchRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -255,36 +301,57 @@ export function StorePage({
     () => new Map(catalog.map((manifest) => [manifest.id, manifest])),
     [catalog],
   );
-  const featured = useMemo(
-    () =>
-      FEATURED_IDS.map((id) => byId.get(id)).filter(
-        (manifest): manifest is Manifest => !!manifest,
+  const categories = useMemo(
+    () => [
+      "Tout",
+      ...Array.from(
+        new Set(
+          catalog
+            .map(({ category }) => category)
+            .filter((value): value is string => !!value),
+        ),
       ),
-    [byId],
+    ],
+    [catalog],
   );
   const trimmedQuery = query.trim();
   const filtered = useMemo(
     () =>
       catalog
-        .filter((manifest) => matchesQuery(manifest, trimmedQuery))
-        .sort((a, b) => a.name.localeCompare(b.name, "fr")),
-    [catalog, trimmedQuery],
+        .filter(
+          (manifest) =>
+            matchesQuery(manifest, trimmedQuery) &&
+            (category === "Tout" || manifest.category === category),
+        )
+        .sort(storeOrder),
+    [catalog, category, trimmedQuery],
   );
-  const sections = useMemo(
+  const shelves = useMemo(
     () =>
       (["core", "official", "community"] as const)
         .map((tier) => ({
           tier,
-          items: catalog.filter((manifest) => tierOf(manifest) === tier),
+          items: catalog
+            .filter((manifest) => tierOf(manifest) === tier)
+            .sort(storeOrder),
         }))
         .filter(({ items }) => items.length > 0),
     [catalog],
   );
   const installedItems = useMemo(
-    () => catalog.filter((manifest) => installed.has(manifest.id)),
+    () => catalog
+        .filter((manifest) => installed.has(manifest.id))
+        .sort(storeOrder),
     [catalog, installed],
   );
   const installedCount = installedItems.length;
+  const featured = useMemo(
+    () =>
+      FEATURED_IDS.map((id) => byId.get(id)).find(
+        (manifest): manifest is Manifest => !!manifest,
+      ) ?? catalog[0],
+    [byId, catalog],
+  );
 
   const setEnabled = useCallback(
     async (id: string, enabled: boolean) => {
@@ -356,9 +423,6 @@ export function StorePage({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose, route.view]);
 
-  const isView = (view: StoreRoute["view"]) =>
-    route.view === view || (view === "home" && route.view === "detail");
-
   const renderHeader = (subtitle?: string) => (
     <header className="store-header">
       <div>
@@ -381,72 +445,92 @@ export function StorePage({
     </header>
   );
 
+  const renderChips = () => (
+    <div className="store-chips" role="group" aria-label="Catégories">
+      {categories.map((value) => (
+        <button
+          key={value}
+          type="button"
+          className="store-chip"
+          aria-pressed={category === value}
+          onClick={() => setCategory(value)}
+        >
+          {value}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderGrid = (items: Manifest[], title?: string) => (
+    <section className="store-section" aria-label={title}>
+      {title && (
+        <h2 className="store-section-title">
+          {title}
+          <span className="store-section-count">
+            {items.length} {items.length > 1 ? "extensions" : "extension"}
+          </span>
+        </h2>
+      )}
+      <div className="store-grid">
+        {items.map((manifest) => (
+          <StoreCard
+            key={manifest.id}
+            manifest={manifest}
+            onOpen={openDetail}
+          />
+        ))}
+      </div>
+    </section>
+  );
+
   const renderHome = () => (
     <main className="store-main" ref={mainRef} tabIndex={-1}>
       <div className="store-content">
         {renderHeader()}
+        {renderChips()}
         {trimmedQuery ? (
-          <>
-            <h2 className="store-section-title">
-              Résultats
-              <span className="store-section-count">
-                {filtered.length}{" "}
-                {filtered.length > 1 ? "extensions" : "extension"}
-              </span>
-            </h2>
-            {filtered.length ? (
-              <div className="store-grid">
-                {filtered.map((manifest) => (
-                  <StoreCard
-                    key={manifest.id}
-                    manifest={manifest}
-                    active={activeIds.has(manifest.id)}
-                    installed={installed.has(manifest.id)}
-                    onOpen={openDetail}
-                  />
-                ))}
-              </div>
-            ) : (
-              <Empty className="store-empty">
-                <EmptyMedia variant="icon">
-                  <SearchX />
-                </EmptyMedia>
-                <EmptyHeader>
-                  <EmptyTitle>Aucun résultat</EmptyTitle>
-                  <EmptyDescription>
-                    Aucune extension ne correspond à « {query.trim()} ».
-                  </EmptyDescription>
-                </EmptyHeader>
-                <EmptyContent>
-                  <Button variant="outline" onClick={() => setQuery("")}>
-                    Tout afficher
-                  </Button>
-                </EmptyContent>
-              </Empty>
-            )}
-          </>
+          filtered.length ? (
+            renderGrid(filtered, "Résultats")
+          ) : (
+            <Empty className="store-empty">
+              <EmptyMedia variant="icon">
+                <SearchX />
+              </EmptyMedia>
+              <EmptyHeader>
+                <EmptyTitle>Aucun résultat</EmptyTitle>
+                <EmptyDescription>
+                  Aucune extension ne correspond à « {query.trim()} ».
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setQuery("");
+                    setCategory("Tout");
+                  }}
+                >
+                  Tout afficher
+                </Button>
+              </EmptyContent>
+            </Empty>
+          )
+        ) : category !== "Tout" ? (
+          renderGrid(filtered, category)
         ) : (
           <>
-            {featured.length > 1 && (
-              <FeaturedShelf entries={featured} onOpen={openDetail} />
+            {featured && (
+              <FeaturedHero manifest={featured} onOpen={openDetail} />
             )}
-            {sections.map(({ tier, items }) => (
-              <section className="store-section" key={tier}>
-                <h2 className="store-section-title">{TIER_SECTION[tier]}</h2>
-                <div className="store-grid">
-                  {items.map((manifest) => (
-                    <StoreCard
-                      key={manifest.id}
-                      manifest={manifest}
-                      active={activeIds.has(manifest.id)}
-                      installed={installed.has(manifest.id)}
-                      onOpen={openDetail}
-                    />
-                  ))}
-                </div>
-              </section>
+            {shelves.map(({ tier, items }) => (
+              <Shelf
+                key={tier}
+                title={TIER_SECTION[tier]}
+                entries={items}
+                onOpen={openDetail}
+              />
             ))}
-            {catalog.length === 0 && (
+            {!catalog.length && (
               <Empty className="store-empty">
                 <EmptyMedia variant="icon">
                   <Blocks />
@@ -526,7 +610,7 @@ export function StorePage({
               <Icon
                 glyph={manifest.icon}
                 extension={manifest}
-                size={52}
+                size={48}
                 strokeWidth={1.5}
               />
             </span>
@@ -535,6 +619,9 @@ export function StorePage({
                 {manifest.name}
                 {certified && <CertifiedBadge size={17} />}
               </h1>
+              <p className="store-detail-subtitle">
+                {manifest.subtitle ?? TIER_LABEL[tierOf(manifest)]}
+              </p>
               <p className="store-detail-meta">
                 Spark · {manifest.version} ·{" "}
                 {manifest.category ?? TIER_LABEL[tierOf(manifest)]}
@@ -543,7 +630,7 @@ export function StorePage({
             <div className="store-detail-actions">
               {active && command && (
                 <Button onClick={() => openExtension(manifest.id)}>
-                  Ouvrir <ArrowUpRight data-icon="inline-end" />
+                  Ouvrir
                 </Button>
               )}
               {!active && (
@@ -581,24 +668,7 @@ export function StorePage({
               )}
             </div>
           </header>
-          <div className="store-detail-preview" style={style}>
-            <span className="store-preview-glyph" aria-hidden>
-              <Icon
-                glyph={manifest.icon}
-                extension={manifest}
-                size={190}
-                strokeWidth={1}
-                tone="color"
-              />
-            </span>
-            <span className="store-preview-kicker">
-              {TIER_LABEL[tierOf(manifest)]}
-            </span>
-            <span className="store-preview-name">{manifest.name}</span>
-            <span className="store-preview-tagline">
-              {manifest.tagline ?? manifest.summary}
-            </span>
-          </div>
+          <ScreenshotGallery manifest={manifest} />
           <div className="store-detail-body">
             <section className="store-detail-section">
               <h2>À propos</h2>
@@ -662,7 +732,7 @@ export function StorePage({
               {installedCount > 1
                 ? "extensions installées"
                 : "extension installée"}
-              . Les extensions désactivées gardent leurs tuiles.
+              .
             </p>
           </div>
         </header>
@@ -698,7 +768,10 @@ export function StorePage({
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <Button variant="outline" onClick={() => setRoute({ view: "home" })}>
+              <Button
+                variant="outline"
+                onClick={() => setRoute({ view: "home" })}
+              >
                 Découvrir
               </Button>
             </EmptyContent>
@@ -714,10 +787,6 @@ export function StorePage({
         <header className="store-header">
           <div>
             <h1 className="store-title">Mises à jour</h1>
-            <p className="store-subtitle">
-              Les nouvelles versions apparaîtront ici, sans interrompre votre
-              travail.
-            </p>
           </div>
         </header>
         <Empty className="store-empty">
@@ -725,11 +794,7 @@ export function StorePage({
             <CheckCircle2 />
           </EmptyMedia>
           <EmptyHeader>
-            <EmptyTitle>Vous êtes à jour</EmptyTitle>
-            <EmptyDescription>
-              Le Store lit pour l’instant le catalogue livré avec Spark. Les
-              dépôts distants seront branchés ensuite.
-            </EmptyDescription>
+            <EmptyTitle>Aucune mise à jour</EmptyTitle>
           </EmptyHeader>
         </Empty>
       </div>
@@ -742,9 +807,6 @@ export function StorePage({
         <header className="store-header">
           <div>
             <h1 className="store-title">Sources</h1>
-            <p className="store-subtitle">
-              D’où viennent les extensions proposées dans le Store.
-            </p>
           </div>
         </header>
         <div className="store-source-card">
@@ -760,11 +822,6 @@ export function StorePage({
           </span>
           <span className="store-source-badge">Officiel</span>
         </div>
-        <p className="store-note">
-          Les dépôts distants, la signature des paquets et les mises à jour
-          seront branchés à l’étape suivante. Le Store lit pour l’instant le
-          catalogue livré avec Spark.
-        </p>
       </div>
     </main>
   );
@@ -780,7 +837,7 @@ export function StorePage({
           <SidebarItem
             icon={<Compass />}
             label="Découvrir"
-            active={isView("home")}
+            active={route.view === "home" || route.view === "detail"}
             onClick={() => setRoute({ view: "home" })}
           />
           <SidebarItem

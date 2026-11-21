@@ -1,4 +1,5 @@
 import { FileSearch } from "lucide-react";
+import screenshot from "./media/preview.webp";
 import type { Manifest } from "../../sdk/index.ts";
 import { SPECTRUM } from "../../shared/brand/index.tsx";
 
@@ -13,9 +14,11 @@ export default {
   tier: "core",
   tileTypes: [pdfType],
   certification: "spark",
-  summary: "Lisez les PDF dans une tuile, avec zoom et cache local.",
+  subtitle: "Lecteur PDF",
+  summary:
+    "Affiche un PDF avec zoom et chargement page par page.",
   description:
-    "Lisez les PDF dans une tuile, avec zoom et chargement paresseux. Les fichiers sont mis en cache localement, sans les renvoyer ailleurs.",
+    "Le fichier est téléchargé dans le cache local puis rendu avec pdf.js. Le zoom et le défilement restent dans la tuile. Le PDF n’est pas renvoyé ailleurs.",
+  screenshots: [screenshot],
   category: "Lecture",
-  tagline: "Un PDF, directement dans l’espace.",
 } satisfies Manifest;

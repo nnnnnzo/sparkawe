@@ -1,4 +1,5 @@
 import { Table2 } from "lucide-react";
+import screenshot from "./media/data.webp";
 import type { Manifest } from "../../sdk/index.ts";
 import { SPECTRUM } from "../../shared/brand/index.tsx";
 
@@ -14,9 +15,11 @@ export default {
   tier: "core",
   tileTypes: [tableType, chartType],
   certification: "spark",
-  summary: "Tableaux, graphiques et import CSV dans le même espace.",
+  subtitle: "Tableaux, CSV et graphiques",
+  summary:
+    "Crée des tableaux, importe des CSV et affiche des graphiques.",
   description:
-    "Créez des tableaux, importez des CSV et affichez des graphiques. Les données restent dans l’espace et sont exposées aux agents par des actions bornées.",
+    "Les tableaux acceptent le copier-coller TSV et les fichiers CSV. Les graphiques se lient à un tableau. Les données restent dans l’espace et sont exposées aux agents par des actions bornées.",
+  screenshots: [screenshot],
   category: "Données",
-  tagline: "Tableaux et graphiques, dans le même espace.",
 } satisfies Manifest;

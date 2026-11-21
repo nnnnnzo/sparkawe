@@ -1,5 +1,5 @@
 import {
-  ArrowRight,
+  ArrowUpRight,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -13,60 +13,77 @@ import type { Manifest } from "../../sdk/index.ts";
 import { SPECTRUM } from "../../shared/brand/index.tsx";
 import { Icon } from "../icons.tsx";
 import { CertifiedBadge } from "./certified-badge.tsx";
+import { StoreCard } from "./card.tsx";
 import { isCertified, TIER_LABEL, tierOf } from "./data.ts";
 
-function FeaturedCard({
+export function FeaturedHero({
   manifest,
   onOpen,
 }: {
   manifest: Manifest;
   onOpen: (id: string) => void;
 }) {
-  const style = {
-    "--ext-color": manifest.color ?? SPECTRUM.blue,
-  } as CSSProperties;
   const certified = isCertified(manifest);
   return (
     <button
       type="button"
-      className="store-shelf-card"
-      style={style}
-      aria-label={`Découvrir ${manifest.name}${certified ? ", certifiée par Spark" : ""}`}
+      className="store-hero"
+      style={
+        {
+          "--ext-color": manifest.color ?? SPECTRUM.blue,
+        } as CSSProperties
+      }
+      aria-label={`Voir ${manifest.name}${certified ? ", certifiée par Spark" : ""}`}
       onClick={() => onOpen(manifest.id)}
     >
-      <span className="store-shelf-ghost" aria-hidden>
-        <Icon
-          glyph={manifest.icon}
-          extension={manifest}
-          size={148}
-          strokeWidth={1.1}
-          tone="color"
-        />
-      </span>
-      <span className="store-shelf-kicker">{TIER_LABEL[tierOf(manifest)]}</span>
-      <span className="store-shelf-name">
-        {manifest.name}
-        {certified && (
-          <CertifiedBadge size={14} focusable={false} decorative />
-        )}
-      </span>
-      <span className="store-shelf-tagline">
-        {manifest.tagline ?? manifest.summary}
-      </span>
-      <span className="store-shelf-foot">
-        <span>{manifest.category ?? "Extension"}</span>
-        <span className="store-shelf-more">
-          Découvrir <ArrowRight />
+      <span className="store-hero-copy">
+        <span className="store-hero-kicker">À la une</span>
+        <span className="store-hero-title">
+          {manifest.name}
+          {certified && <CertifiedBadge size={16} focusable={false} decorative />}
         </span>
+        <span className="store-hero-subtitle">
+          {manifest.subtitle ?? manifest.category ?? TIER_LABEL[tierOf(manifest)]}
+        </span>
+        <span className="store-hero-summary">
+          {manifest.summary ?? "Aucune description fournie."}
+        </span>
+        <span className="store-hero-foot">
+          <span>{manifest.category ?? TIER_LABEL[tierOf(manifest)]}</span>
+          <span className="store-hero-arrow">
+            <ArrowUpRight aria-hidden />
+          </span>
+        </span>
+      </span>
+      <span className="store-hero-media">
+        {manifest.screenshots?.[0] ? (
+          <img
+            src={manifest.screenshots[0]}
+            alt=""
+            loading="eager"
+            draggable={false}
+          />
+        ) : (
+          <span className="store-hero-fallback" aria-hidden>
+            <Icon
+              glyph={manifest.icon}
+              extension={manifest}
+              size={72}
+              strokeWidth={1.3}
+            />
+          </span>
+        )}
       </span>
     </button>
   );
 }
 
-export function FeaturedShelf({
+export function Shelf({
+  title,
   entries,
   onOpen,
 }: {
+  title: string;
   entries: Manifest[];
   onOpen: (id: string) => void;
 }) {
@@ -100,16 +117,16 @@ export function FeaturedShelf({
       "(prefers-reduced-motion: reduce)",
     ).matches;
     element.scrollBy({
-      left: direction * Math.max(304, element.clientWidth * 0.8),
+      left: direction * Math.max(312, element.clientWidth * 0.8),
       behavior: reduced ? "auto" : "smooth",
     });
   };
 
   return (
-    <section className="store-shelf-section" aria-labelledby="store-featured">
+    <section className="store-shelf-section" aria-labelledby={`shelf-${title}`}>
       <header className="store-section-head">
-        <h2 id="store-featured" className="store-section-title">
-          À la une
+        <h2 id={`shelf-${title}`} className="store-section-title">
+          {title}
         </h2>
         {entries.length > 1 && (
           <div className="store-shelf-arrows">
@@ -133,33 +150,27 @@ export function FeaturedShelf({
         )}
       </header>
       <div
-        className="store-shelf-wrap"
-        data-at-start={atStart}
-        data-at-end={atEnd}
+        ref={ref}
+        className="store-shelf"
+        role="region"
+        aria-roledescription="carrousel"
+        aria-label={title}
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+          event.preventDefault();
+          move(event.key === "ArrowLeft" ? -1 : 1);
+        }}
       >
-        <div
-          ref={ref}
-          className="store-shelf"
-          role="region"
-          aria-roledescription="carrousel"
-          aria-label="À la une"
-          tabIndex={0}
-          onKeyDown={(event) => {
-            if (event.target !== event.currentTarget) return;
-            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight")
-              return;
-            event.preventDefault();
-            move(event.key === "ArrowLeft" ? -1 : 1);
-          }}
-        >
-          {entries.map((manifest) => (
-            <FeaturedCard
-              key={manifest.id}
-              manifest={manifest}
-              onOpen={onOpen}
-            />
-          ))}
-        </div>
+        {entries.map((manifest) => (
+          <StoreCard
+            key={manifest.id}
+            manifest={manifest}
+            onOpen={onOpen}
+            variant="shelf"
+          />
+        ))}
       </div>
     </section>
   );

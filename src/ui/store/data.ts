@@ -8,8 +8,8 @@ export type StoreRoute =
 
 export const FEATURED_IDS = [
   "spark.terminal",
-  "spark.data",
   "spark.markdown",
+  "spark.data",
   "spark.explorer",
   "spark.openalex",
   "spark.preview",
@@ -18,17 +18,28 @@ export const FEATURED_IDS = [
 export const TIER_LABEL: Record<ExtensionTier, string> = {
   core: "Intégrée",
   official: "Officielle",
-  community: "Communauté",
+  community: "Communautaire",
 };
 
 export const TIER_SECTION: Record<ExtensionTier, string> = {
-  core: "Le socle",
+  core: "Intégrées",
   official: "Officielles",
-  community: "Communauté",
+  community: "Communautaires",
 };
 
 export const tierOf = (manifest: Manifest): ExtensionTier =>
   manifest.tier ?? "core";
+
+const featuredRank = (manifest: Manifest) => {
+  const index = FEATURED_IDS.indexOf(
+    manifest.id as (typeof FEATURED_IDS)[number],
+  );
+  return index === -1 ? FEATURED_IDS.length : index;
+};
+
+export const storeOrder = (first: Manifest, second: Manifest) =>
+  featuredRank(first) - featuredRank(second) ||
+  first.name.localeCompare(second.name, "fr");
 
 export const isCertified = (manifest: Manifest) =>
   manifest.certification === "spark";
@@ -49,7 +60,7 @@ export function matchesQuery(manifest: Manifest, query: string) {
       manifest.summary,
       manifest.description,
       manifest.category,
-      manifest.tagline,
+      manifest.subtitle,
       manifest.id,
     ]
       .filter(Boolean)

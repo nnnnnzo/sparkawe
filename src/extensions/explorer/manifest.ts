@@ -1,4 +1,5 @@
 import { FolderTree } from "lucide-react";
+import screenshot from "./media/explorer.webp";
 import type { Manifest } from "../../sdk/index.ts";
 import { SPECTRUM } from "../../shared/brand/index.tsx";
 
@@ -13,9 +14,11 @@ export default {
   tier: "core",
   tileTypes: [explorerType],
   certification: "spark",
-  summary: "Parcourez vos dossiers et ouvrez vos fichiers.",
+  subtitle: "Arborescence de fichiers",
+  summary:
+    "Parcourt les dossiers autorisés et ouvre les fichiers dans Spark.",
   description:
-    "Parcourez vos dossiers, ouvrez un fichier Markdown ou un PDF. Spark ne garde que les chemins que vous avez explicitement choisis.",
+    "L’explorateur affiche les dossiers que vous avez choisis. Il ouvre les fichiers Markdown dans l’éditeur et les PDF dans l’aperçu. Aucun autre chemin n’est accessible.",
+  screenshots: [screenshot],
   category: "Fichiers",
-  tagline: "Vos fichiers, sans quitter Spark.",
 } satisfies Manifest;

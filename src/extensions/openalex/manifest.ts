@@ -1,4 +1,5 @@
 import { BookOpen } from "lucide-react";
+import screenshot from "./media/openalex.webp";
 import type { Manifest } from "../../sdk/index.ts";
 import { SPECTRUM } from "../../shared/brand/index.tsx";
 
@@ -14,9 +15,11 @@ export default {
   tier: "official",
   tileTypes: [searchType, workType],
   certification: "spark",
-  summary: "Cherchez des travaux scientifiques et ouvrez leurs PDF libres.",
+  subtitle: "Recherche scientifique",
+  summary:
+    "Cherche des travaux OpenAlex et ouvre les PDF libres dans l’aperçu.",
   description:
-    "Cherchez des travaux scientifiques, parcourez les métadonnées et ouvrez les PDF libres dans l’aperçu. Aucune clé n’est nécessaire.",
+    "La recherche interroge l’API OpenAlex. Les résultats affichent les auteurs, l’année et le DOI. Quand un PDF libre est disponible, il s’ouvre dans l’aperçu.",
+  screenshots: [screenshot],
   category: "Recherche",
-  tagline: "La recherche scientifique ouverte.",
 } satisfies Manifest;

@@ -27,8 +27,10 @@ export interface Manifest {
   description?: string;
   /** Catégorie éditoriale du Store. */
   category?: string;
-  /** Accroche d'une carte mise en avant. */
-  tagline?: string;
+  /** Fonction de l'extension, en quelques mots factuels. */
+  subtitle?: string;
+  /** Captures statiques de la tuile, dans l'ordre de la galerie. */
+  screenshots?: readonly string[];
   /**
    * Sceau de distribution. `spark` signifie que le paquet est publié et
    * signé par Spark ; son absence laisse l'extension dans le régime de
