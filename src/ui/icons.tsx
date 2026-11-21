@@ -12,7 +12,7 @@ export function Icon({
   const style = extension?.color
     ? ({
         "--extension-color": extension.color,
-        "--extension-ink": `color-mix(in srgb, ${extension.color} 56%, #121621)`,
+        "--extension-ink": `color-mix(in srgb, ${extension.color} 56%, #151719)`,
       } as CSSProperties)
     : undefined;
   return (

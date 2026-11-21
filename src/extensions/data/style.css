@@ -1,0 +1,356 @@
+.data-table {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--tile);
+  color: var(--foreground);
+}
+
+.data-table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table-name {
+  width: 150px;
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+}
+
+.data-table-name:hover,
+.data-table-name:focus-visible {
+  background: var(--muted);
+  border-color: var(--border);
+}
+
+.data-table-count {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.data-table-filter {
+  flex: 1;
+  min-width: 120px;
+  max-width: 220px;
+  background: var(--muted);
+  color: var(--foreground);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 11px;
+  outline: none;
+}
+
+.data-table-filter:focus-visible {
+  border-color: var(--ring);
+}
+
+.data-table-toolbar > button,
+.data-table-add button {
+  background: var(--secondary);
+  color: var(--foreground);
+  border-radius: var(--radius);
+  padding: 4px 9px;
+  font-size: 11px;
+}
+
+.data-table-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.data-table-grid {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+  outline: none;
+}
+
+.data-table-grid th,
+.data-table-grid td {
+  height: 28px;
+  padding: 0 6px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.data-table-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--tile);
+  font-weight: 500;
+}
+
+.data-table-grid tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--tile);
+  color: var(--muted-foreground);
+  font-weight: 400;
+  text-align: right;
+}
+
+.data-table-grid thead .data-table-gutter {
+  left: 0;
+  z-index: 3;
+  text-align: right;
+}
+
+.data-table-grid:focus-visible {
+  outline: 1px solid var(--ring);
+  outline-offset: -1px;
+}
+
+.data-table-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.data-table-column-name {
+  width: 96px;
+  min-width: 60px;
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  outline: none;
+}
+
+.data-table-column-name:hover,
+.data-table-column-name:focus-visible {
+  background: var(--muted);
+  border-color: var(--border);
+}
+
+.data-table-head select {
+  max-width: 72px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  border-radius: var(--radius);
+  padding: 2px 3px;
+  font-size: 10px;
+}
+
+.data-table-icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: var(--radius);
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.data-table-icon:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.data-table-cell {
+  min-width: 110px;
+  max-width: 260px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.data-table-cell.is-selected {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.data-table-input {
+  width: 100%;
+  min-width: 90px;
+  background: var(--muted);
+  color: var(--foreground);
+  border: 1px solid var(--ring);
+  border-radius: 2px;
+  padding: 1px 4px;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.data-table-row-end {
+  width: 28px;
+  text-align: center;
+}
+
+.data-table-add {
+  width: 32px;
+}
+
+.data-table-missing {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: auto;
+  align-items: flex-start;
+  padding: 24px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.data-table-missing button {
+  background: var(--secondary);
+  color: var(--foreground);
+  border-radius: var(--radius);
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.data-chart {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--tile);
+  color: var(--foreground);
+}
+
+.data-chart-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.data-chart-toolbar select {
+  background: var(--muted);
+  color: var(--foreground);
+  border-radius: var(--radius);
+  padding: 4px 6px;
+  font-size: 11px;
+}
+
+.data-chart-series {
+  position: relative;
+}
+
+.data-chart-series summary {
+  list-style: none;
+  cursor: pointer;
+  background: var(--muted);
+  color: var(--foreground);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  font-size: 11px;
+  user-select: none;
+}
+
+.data-chart-series summary::-webkit-details-marker {
+  display: none;
+}
+
+.data-chart-series-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 5;
+  min-width: 190px;
+  max-height: 240px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.18);
+}
+
+.data-chart-series-list label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.data-chart-type-tag {
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+
+.data-chart-export {
+  background: var(--secondary);
+  color: var(--foreground);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+.data-chart-export:disabled {
+  opacity: 0.5;
+}
+
+.data-chart-canvas {
+  flex: 1;
+  min-height: 0;
+  padding: 8px 10px 10px;
+}
+
+.data-chart-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.data-chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.data-chart-axis {
+  fill: var(--muted-foreground);
+  font-size: 10px;
+}
+
+.data-chart-axis-line {
+  stroke: var(--border);
+}
+
+.data-chart-axis-title {
+  fill: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.data-chart-legend {
+  fill: var(--foreground);
+  font-size: 10px;
+}
+
+.data-chart-note {
+  padding: 18px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}

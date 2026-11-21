@@ -7,7 +7,7 @@ import {
   Link2,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Button } from "@lab/ui/components/button";
+import { Button } from "@spark/ui/components/button";
 import { isMarkdown, listFolder, type Entry, type Selection } from "./files.ts";
 
 const rootSegments: string[] = [];

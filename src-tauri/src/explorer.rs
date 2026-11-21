@@ -178,7 +178,7 @@ mod tests {
                 let _ = fs::remove_dir_all(&self.0);
             }
         }
-        let path = std::env::temp_dir().join(format!("lab-explorer-{}", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!("spark-explorer-{}", uuid::Uuid::new_v4()));
         fs::create_dir(&path).unwrap();
         let fixture = Fixture(path);
         let project = fixture.0.join("project");

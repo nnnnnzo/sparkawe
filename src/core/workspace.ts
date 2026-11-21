@@ -9,7 +9,7 @@ export type WorkspaceRecord = (record: {
   data?: unknown;
 }) => void;
 
-export type Mode = "side" | "tiling";
+export type Mode = "side" | "tiling" | "stack";
 export type Theme = "dark" | "light" | "transparent";
 export interface Tab {
   id: string;
@@ -25,14 +25,16 @@ export interface WorkspaceState {
   tabs: Tab[];
   pinned: string[] | null;
   installedExtensions?: string[];
+  /** Extensions du socle déjà proposées à cet espace. */
+  seededCore?: string[];
   extensions?: Record<string, unknown>;
   theme: Theme;
 }
 
-const newTab = (name = "Espace 1"): Tab => ({
+const newTab = (name = "Espace 1", mode: Mode = "side"): Tab => ({
   id: crypto.randomUUID(),
   name,
-  mode: "side",
+  mode,
   tiles: [],
   layouts: {},
 });
@@ -44,7 +46,6 @@ export function initialWorkspace(): WorkspaceState {
     active: tab.id,
     tabs: [tab],
     pinned: null,
-    installedExtensions: [],
     theme: "dark",
   };
 }
@@ -68,13 +69,25 @@ function validTab(value: unknown): value is Tab {
     record(value) &&
     typeof value.id === "string" &&
     typeof value.name === "string" &&
-    (value.mode === "side" || value.mode === "tiling") &&
+    (value.mode === "side" ||
+      value.mode === "tiling" ||
+      value.mode === "stack") &&
     record(value.layouts) &&
     Array.isArray(value.tiles) &&
     value.tiles.every(validTile) &&
     (value.focused === undefined || typeof value.focused === "string")
   );
 }
+
+/** Identifiants d'extension antérieurs au renommage Spark. */
+const legacyIds: Record<string, string> = {
+  "lab.core": "spark.core",
+  "lab.explorer": "spark.explorer",
+  "lab.markdown": "spark.markdown",
+  "lab.terminal": "spark.terminal",
+};
+
+const sparkId = (id: string) => legacyIds[id] ?? id;
 
 export function restoreWorkspace(state: unknown): WorkspaceState {
   if (state === null) return initialWorkspace();
@@ -93,6 +106,11 @@ export function restoreWorkspace(state: unknown): WorkspaceState {
         Array.isArray(state.installedExtensions) &&
         state.installedExtensions.every((id) => typeof id === "string")
       )) ||
+    (state.seededCore !== undefined &&
+      !(
+        Array.isArray(state.seededCore) &&
+        state.seededCore.every((id) => typeof id === "string")
+      )) ||
     (state.extensions !== undefined && !record(state.extensions)) ||
     (state.pinned !== null &&
       !(
@@ -100,26 +118,62 @@ export function restoreWorkspace(state: unknown): WorkspaceState {
         state.pinned.every((id) => typeof id === "string")
       ))
   ) {
-    throw new Error("Format de l’espace Lab invalide.");
+    throw new Error("Format de l’espace Spark invalide.");
   }
-  const tabs: Tab[] = state.tabs;
+  const tabs: Tab[] = (state.tabs as Tab[]).map((tab) => ({
+    ...tab,
+    tiles: tab.tiles.map((tile) =>
+      tile.type === "openalex.pdf"
+        ? {
+            ...tile,
+            type: "preview.pdf",
+            data: {
+              id: tile.data.work ?? "",
+              title: "",
+              url: tile.data.url ?? "",
+            },
+          }
+        : tile,
+    ),
+  }));
   const ids = tabs.flatMap((tab) => [
     tab.id,
     ...tab.tiles.map((tile) => tile.id),
   ]);
   if (new Set(ids).size !== ids.length)
-    throw new Error("L’espace Lab contient des identifiants en double.");
-  return state as unknown as WorkspaceState;
+    throw new Error("L’espace Spark contient des identifiants en double.");
+  const installed = (state.installedExtensions as string[] | undefined)?.map(
+    sparkId,
+  );
+  const seededCore = (state.seededCore as string[] | undefined)?.map(sparkId);
+  const pinned = (state.pinned as string[] | null)?.map(sparkId);
+  const extensions = state.extensions
+    ? Object.fromEntries(
+        Object.entries(state.extensions as Record<string, unknown>).map(
+          ([id, value]) => [sparkId(id), value],
+        ),
+      )
+    : undefined;
+  return {
+    ...(state as unknown as WorkspaceState),
+    tabs,
+    ...(installed && { installedExtensions: [...new Set(installed)] }),
+    ...(seededCore && { seededCore: [...new Set(seededCore)] }),
+    ...(pinned && { pinned: [...new Set(pinned)] }),
+    ...(extensions && { extensions }),
+  };
 }
 
 export class Workspace {
   private readonly listeners = new Set<() => void>();
   private state: WorkspaceState;
   private readonly record: WorkspaceRecord;
+  /** Provenance des mutations en cours : l'interface ou un agent MCP. */
+  source: JournalSource = "human";
 
   constructor(state: WorkspaceState, record: WorkspaceRecord = () => {}) {
     this.state = state;
-    this.record = record;
+    this.record = (event) => record({ ...event, source: this.source });
   }
   get = () => this.state;
   subscribe = (listener: () => void) => {
@@ -149,17 +203,31 @@ export class Workspace {
       this.record({ kind: "tab.activate", tabId: id });
     }
   }
-  create() {
-    let number = 1;
-    while (this.state.tabs.some((tab) => tab.name === `Espace ${number}`))
-      number++;
-    const tab = newTab(`Espace ${number}`);
-    this.patch({ tabs: [...this.state.tabs, tab], active: tab.id });
+  create(name?: string, mode?: Mode, activate = true) {
+    let label = name?.trim() ?? "";
+    if (!label) {
+      let number = 1;
+      while (this.state.tabs.some((tab) => tab.name === `Espace ${number}`))
+        number++;
+      label = `Espace ${number}`;
+    } else if (this.state.tabs.some((tab) => tab.name === label)) {
+      let number = 2;
+      while (this.state.tabs.some((tab) => tab.name === `${label} ${number}`))
+        number++;
+      label = `${label} ${number}`;
+    }
+    const tab = newTab(label, mode);
+    this.patch(
+      activate
+        ? { tabs: [...this.state.tabs, tab], active: tab.id }
+        : { tabs: [...this.state.tabs, tab] },
+    );
     this.record({
       kind: "tab.create",
       tabId: tab.id,
-      data: { name: tab.name },
+      data: { name: tab.name, mode: tab.mode },
     });
+    return tab;
   }
   remove(id: string) {
     const index = this.state.tabs.findIndex((tab) => tab.id === id);

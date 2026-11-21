@@ -11,10 +11,12 @@ import { Settings, restoreSettings } from "../src/core/settings.ts";
 import {
   createExtensionManager,
   restoreInstalledExtensions,
+  seedCoreExtensions,
+  type CatalogEntry,
 } from "../src/core/extensions.ts";
 import type {
   EventKey,
-  LabAPI,
+  SparkAPI,
   Manifest,
   ServiceKey,
 } from "../src/sdk/index.ts";
@@ -24,6 +26,24 @@ const manifest = (id: string): Manifest => ({
   name: id,
   version: "1",
 });
+const catalogEntry = (
+  id: string,
+  tier: Manifest["tier"],
+  type?: string,
+): CatalogEntry => {
+  const definition: Manifest = {
+    ...manifest(id),
+    tier,
+    ...(type ? { tileTypes: [type] } : {}),
+  };
+  return {
+    manifest: definition,
+    load: async () => ({
+      manifest: definition,
+      activate() {},
+    }),
+  };
+};
 const tile = { type: "demo.tile", title: "Demo" };
 const service: ServiceKey<number> = { id: "demo.service@1" };
 const event: EventKey<number> = { id: "demo.event" };
@@ -54,12 +74,12 @@ function setup() {
 
 test("extension contributions and listeners follow activation lifecycle", async () => {
   const { registry } = setup();
-  let api!: LabAPI;
+  let api!: SparkAPI;
   let total = 0;
   await registry.activate({
     manifest: manifest("demo"),
-    activate(lab) {
-      api = lab;
+    activate(spark) {
+      api = spark;
       api.tiles.register(tile);
       api.services.provide(service, 7);
       api.commands.register({
@@ -135,7 +155,7 @@ test("extensions load on demand and keep their state when disabled", async () =>
         loads++;
         return {
           manifest: definition,
-          activate(api: LabAPI) {
+          activate(api: SparkAPI) {
             restored = api.state.read();
             api.tiles.register(tile);
             api.state.save({ draft: "notes" });
@@ -176,6 +196,63 @@ test("extensions load on demand and keep their state when disabled", async () =>
   await manager.setEnabled("demo", true);
   assert.equal(loads, 2);
   assert.deepEqual(restored, { draft: "notes" });
+});
+
+test("un espace sans choix active le socle et récupère les tuiles existantes", () => {
+  const catalog = [
+    catalogEntry("core.one", "core"),
+    catalogEntry("official.one", "official"),
+    catalogEntry("legacy", "official", "legacy.tile"),
+  ];
+  const legacy = { id: "legacy-1", type: "legacy.tile", data: {} };
+  assert.deepEqual(restoreInstalledExtensions(undefined, catalog, []), [
+    "core.one",
+  ]);
+  assert.deepEqual(restoreInstalledExtensions(undefined, catalog, [legacy]), [
+    "core.one",
+    "legacy",
+  ]);
+  assert.deepEqual(restoreInstalledExtensions([], catalog, [legacy]), []);
+});
+
+test("chaque extension du socle est proposée une seule fois", () => {
+  const first = seedCoreExtensions(
+    ["core.one"],
+    undefined,
+    [
+      catalogEntry("core.one", "core"),
+      catalogEntry("core.two", "core"),
+      catalogEntry("official.one", "official"),
+    ],
+    [],
+  );
+  assert.deepEqual(first.installed, ["core.one", "core.two"]);
+  assert.deepEqual(first.seeded, ["core.one", "core.two"]);
+
+  const disabled = seedCoreExtensions(
+    ["core.one"],
+    first.seeded,
+    [
+      catalogEntry("core.one", "core"),
+      catalogEntry("core.two", "core"),
+    ],
+    [],
+  );
+  assert.deepEqual(disabled.installed, ["core.one"]);
+  assert.deepEqual(disabled.seeded, first.seeded);
+
+  const next = seedCoreExtensions(
+    ["core.one"],
+    first.seeded,
+    [
+      catalogEntry("core.one", "core"),
+      catalogEntry("core.two", "core"),
+      catalogEntry("core.three", "core"),
+    ],
+    [],
+  );
+  assert.deepEqual(next.installed, ["core.one", "core.three"]);
+  assert.deepEqual(next.seeded, ["core.one", "core.two", "core.three"]);
 });
 
 test("a failing activation preserves the previous extension snapshot", async () => {
@@ -267,8 +344,59 @@ test("le thème transparent est conservé et validé au chargement", () => {
   );
   assert.throws(
     () => restoreWorkspace({ ...snapshot, theme: "glass" }),
-    /Format de l’espace Lab invalide/,
+    /Format de l’espace Spark invalide/,
   );
+});
+
+test("les identifiants d’extension antérieurs au renommage migrent vers Spark", () => {
+  const snapshot = JSON.parse(JSON.stringify(initialWorkspace()));
+  const restored = restoreWorkspace({
+    ...snapshot,
+    installedExtensions: ["lab.explorer", "spark.terminal", "lab.explorer"],
+    pinned: ["lab.markdown", "spark.explorer"],
+    extensions: {
+      "lab.terminal": { session: 1 },
+      "lab.custom": { keep: true },
+    },
+  });
+  assert.deepEqual(restored.installedExtensions, [
+    "spark.explorer",
+    "spark.terminal",
+  ]);
+  assert.deepEqual(restored.pinned, ["spark.markdown", "spark.explorer"]);
+  assert.deepEqual(restored.extensions, {
+    "spark.terminal": { session: 1 },
+    "lab.custom": { keep: true },
+  });
+});
+
+test("les extensions du socle déjà proposées sont conservées et validées", () => {
+  const snapshot = JSON.parse(JSON.stringify(initialWorkspace()));
+  const restored = restoreWorkspace({
+    ...snapshot,
+    seededCore: ["spark.markdown", "spark.markdown"],
+  });
+  assert.deepEqual(restored.seededCore, ["spark.markdown"]);
+  assert.throws(
+    () => restoreWorkspace({ ...snapshot, seededCore: [1] }),
+    /Format de l’espace Spark invalide/,
+  );
+});
+
+test("les anciennes tuiles PDF d’OpenAlex deviennent des aperçus", () => {
+  const snapshot = JSON.parse(JSON.stringify(initialWorkspace()));
+  snapshot.tabs[0].tiles.push({
+    id: "pdf-1",
+    type: "openalex.pdf",
+    data: { work: "W123", url: "https://example.org/article.pdf" },
+  });
+  const restored = restoreWorkspace(snapshot);
+  assert.equal(restored.tabs[0].tiles[0].type, "preview.pdf");
+  assert.deepEqual(restored.tabs[0].tiles[0].data, {
+    id: "W123",
+    title: "",
+    url: "https://example.org/article.pdf",
+  });
 });
 
 test("a failed older write cannot overwrite a newer persisted snapshot", async () => {

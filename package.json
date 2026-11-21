@@ -1,5 +1,5 @@
 {
-  "name": "lab-desktop",
+  "name": "spark",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,6 +11,8 @@
     "lint": "eslint src tests",
     "format": "prettier --write src tests",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "sidecar": "node scripts/sidecar.mjs",
+    "sidecar:release": "node scripts/sidecar.mjs --release",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -28,6 +30,7 @@
     "cn": "^0.5.2",
     "dockview-react": "^8.9.1",
     "lucide-react": "^0.468",
+    "pdfjs-dist": "^6.5.438",
     "radix-ui": "^1.4",
     "react": "^19",
     "react-dom": "^19",

@@ -1,8 +1,8 @@
 import type { ComponentType } from "react";
 import type {
   Dispose,
-  LabAPI,
-  LabExtension,
+  SparkAPI,
+  SparkExtension,
   Tile,
   TileDefinition,
   TileSurface,
@@ -15,13 +15,13 @@ export interface TileViewProps {
 
 export type TileView = ComponentType<TileViewProps>;
 
-export type ExtensionAPI = Omit<LabAPI, "tiles"> & {
+export type ExtensionAPI = Omit<SparkAPI, "tiles"> & {
   tiles: {
     register(definition: TileDefinition & { view: TileView }): Dispose;
     publish(tileId: string, surface: TileSurface): void;
   };
 };
 
-export interface ExtensionModule extends Pick<LabExtension, "deactivate"> {
+export interface ExtensionModule extends Pick<SparkExtension, "deactivate"> {
   activate(api: ExtensionAPI): void | Promise<void>;
 }

@@ -155,13 +155,13 @@ mod tests {
                 let _ = fs::remove_dir_all(&self.0);
             }
         }
-        let directory = env::temp_dir().join(format!("lab-zsh-test-{}", uuid::Uuid::new_v4()));
+        let directory = env::temp_dir().join(format!("spark-zsh-test-{}", uuid::Uuid::new_v4()));
         fs::create_dir(&directory).unwrap();
         let config = UserConfig(directory);
-        fs::write(config.0.join(".zshenv"), "LAB_TEST_ENV=loaded\n").unwrap();
+        fs::write(config.0.join(".zshenv"), "SPARK_TEST_ENV=loaded\n").unwrap();
         fs::write(
             config.0.join(".zshrc"),
-            "PS1=\"LAB-${LAB_TEST_ENV}-${COLORTERM}>\"\nHISTFILE=\n",
+            "PS1=\"SPARK-${SPARK_TEST_ENV}-${COLORTERM}>\"\nHISTFILE=\n",
         )
         .unwrap();
         let mut command = Command::new(shell);
@@ -192,7 +192,7 @@ mod tests {
                 ));
             }
         };
-        read_through(b"LAB-loaded-truecolor>");
+        read_through(b"SPARK-loaded-truecolor>");
         terminal.master.write_all(b"printf 'color'").unwrap();
         read_through(b"\x1b[32mp");
         read_through(b"\x1b[33m'");

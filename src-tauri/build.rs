@@ -17,9 +17,14 @@ fn main() {
         "terminal_input",
         "terminal_resize",
         "terminal_close",
-        "set_window_material",
         "mcp_reply",
+        "mcp_notify",
         "mcp_cache_tools",
+        "mcp_link",
+        "agent_setup",
+        "agent_connected",
+        "pdf_fetch",
+        "pdf_probe",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))
         .expect("configuration Tauri invalide");

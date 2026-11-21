@@ -14,8 +14,13 @@
     "allow-set-window-material",
     "allow-settings-load",
     "allow-settings-save",
-    "allow-set-window-material",
     "allow-mcp-reply",
-    "allow-mcp-cache-tools"
+    "allow-mcp-notify",
+    "allow-mcp-cache-tools",
+    "allow-mcp-link",
+    "allow-agent-setup",
+    "allow-agent-connected",
+    "allow-pdf-fetch",
+    "allow-pdf-probe"
   ]
 }

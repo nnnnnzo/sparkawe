@@ -4,7 +4,7 @@ import { buildBrief } from "../src/core/brief.ts";
 import { Journal, summarize } from "../src/core/journal.ts";
 import { Registry } from "../src/core/registry.ts";
 import { Workspace, initialWorkspace } from "../src/core/workspace.ts";
-import type { LabAPI, Manifest } from "../src/sdk/index.ts";
+import type { SparkAPI, Manifest } from "../src/sdk/index.ts";
 
 const manifest = (id: string): Manifest => ({
   id,
@@ -107,7 +107,7 @@ test("le brief décrit l’onglet actif et filtre le bruit", async () => {
     },
   });
   const tab = workspace.active();
-  const tile = workspace.addTile("demo.tile", { directory: "~/Lab" });
+  const tile = workspace.addTile("demo.tile", { directory: "~/Spark" });
   workspace.focusTile(tile.id);
   journal.record({ kind: "tile.focus", tabId: tab.id, tileId: tile.id });
   journal.record({
@@ -123,7 +123,12 @@ test("le brief décrit l’onglet actif et filtre le bruit", async () => {
   assert.equal(brief.tab.active, false);
   assert.equal(brief.tab.focused, tile.id);
   assert.deepEqual(brief.tab.tiles, [
-    { id: tile.id, type: "demo.tile", title: "Démo", summary: "dossier ~/Lab" },
+    {
+      id: tile.id,
+      type: "demo.tile",
+      title: "Démo",
+      summary: "dossier ~/Spark",
+    },
   ]);
   assert.deepEqual(
     brief.events.map((entry) => entry.kind),
@@ -133,18 +138,18 @@ test("le brief décrit l’onglet actif et filtre le bruit", async () => {
     brief.others.map((other) => other.name),
     ["Espace 2"],
   );
-  assert.equal(brief.text.includes("Démo — dossier ~/Lab (focus)"), true);
+  assert.equal(brief.text.includes("Démo — dossier ~/Spark (focus)"), true);
   assert.equal(brief.text.includes("(agent)"), true);
   assert.equal(brief.lastSeq, journal.lastSeq);
 });
 
 test("une surface volatile alimente le brief et reste bornée", async () => {
   const { journal, workspace, registry } = setup();
-  let api!: LabAPI;
+  let api!: SparkAPI;
   await registry.activate({
     manifest: manifest("demo"),
-    activate(lab) {
-      api = lab;
+    activate(spark) {
+      api = spark;
       api.tiles.register({
         type: "demo.tile",
         title: "Démo",
@@ -192,6 +197,20 @@ test("le brief refuse un onglet inconnu", () => {
   );
 });
 
+test("le journal attribue les mutations à l’acteur en cours", () => {
+  const { journal, workspace } = setup();
+  workspace.addTile("demo.tile", {});
+  assert.equal(journal.list().at(-1)?.source, "human");
+  workspace.source = "agent";
+  const tile = workspace.addTile("demo.tile", {});
+  assert.equal(journal.list().at(-1)?.source, "agent");
+  workspace.removeTile(workspace.active().id, tile.id);
+  assert.equal(journal.list().at(-1)?.source, "agent");
+  workspace.source = "human";
+  workspace.removeTile(workspace.active().id, workspace.active().tiles[0].id);
+  assert.equal(journal.list().at(-1)?.source, "human");
+});
+
 test("une tuile expose des actions typées et validées", async () => {
   const { workspace, registry } = setup();
   let received: unknown;
@@ -220,6 +239,10 @@ test("une tuile expose des actions typées et validées", async () => {
   });
   assert.equal(received, 2);
   assert.equal(registry.getActions()[0].name, "bump");
+  const [definition] = registry.getTileDefinitions();
+  assert.equal(definition.type, "demo.tile");
+  assert.equal(definition.owner.id, "demo");
+  assert.deepEqual(Object.keys(definition.actions ?? {}), ["bump"]);
   await assert.rejects(
     registry.callAction(tile.id, "bump", { by: "2" }),
     /doit être de type number/,
@@ -240,6 +263,116 @@ test("une tuile expose des actions typées et validées", async () => {
     registry.callAction("absent", "bump", { by: 1 }),
     /Tuile inconnue/,
   );
+});
+
+test("le registre signale les changements de types de tuiles", async () => {
+  const { registry } = setup();
+  let changes = 0;
+  const off = registry.subscribeTools(() => changes++);
+  await registry.activate({
+    manifest: manifest("demo"),
+    activate(api) {
+      api.tiles.register({ type: "demo.tile", title: "Démo" });
+    },
+  });
+  assert.equal(changes, 1);
+  assert.deepEqual(
+    registry.getTileDefinitions().map((definition) => definition.type),
+    ["demo.tile"],
+  );
+  await registry.deactivate("demo");
+  assert.equal(changes, 2);
+  assert.deepEqual(registry.getTileDefinitions(), []);
+  off();
+  await registry.activate({
+    manifest: manifest("demo"),
+    activate(api) {
+      api.tiles.register({ type: "demo.tile", title: "Démo" });
+    },
+  });
+  assert.equal(changes, 2);
+});
+
+test("une action dépendante d’un service absent n’est pas proposée", async () => {
+  const { workspace, registry } = setup();
+  const opener = { id: "demo.open@1" } as const;
+  await registry.activate({
+    manifest: manifest("demo"),
+    activate(api) {
+      api.tiles.register({
+        type: "demo.tile",
+        title: "Démo",
+        actions: {
+          open: {
+            title: "Ouvrir",
+            requires: [opener],
+            run: () => ({ ok: true }),
+          },
+        },
+      });
+    },
+  });
+  const tile = workspace.addTile("demo.tile", {});
+  const action = registry.getAction("demo.tile", "open")!;
+  assert.equal(registry.available(action), false);
+  assert.deepEqual(registry.missing(action), ["demo.open@1"]);
+  await assert.rejects(
+    registry.callAction(tile.id, "open"),
+    /dépend de demo\.open@1/,
+  );
+  await registry.activate({
+    manifest: manifest("provider"),
+    activate(api) {
+      api.services.provide(opener, { ready: true });
+    },
+  });
+  assert.equal(registry.available(action), true);
+  assert.deepEqual(await registry.callAction(tile.id, "open"), { ok: true });
+});
+
+test("un onglet peut être créé avec un nom et un mode", () => {
+  const { workspace, journal } = setup();
+  const tab = workspace.create("Recherche", "tiling");
+  assert.equal(workspace.get().active, tab.id);
+  assert.equal(tab.name, "Recherche");
+  assert.equal(tab.mode, "tiling");
+  assert.equal(journal.list().at(-1)?.kind, "tab.create");
+  workspace.create("Recherche");
+  assert.equal(workspace.active().name, "Recherche 2");
+});
+
+test("un onglet créé en arrière-plan ne prend pas le focus", () => {
+  const { workspace } = setup();
+  const active = workspace.active().id;
+  const tab = workspace.create("Agent", "tiling", false);
+  assert.equal(workspace.get().active, active);
+  assert.ok(workspace.get().tabs.some((candidate) => candidate.id === tab.id));
+});
+
+test("une action peut décider si elle modifie selon la tuile", async () => {
+  const { workspace, registry } = setup();
+  await registry.activate({
+    manifest: manifest("demo"),
+    activate(api) {
+      api.tiles.register({
+        type: "demo.tile",
+        title: "Démo",
+        actions: {
+          write: {
+            title: "Écrire",
+            input: { text: { type: "string" } },
+            mutates: (tile) => tile.data.locked === "true",
+            run: () => ({ ok: true }),
+          },
+        },
+      });
+    },
+  });
+  const free = workspace.addTile("demo.tile", {});
+  const locked = workspace.addTile("demo.tile", { locked: "true" });
+  const action = registry.getAction("demo.tile", "write")!;
+  assert.equal(registry.mutates(free, action), false);
+  assert.equal(registry.mutates(locked, action), true);
 });
 
 test("une action ne peut pas renvoyer un contenu non borné", async () => {
@@ -285,11 +418,11 @@ test("une action mal déclarée empêche l’activation", async () => {
 
 test("les événements émis rejoignent le journal sous une forme bornée", async () => {
   const { journal, registry } = setup();
-  let api!: LabAPI;
+  let api!: SparkAPI;
   await registry.activate({
     manifest: manifest("demo"),
-    activate(lab) {
-      api = lab;
+    activate(spark) {
+      api = spark;
     },
   });
   api.events.emit(

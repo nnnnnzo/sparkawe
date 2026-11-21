@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@lab/ui/components/button";
+import { Button } from "@spark/ui/components/button";
 import {
   Empty,
   EmptyContent,
@@ -15,12 +15,13 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@lab/ui/components/empty";
+} from "@spark/ui/components/empty";
 import type {
   ExtensionAPI,
   ExtensionModule,
   TileViewProps,
 } from "../../sdk/react.ts";
+import type { Tile } from "../../sdk/index.ts";
 import { markdownOpener } from "../markdown/api.ts";
 import { terminalLauncher } from "../terminal/api.ts";
 import {
@@ -35,14 +36,117 @@ import manifest, { explorerType } from "./manifest.ts";
 import { FileTree } from "./tree.tsx";
 import "./style.css";
 
+/** Sélection courante de chaque arborescence, pour les actions déclarées. */
+const selections = new Map<string, Selection>();
+
 export default function createExplorer(): ExtensionModule {
   return {
     activate(api) {
+      function selectionOf(tile: Tile): Selection {
+        return (
+          selections.get(tile.id) ?? {
+            name: tile.data.name ?? "dossier",
+            kind: "folder",
+            segments: [],
+          }
+        );
+      }
+      function rootToken(tile: Tile) {
+        const token = tile.data.token;
+        if (!token) throw new Error("Aucun dossier ouvert dans cette tuile.");
+        return token;
+      }
+      /**
+       * Cible d'une action : la sélection de l'interface, ou un chemin fourni
+       * par l'agent. Un chemin absolu doit rester à l'intérieur du dossier.
+       */
+      function targetOf(tile: Tile, input: Record<string, unknown>): Selection {
+        const wanted = typeof input.path === "string" ? input.path.trim() : "";
+        if (!wanted) return selectionOf(tile);
+        const root = tile.data.path ?? "";
+        let relative = wanted;
+        if (wanted.startsWith("/")) {
+          if (!root || (wanted !== root && !wanted.startsWith(`${root}/`)))
+            throw new Error(
+              "Le chemin sort du dossier ouvert dans cette tuile.",
+            );
+          relative = wanted.slice(root.length).replace(/^\//, "");
+        }
+        const segments = relative.split("/").filter(Boolean);
+        if (!segments.length || segments.includes(".."))
+          throw new Error(`Chemin invalide : ${wanted}`);
+        return {
+          name: segments.at(-1) ?? "",
+          kind: "file",
+          segments,
+        };
+      }
+
       api.tiles.register({
         type: explorerType,
         title: manifest.name,
         icon: manifest.icon,
+        guide:
+          "Arborescence d’un dossier. La surface indique la sélection (root, name, kind, selection). open-in-markdown { path } ouvre un fichier Markdown, open-in-terminal { path } ouvre un shell dans un dossier ; path est relatif à la racine ou absolu dans cette racine. Sans path, l’action utilise la sélection de l’interface.",
         view: (props) => <ExplorerView {...props} api={api} />,
+        dataKeys: ["token", "name", "path"],
+        actions: {
+          "open-in-markdown": {
+            title: "Ouvrir dans Markdown",
+            description:
+              "Ouvre un fichier Markdown dans un éditeur : le chemin fourni, sinon la sélection de l’interface.",
+            input: {
+              path: {
+                type: "string",
+                required: false,
+                description:
+                  "Chemin relatif au dossier ouvert, ou absolu dans ce dossier.",
+              },
+            },
+            requires: [markdownOpener],
+            run: async (tile, input) => {
+              const entry = targetOf(tile, input);
+              if (entry.kind === "folder" || !isMarkdown(entry))
+                throw new Error(
+                  `« ${entry.name} » n’est pas un fichier Markdown.`,
+                );
+              const file = await readMarkdown(rootToken(tile), entry.segments);
+              const markdown = api.services.get(markdownOpener);
+              if (!markdown) throw new Error("Markdown indisponible.");
+              const created = markdown.open(file, tile.id);
+              return { ref: created.id, name: entry.name };
+            },
+          },
+          "open-in-terminal": {
+            title: "Ouvrir un terminal",
+            description:
+              "Ouvre un terminal dans un dossier : le chemin fourni, sinon la sélection de l’interface.",
+            input: {
+              path: {
+                type: "string",
+                required: false,
+                description:
+                  "Chemin relatif au dossier ouvert, ou absolu dans ce dossier.",
+              },
+            },
+            requires: [terminalLauncher],
+            run: async (tile, input) => {
+              const wanted =
+                typeof input.path === "string" && input.path.trim() !== "";
+              const entry = targetOf(tile, input);
+              if (!wanted && entry.kind !== "folder")
+                throw new Error(`« ${entry.name} » n’est pas un dossier.`);
+              const directory = await resolveFolder(
+                rootToken(tile),
+                entry.segments,
+              );
+              const terminal = api.services.get(terminalLauncher);
+              if (!terminal) throw new Error("Terminal indisponible.");
+              const created = terminal.open(directory, tile.id);
+              return { ref: created.id, name: entry.name };
+            },
+          },
+        },
         describe: (tile, surface) => {
           if (!surface.selection)
             return tile.data.path
@@ -154,12 +258,16 @@ function ProjectTree({
   const [revision, setRevision] = useState(0);
   const [pending, setPending] = useState(false);
   useEffect(() => {
+    selections.set(tileId, selected);
     api.tiles.publish(tileId, {
       root: root.path,
       name: selected.name,
       kind: selected.kind,
       selection: selected.segments.length ? selected.segments.join("/") : ".",
     });
+    return () => {
+      selections.delete(tileId);
+    };
   }, [api, root.path, selected, tileId]);
   const markdown = api.services.get(markdownOpener);
   const terminal = api.services.get(terminalLauncher);
@@ -258,16 +366,6 @@ function ProjectTree({
             <ActionIcon data-icon="inline-start" />
             <span className="explorer-action-label">{action}</span>
           </Button>
-        )}
-        {canOpen && !available && (
-          <span
-            className="truncate"
-            title={
-              folderSelected ? "Terminal indisponible" : "Markdown indisponible"
-            }
-          >
-            {folderSelected ? "Terminal indisponible" : "Markdown indisponible"}
-          </span>
         )}
       </div>
     </>

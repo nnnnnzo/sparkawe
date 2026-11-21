@@ -84,7 +84,7 @@ impl Storage {
 
 pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let parent = path.parent().ok_or(io::ErrorKind::InvalidInput)?;
-    let temporary = parent.join(format!(".lab-{}.tmp", Uuid::new_v4()));
+    let temporary = parent.join(format!(".spark-{}.tmp", Uuid::new_v4()));
     let result = (|| {
         let mut file = fs::OpenOptions::new()
             .write(true)

@@ -1,9 +1,9 @@
-import type { LabExtension, Manifest, Tile } from "../sdk/index.ts";
+import type { SparkExtension, Manifest, Tile } from "../sdk/index.ts";
 import type { Registry } from "./registry.ts";
 
 export interface CatalogEntry {
   manifest: Manifest;
-  load(): Promise<LabExtension>;
+  load(): Promise<SparkExtension>;
 }
 
 export function restoreInstalledExtensions(
@@ -12,13 +12,39 @@ export function restoreInstalledExtensions(
   tiles: Tile[],
 ): string[] {
   if (saved) return [...new Set(saved)];
-  // Older workspaces had extensions enabled implicitly. Recover those in use.
+  // Sans choix enregistré, un espace neuf active le socle. Un espace antérieur
+  // au système d'extensions récupère en plus celles qui ont déjà des tuiles.
   const types = new Set(tiles.map((tile) => tile.type));
   return catalog
-    .filter(({ manifest }) =>
-      manifest.tileTypes?.some((type) => types.has(type)),
+    .filter(
+      ({ manifest }) =>
+        (manifest.tier ?? "core") === "core" ||
+        manifest.tileTypes?.some((type) => types.has(type)),
     )
     .map(({ manifest }) => manifest.id);
+}
+
+/**
+ * Propose chaque extension du socle une seule fois à un espace. Une extension
+ * désactivée après avoir été proposée reste désactivée ; une nouvelle
+ * intégrée arrive active sans réactiver les précédentes.
+ */
+export function seedCoreExtensions(
+  saved: string[] | undefined,
+  seeded: string[] | undefined,
+  catalog: CatalogEntry[],
+  tiles: Tile[],
+): { installed: string[]; seeded: string[] } {
+  const known = new Set(seeded ?? []);
+  const core = catalog
+    .filter(({ manifest }) => (manifest.tier ?? "core") === "core")
+    .map(({ manifest }) => manifest.id);
+  const fresh = core.filter((id) => !known.has(id));
+  const installed = restoreInstalledExtensions(saved, catalog, tiles);
+  return {
+    installed: [...new Set([...installed, ...fresh])],
+    seeded: [...new Set([...known, ...core])],
+  };
 }
 
 export function createExtensionManager(
@@ -46,7 +72,7 @@ export function createExtensionManager(
   return {
     catalog: catalog.map(({ manifest }) => manifest),
     async restore() {
-      for (const id of getInstalled()) {
+      for (const id of getInstalled() ?? []) {
         const entry = entries.get(id);
         if (!entry) continue;
         try {
@@ -63,13 +89,13 @@ export function createExtensionManager(
       try {
         if (enabled) {
           await enable(entry);
-          saveInstalled([...new Set([...getInstalled(), id])]);
+          saveInstalled([...new Set([...(getInstalled() ?? []), id])]);
         } else {
           try {
             await registry.deactivate(id);
           } finally {
             saveInstalled(
-              getInstalled().filter((installed) => installed !== id),
+              (getInstalled() ?? []).filter((installed) => installed !== id),
             );
           }
         }

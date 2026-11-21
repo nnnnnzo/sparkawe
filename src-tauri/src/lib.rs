@@ -1,12 +1,57 @@
+mod agents;
 mod explorer;
 mod markdown;
 pub mod mcp;
+mod pdf;
 mod settings;
 mod storage;
 mod terminal;
 mod window;
 
+use std::path::Path;
+
 use tauri::Manager;
+
+/// Reprend les données laissées par l'ancien identifiant `fr.lab.desktop`.
+/// Les fichiers déjà présents ne sont jamais écrasés et l'ancien dossier reste
+/// en place comme sauvegarde. Le socket obsolète n'est pas copié.
+fn migrate_legacy_config(path: &Path) {
+    let Some(parent) = path.parent() else {
+        return;
+    };
+    let marker = path.join(".migrated-from-lab");
+    let legacy = parent.join("fr.lab.desktop");
+    if marker.exists() || legacy == path || !legacy.is_dir() {
+        return;
+    }
+    match copy_missing(&legacy, path, Some("mcp.sock")) {
+        Ok(()) => {
+            let _ = std::fs::write(marker, "spark 0.1\n");
+        }
+        Err(error) => {
+            eprintln!("Reprise des données de l’ancienne application impossible : {error}")
+        }
+    }
+}
+
+fn copy_missing(from: &Path, to: &Path, skip: Option<&str>) -> std::io::Result<()> {
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let name = entry.file_name();
+        if skip == name.to_str() {
+            continue;
+        }
+        let target = to.join(&name);
+        let file_type = entry.file_type()?;
+        if file_type.is_dir() {
+            copy_missing(&entry.path(), &target, skip)?;
+        } else if file_type.is_file() && !target.exists() {
+            std::fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
+}
 
 pub fn run() {
     let app = tauri::Builder::default()
@@ -14,6 +59,12 @@ pub fn run() {
         .manage(terminal::Sessions::default())
         .setup(|app| {
             let path = app.path().app_config_dir()?;
+            migrate_legacy_config(&path);
+            // Vibe met ses outils en cache : on le vide pour que la prochaine
+            // session voie la liste courante, même après une mise à jour.
+            if let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) {
+                agents::clear_vibe_descriptors(&home);
+            }
             app.manage(markdown::MarkdownStorage::new(&path));
             app.manage(explorer::ExplorerStorage::new(&path));
             app.manage(storage::Storage::new(path).map_err(std::io::Error::other)?);
@@ -44,10 +95,16 @@ pub fn run() {
             terminal::terminal_resize,
             terminal::terminal_close,
             mcp_reply,
+            mcp_notify,
             mcp_cache_tools,
+            mcp_link,
+            agent_setup,
+            agent_connected,
+            pdf::pdf_fetch,
+            pdf::pdf_probe,
         ])
         .build(tauri::generate_context!())
-        .expect("Démarrage de Lab impossible");
+        .expect("Démarrage de Spark impossible");
     app.run(|app, event| {
         if matches!(event, tauri::RunEvent::Exit) {
             #[cfg(unix)]
@@ -71,13 +128,100 @@ fn mcp_reply(
 }
 
 #[tauri::command]
-fn mcp_cache_tools(
-    storage: tauri::State<'_, storage::Storage>,
-    snapshot: String,
+fn mcp_notify(
+    server: tauri::State<'_, mcp::McpServer>,
+    line: String,
 ) -> std::result::Result<(), String> {
+    server.broadcast(&line).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn mcp_cache_tools(snapshot: String) -> std::result::Result<(), String> {
     let path = mcp::socket::tools_path().ok_or("Chemin MCP indisponible.")?;
     if let Some(run) = path.parent() {
         std::fs::create_dir_all(run).map_err(|error| error.to_string())?;
     }
     storage::atomic_write(&path, snapshot.as_bytes()).map_err(|error| error.to_string())
+}
+
+/// Ce qu'un client MCP doit déclarer pour joindre cette application.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentLink {
+    command: String,
+    available: bool,
+    config: String,
+}
+
+#[tauri::command]
+fn mcp_link() -> std::result::Result<AgentLink, String> {
+    let exe = std::env::current_exe().map_err(|error| error.to_string())?;
+    let path = mcp::sidecar_path(&exe);
+    let command = path.to_string_lossy().into_owned();
+    let available = path.exists();
+    let config = serde_json::json!({
+        "mcpServers": { "spark": { "command": &command } }
+    })
+    .to_string();
+    Ok(AgentLink {
+        command,
+        available,
+        config,
+    })
+}
+
+/// Branche le client détecté dans le terminal sur le pont de cette application.
+#[tauri::command]
+fn agent_setup(agent: String) -> std::result::Result<String, String> {
+    agents::setup(&agent)
+}
+
+/// Demande à la personne d'autoriser une action qui modifie des données.
+/// Évite de reproposer la connexion d'un agent déjà branché sur ce pont.
+#[tauri::command]
+fn agent_connected(agent: String) -> bool {
+    agents::connected(&agent)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn la_reprise_reprend_les_fichiers_manquants_sans_ecraser() {
+        let root = std::env::temp_dir().join(format!("spark-migration-{}", uuid::Uuid::new_v4()));
+        let legacy = root.join("fr.lab.desktop");
+        let current = root.join("fr.spark.desktop");
+        std::fs::create_dir_all(legacy.join("run")).unwrap();
+        std::fs::write(legacy.join("workspace-v1.json"), "ancien").unwrap();
+        std::fs::write(legacy.join("settings.json"), "reglages").unwrap();
+        std::fs::write(legacy.join("run/mcp.sock"), "socket").unwrap();
+        std::fs::write(legacy.join("run/tools.json"), "outils").unwrap();
+        std::fs::create_dir_all(&current).unwrap();
+        std::fs::write(current.join("workspace-v1.json"), "actuel").unwrap();
+
+        migrate_legacy_config(&current);
+
+        assert_eq!(
+            std::fs::read_to_string(current.join("workspace-v1.json")).unwrap(),
+            "actuel"
+        );
+        assert_eq!(
+            std::fs::read_to_string(current.join("settings.json")).unwrap(),
+            "reglages"
+        );
+        assert_eq!(
+            std::fs::read_to_string(current.join("run/tools.json")).unwrap(),
+            "outils"
+        );
+        assert!(!current.join("run/mcp.sock").exists());
+        assert!(legacy.join("workspace-v1.json").exists());
+
+        assert!(current.join(".migrated-from-lab").exists());
+        std::fs::remove_file(current.join("settings.json")).unwrap();
+        migrate_legacy_config(&current);
+        assert!(!current.join("settings.json").exists());
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }

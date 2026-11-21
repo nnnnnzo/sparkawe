@@ -18,10 +18,10 @@
       "node"
     ],
     "paths": {
-      "@lab/ui/*": [
+      "@spark/ui/*": [
         "./src/shared/*"
       ],
-      "@lab/ui": [
+      "@spark/ui": [
         "./src/shared"
       ]
     }

@@ -34,7 +34,7 @@ export interface TabBrief {
 }
 
 export interface Brief {
-  app: "lab";
+  app: "spark";
   at: string;
   lastSeq: number;
   tab: TabBrief;
@@ -117,7 +117,7 @@ export function buildBrief(
     .slice(-EVENT_LIMIT);
 
   const brief: Brief = {
-    app: "lab",
+    app: "spark",
     at: new Date().toISOString(),
     lastSeq: journal.lastSeq,
     tab: {
@@ -163,7 +163,7 @@ function describeEntry(
 
 export function renderBrief(brief: Brief, titles = new Map<string, string>()) {
   const lines: string[] = [
-    `Lab · ${brief.tab.name} · ${brief.tab.mode}${brief.tab.active ? " · actif" : ""}`,
+    `Spark · ${brief.tab.name} · ${brief.tab.mode}${brief.tab.active ? " · actif" : ""}`,
   ];
   if (!brief.tab.tiles.length) lines.push("Aucune tuile.");
   else {

@@ -3,28 +3,42 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@font-face {
+  font-family: "Montserrat";
+  src: url("./fonts/montserrat-300-latin.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
-  --background: #f3f2ef;
-  --foreground: #252421;
-  --tile: #faf9f7;
-  --card: #faf9f7;
+  /* Signature spectrale de la charte. */
+  --spectral-violet: #a69bc8;
+  --spectral-blue: #769ac8;
+  --spectral-cyan: #7ab8c1;
+  --spectral-lime: #b4bc82;
+  --spectral-coral: #ce9e8d;
+  --background: #f2f1ec;
+  --foreground: #151719;
+  --tile: #f8f7f2;
+  --card: #fbfaf6;
   --popover: #ffffff;
   --popover-foreground: var(--foreground);
-  --primary: #33322e;
-  --primary-foreground: #f6f5f2;
-  --secondary: #e8e6e1;
+  --primary: #151719;
+  --primary-foreground: #f2f1ec;
+  --secondary: #e4e3dd;
   --secondary-foreground: var(--foreground);
-  --muted: #eae8e3;
-  --muted-foreground: #64615a;
-  --accent: #eae8e3;
+  --muted: #eae8e2;
+  --muted-foreground: #686e6d;
+  --accent: #eae8e2;
   --accent-foreground: var(--foreground);
-  --destructive: #ab323e;
-  --border: #dedbd4;
-  --scrollbar-thumb: #8d8982;
-  --input: #dedbd4;
-  --ring: #77736b;
-  --sidebar: #f6f5f2;
+  --destructive: #a24e3e;
+  --border: #c7c8c4;
+  --scrollbar-thumb: #b0b1ac;
+  --input: #c7c8c4;
+  --ring: #151719;
+  --sidebar: var(--tile);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
@@ -37,45 +51,55 @@
 
 .dark {
   color-scheme: dark;
-  --background: #121212;
-  --foreground: #eeeeeb;
-  --tile: #171717;
-  --card: #191919;
-  --popover: #1d1d1d;
-  --primary: #ececea;
-  --primary-foreground: #1b1b1b;
-  --secondary: #262626;
-  --muted: #232323;
-  --muted-foreground: #a4a4a2;
-  --accent: #2b2b2b;
-  --destructive: #f08a90;
-  --border: #2b2b2b;
-  --scrollbar-thumb: #666663;
-  --input: #3e3e3e;
-  --ring: #939391;
-  --sidebar: #181818;
+  --spectral-violet: #a69bc8;
+  --spectral-blue: #769ac8;
+  --spectral-cyan: #7ab8c1;
+  --spectral-lime: #b4bc82;
+  --spectral-coral: #ce9e8d;
+  --background: #090a0b;
+  --foreground: #f2f1ec;
+  --tile: #191c1e;
+  --card: #1f2325;
+  --popover: #24282a;
+  --primary: #f2f1ec;
+  --primary-foreground: #090a0b;
+  --secondary: #2a2e30;
+  --muted: #202426;
+  --muted-foreground: #a1a7a9;
+  --accent: #262a2c;
+  --destructive: #ce9e8d;
+  --border: #303538;
+  --scrollbar-thumb: #454b4e;
+  --input: #3a4043;
+  --ring: #f2f1ec;
+  --sidebar: var(--tile);
 }
 
 /* Verre fumé natif : le fond translucide laisse voir la vibrancy macOS. */
 .transparent {
   color-scheme: dark;
-  --background: rgba(18, 18, 18, 0.34);
-  --foreground: #f0f0ed;
-  --tile: rgba(22, 22, 22, 0.78);
-  --card: rgba(26, 26, 26, 0.68);
-  --popover: rgba(32, 32, 32, 0.94);
-  --primary: #ececea;
-  --primary-foreground: #1b1b1b;
-  --secondary: rgba(255, 255, 255, 0.14);
-  --muted: rgba(255, 255, 255, 0.08);
-  --muted-foreground: #b4b4b1;
-  --accent: rgba(255, 255, 255, 0.11);
-  --destructive: #f08a90;
-  --border: rgba(255, 255, 255, 0.13);
-  --scrollbar-thumb: rgba(255, 255, 255, 0.34);
-  --input: rgba(255, 255, 255, 0.18);
-  --ring: #a3a3a0;
-  --sidebar: rgba(20, 20, 20, 0.42);
+  --spectral-violet: #a69bc8;
+  --spectral-blue: #769ac8;
+  --spectral-cyan: #7ab8c1;
+  --spectral-lime: #b4bc82;
+  --spectral-coral: #ce9e8d;
+  --background: rgba(9, 10, 11, 0.34);
+  --foreground: #f2f1ec;
+  --tile: rgba(25, 28, 30, 0.72);
+  --card: rgba(31, 35, 37, 0.66);
+  --popover: rgba(36, 40, 42, 0.94);
+  --primary: #f2f1ec;
+  --primary-foreground: #090a0b;
+  --secondary: rgba(242, 241, 236, 0.14);
+  --muted: rgba(242, 241, 236, 0.08);
+  --muted-foreground: #b4b9ba;
+  --accent: rgba(242, 241, 236, 0.11);
+  --destructive: #e3a79a;
+  --border: rgba(242, 241, 236, 0.14);
+  --scrollbar-thumb: rgba(242, 241, 236, 0.34);
+  --input: rgba(242, 241, 236, 0.18);
+  --ring: #f2f1ec;
+  --sidebar: rgba(25, 28, 30, 0.72);
 }
 
 @theme inline {
@@ -107,10 +131,14 @@
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
+  --font-brand: "Montserrat", "Helvetica Neue", Arial, sans-serif;
 }
 
 * {
   border-color: var(--border);
+}
+::selection {
+  background: color-mix(in srgb, var(--spectral-blue) 30%, transparent);
 }
 svg.lucide {
   stroke-linecap: round;
@@ -140,7 +168,162 @@ button:focus-visible,
 svg {
   flex-shrink: 0;
 }
-.lab-shell {
+
+/* Identité Spark — natives SVG, aplats uniquement. */
+.spark-mark {
+  display: block;
+  flex-shrink: 0;
+}
+.spark-wordmark {
+  font-family: var(--font-brand);
+  font-weight: 300;
+  letter-spacing: -0.085em;
+  line-height: 1;
+}
+.spark-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+}
+.spark-lockup .spark-mark {
+  width: 1.6em;
+  height: auto;
+}
+.spark-spectrum {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.spark-spectrum i {
+  display: block;
+  flex: 1;
+  height: 2px;
+  border-radius: 1px;
+}
+.spark-kicker {
+  font-size: 8.5px;
+  letter-spacing: 0.2em;
+  line-height: 1.5;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.spark-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: var(--background);
+  color: var(--foreground);
+  transition: opacity 200ms ease-out;
+}
+.spark-splash-slot.spark-splash-exit > .spark-splash {
+  opacity: 0;
+}
+.spark-splash-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.spark-splash .spark-lockup {
+  gap: 14px;
+  font-size: 56px;
+}
+.spark-splash .spark-mark {
+  width: 74px;
+}
+.spark-splash .spark-spectrum {
+  width: 152px;
+}
+.spark-splash .spark-mark path {
+  stroke-dasharray: 180;
+  stroke-dashoffset: 180;
+  animation: spark-draw 0.62s cubic-bezier(0.2, 0.65, 0.25, 1) forwards;
+}
+.spark-splash .spark-mark-ray path {
+  animation-delay: 0.16s;
+}
+.spark-splash .spark-mark-ray path:nth-child(2) {
+  animation-delay: 0.21s;
+}
+.spark-splash .spark-mark-ray path:nth-child(3) {
+  animation-delay: 0.26s;
+}
+.spark-splash .spark-mark-ray path:nth-child(4) {
+  animation-delay: 0.31s;
+}
+.spark-splash .spark-mark-ray path:nth-child(5) {
+  animation-delay: 0.36s;
+}
+.spark-splash .spark-wordmark {
+  opacity: 0;
+  animation: spark-fade 0.45s ease-out 0.46s forwards;
+}
+.spark-splash .spark-spectrum i {
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: spark-bar 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+.spark-splash .spark-spectrum i:nth-child(1) {
+  animation-delay: 0.58s;
+}
+.spark-splash .spark-spectrum i:nth-child(2) {
+  animation-delay: 0.62s;
+}
+.spark-splash .spark-spectrum i:nth-child(3) {
+  animation-delay: 0.66s;
+}
+.spark-splash .spark-spectrum i:nth-child(4) {
+  animation-delay: 0.7s;
+}
+.spark-splash .spark-spectrum i:nth-child(5) {
+  animation-delay: 0.74s;
+}
+.spark-splash .spark-kicker {
+  opacity: 0;
+  animation: spark-fade 0.45s ease-out 0.72s forwards;
+}
+@keyframes spark-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes spark-fade {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes spark-bar {
+  to {
+    transform: scaleX(1);
+  }
+}
+.spark-empty-mark {
+  position: absolute;
+  right: 6%;
+  bottom: 9%;
+  width: clamp(150px, 30%, 280px);
+  height: auto;
+  opacity: 0.05;
+  pointer-events: none;
+}
+.dark .spark-empty-mark {
+  opacity: 0.06;
+}
+.spark-about-lockup {
+  font-size: 40px;
+  color: var(--foreground);
+}
+.spark-about-lockup .spark-mark {
+  width: 64px;
+}
+.spark-shell {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -152,19 +335,18 @@ svg {
   height: 46px;
   flex: none;
   padding: 0 12px;
-  border-bottom: 1px solid var(--border);
   background: var(--background);
 }
 .window-bar[data-macos] {
-  height: 44px;
+  height: 50px;
   padding-left: 0;
 }
-.window-bar[data-macos] .lab-tab,
+.window-bar[data-macos] .spark-tab,
 .window-bar[data-macos] > button,
 .window-bar[data-macos] .mode-control button {
   height: 30px;
 }
-.window-bar[data-macos] .lab-tab-close {
+.window-bar[data-macos] .spark-tab-close {
   width: 20px;
   height: 20px;
 }
@@ -184,7 +366,7 @@ svg {
   overflow-x: auto;
   scrollbar-width: none;
 }
-.lab-tab {
+.spark-tab {
   -webkit-user-select: none;
   user-select: none;
   display: flex;
@@ -196,28 +378,54 @@ svg {
   border-radius: var(--radius);
   color: var(--muted-foreground);
 }
-.lab-tab:hover,
-.lab-tab:focus-within {
+.spark-tab:hover,
+.spark-tab:focus-within {
   background: var(--muted);
 }
-.lab-tab:has([aria-selected="true"]) {
+.spark-tab:has([aria-selected="true"]) {
   background: var(--secondary);
   color: var(--foreground);
 }
-.lab-tab > [role="tab"] {
+.spark-tab > [role="tab"] {
   flex: 1;
   min-width: 0;
   height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 0 8px 0 11px;
   text-align: left;
 }
-.lab-tab-close {
+/* Onglet créé par un agent : un point discret, trois pulsations, puis fixe. */
+.spark-tab-dot {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--spectral-cyan);
+  animation: spark-tab-pulse 1.8s ease-in-out 3;
+}
+@keyframes spark-tab-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spark-tab-dot {
+    animation: none;
+  }
+}
+.spark-tab-close {
   margin-right: 4px;
   visibility: hidden;
 }
-.lab-tab:hover .lab-tab-close,
-.lab-tab:focus-within .lab-tab-close,
-.lab-tab:has([aria-selected="true"]) .lab-tab-close {
+.spark-tab:hover .spark-tab-close,
+.spark-tab:focus-within .spark-tab-close,
+.spark-tab:has([aria-selected="true"]) .spark-tab-close {
   visibility: visible;
 }
 .mode-control {
@@ -236,7 +444,7 @@ svg {
   background: currentColor;
   content: "";
 }
-.lab-tab-menu [data-highlighted] {
+.spark-tab-menu [data-highlighted] {
   outline: 2px solid var(--ring);
   outline-offset: -2px;
 }
@@ -257,12 +465,12 @@ svg {
     display: none;
   }
 }
-.lab-content {
+.spark-content {
   flex: 1;
   min-height: 0;
   overflow: hidden;
 }
-.lab-body {
+.spark-body {
   display: flex;
   gap: 12px;
   width: 100%;
@@ -270,7 +478,7 @@ svg {
   min-height: 0 !important;
   padding: 12px;
 }
-.lab-rail {
+.spark-rail {
   isolation: isolate;
   position: relative;
   z-index: 1;
@@ -278,25 +486,24 @@ svg {
   flex: 0 0 48px;
   height: 100%;
 }
-.lab-rail [data-slot="sidebar-container"],
-.lab-rail [data-sidebar="sidebar"] {
+.spark-rail [data-slot="sidebar-container"],
+.spark-rail [data-sidebar="sidebar"] {
   transition-duration: 120ms;
 }
-.lab-rail [data-slot="sidebar-container"] {
+.spark-rail [data-slot="sidebar-container"] {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   padding: 0;
 }
-.lab-rail [data-slot="sidebar-gap"] {
+.spark-rail [data-slot="sidebar-gap"] {
   display: none;
 }
-.lab-rail [data-sidebar="sidebar"] {
-  border: 1px solid var(--border);
+.spark-rail [data-sidebar="sidebar"] {
   border-radius: 8px;
 }
-.lab-rail [data-sidebar="menu-button"] {
+.spark-rail [data-sidebar="menu-button"] {
   height: 32px;
   width: 34px;
   padding: 0;
@@ -311,11 +518,23 @@ svg {
 }
 .layout-area {
   --scrollbar-track: var(--background);
+  position: relative;
   flex: 1;
   min-width: 0;
   min-height: 0;
   border-radius: 8px;
   overflow: hidden;
+}
+.layout-pane {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.layout-pane.is-active {
+  z-index: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 .layout-scroll {
   width: 100%;
@@ -326,7 +545,7 @@ svg {
   width: 100%;
   height: 100%;
 }
-.lab-dock {
+.spark-dock {
   --dv-group-view-background-color: var(--tile);
   --dv-tabs-and-actions-container-background-color: var(--card);
   --dv-tabs-and-actions-container-height: 33px;
@@ -348,20 +567,58 @@ svg {
     transparent
   );
   --dv-drag-over-border-color: var(--ring);
+  /* Repères de dépôt et de redimensionnement, dans les teintes de Spark. */
+  --dv-dnd-compass-color: var(--ring);
+  --dv-dnd-compass-cell-color: color-mix(in srgb, var(--ring) 22%, transparent);
+  --dv-dnd-compass-edge-cell-color: color-mix(
+    in srgb,
+    var(--ring) 10%,
+    transparent
+  );
+  --dv-dnd-compass-active-cell-color: color-mix(
+    in srgb,
+    var(--ring) 48%,
+    transparent
+  );
 }
-.lab-dock .dv-dockview {
+.spark-dock .dv-tab {
+  cursor: grab;
+}
+.spark-dock .dv-tab:active {
+  cursor: grabbing;
+}
+.spark-dock .dv-sash {
+  transition: background-color 120ms ease;
+}
+.spark-dock .dv-sash:hover {
+  background: color-mix(in srgb, var(--ring) 55%, transparent);
+}
+.spark-dock .dv-drop-target-selection {
+  border: 1px dashed var(--ring);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ring) 14%, transparent);
+}
+.spark-dock .dv-dockview {
   background-color: var(--background);
 }
-.lab-dock .dv-groupview {
-  border-radius: 7px;
+.spark-dock .dv-groupview {
+  border-radius: 8px;
   overflow: hidden;
 }
-.lab-dock .dv-tabs-and-actions-container {
-  border-bottom: 1px solid var(--border);
+/* Le contenu vit dans un overlay séparé : sans ce rayon, son fond carré
+   recouvre les coins bas arrondis du groupe. */
+.spark-dock .dv-render-overlay {
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
 }
-.lab-dock .dv-tab {
+.spark-dock .dv-tabs-and-actions-container {
+  border-bottom: 0;
+}
+.spark-dock .dv-tab {
   padding: 0;
   font-size: 12px;
+  border-radius: 6px;
+  overflow: hidden;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -421,12 +678,17 @@ svg {
   }
 }
 .layout-empty {
+  position: relative;
   width: 100%;
   height: 100%;
   gap: 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  overflow: hidden;
+  border-radius: 8px;
   background: var(--tile);
+}
+.layout-empty > :not(.spark-empty-mark) {
+  position: relative;
+  z-index: 1;
 }
 .layout-empty [data-slot="empty-icon"] {
   width: 44px;
@@ -464,9 +726,8 @@ html.transparent body {
 }
 .transparent .window-bar {
   background: transparent;
-  border-bottom-color: rgba(255, 255, 255, 0.09);
 }
-.transparent .lab-dock .dv-dockview {
+.transparent .spark-dock .dv-dockview {
   background-color: transparent;
 }
 .transparent .layout-area,
@@ -484,5 +745,8 @@ html.transparent body {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+  .spark-splash * {
+    animation-delay: 0s !important;
   }
 }

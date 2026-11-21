@@ -62,7 +62,7 @@ mod sessions {
             let sessions = self.0.clone();
             let thread_id = id.clone();
             let worker = std::thread::Builder::new()
-                .name("lab-pty".into())
+                .name("spark-pty".into())
                 .spawn(move || {
                     use std::os::fd::AsRawFd;
                     let mut bytes = [0; 8192];

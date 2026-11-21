@@ -13,6 +13,19 @@ use tauri::{AppHandle, Emitter};
 
 pub mod socket;
 
+/// Pont livré à côté de l'exécutable : Tauri y copie l'`externalBin` déclaré
+/// dans `tauri.conf.json`, en développement comme dans le bundle.
+pub fn sidecar_path(exe: &std::path::Path) -> std::path::PathBuf {
+    let name = if cfg!(windows) {
+        "spark-mcp.exe"
+    } else {
+        "spark-mcp"
+    };
+    exe.parent()
+        .unwrap_or_else(|| std::path::Path::new("."))
+        .join(name)
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Delivery {
@@ -80,7 +93,13 @@ impl McpServer {
                         if line.trim().is_empty() {
                             continue;
                         }
-                        let _ = app.emit("mcp:message", Delivery { connection: id, line });
+                        let _ = app.emit(
+                            "mcp:message",
+                            Delivery {
+                                connection: id,
+                                line,
+                            },
+                        );
                     }
                     if let Ok(mut clients) = inner.clients.lock() {
                         clients.remove(&id);
@@ -98,12 +117,36 @@ impl McpServer {
             .clients
             .lock()
             .map_err(|_| io::Error::other("Verrou MCP indisponible."))?;
-        let writer = clients.get_mut(&connection).ok_or_else(|| {
-            io::Error::new(io::ErrorKind::NotFound, "Connexion MCP inconnue.")
-        })?;
+        let writer = clients
+            .get_mut(&connection)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Connexion MCP inconnue."))?;
         writer.write_all(line.as_bytes())?;
         writer.write_all(b"\n")?;
         writer.flush()
+    }
+
+    /// Envoie une notification à tous les clients connectés. Les connexions
+    /// fermées sont retirées au passage.
+    pub fn broadcast(&self, line: &str) -> io::Result<()> {
+        let mut clients = self
+            .inner
+            .clients
+            .lock()
+            .map_err(|_| io::Error::other("Verrou MCP indisponible."))?;
+        let mut closed = Vec::new();
+        for (id, writer) in clients.iter_mut() {
+            let sent = writer
+                .write_all(line.as_bytes())
+                .and_then(|()| writer.write_all(b"\n"))
+                .and_then(|()| writer.flush());
+            if sent.is_err() {
+                closed.push(*id);
+            }
+        }
+        for id in closed {
+            clients.remove(&id);
+        }
+        Ok(())
     }
 
     pub fn shutdown(&self) {
@@ -121,7 +164,17 @@ impl McpServer {
     }
 
     pub fn reply(&self, _connection: u64, _line: &str) -> io::Result<()> {
-        Err(io::Error::new(io::ErrorKind::Unsupported, "MCP indisponible."))
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "MCP indisponible.",
+        ))
+    }
+
+    pub fn broadcast(&self, _line: &str) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "MCP indisponible.",
+        ))
     }
 
     pub fn shutdown(&self) {}
@@ -137,4 +190,41 @@ fn prepare_run_directory(run: &std::path::Path) -> io::Result<()> {
 fn set_mode(path: &std::path::Path, mode: u32) -> io::Result<()> {
     use std::os::unix::fs::PermissionsExt;
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::io::Read;
+
+    #[test]
+    fn sidecar_lives_next_to_the_executable() {
+        let exe = std::path::Path::new("/Applications/Spark.app/Contents/MacOS/Spark");
+        assert_eq!(
+            sidecar_path(exe),
+            std::path::PathBuf::from("/Applications/Spark.app/Contents/MacOS/spark-mcp")
+        );
+    }
+
+    #[test]
+    fn broadcast_reaches_every_client() {
+        let (first, mut first_peer) = std::os::unix::net::UnixStream::pair().unwrap();
+        let (second, mut second_peer) = std::os::unix::net::UnixStream::pair().unwrap();
+        let server = McpServer {
+            inner: Arc::new(Inner {
+                clients: Mutex::new(HashMap::from([(1, first), (2, second)])),
+                next: AtomicU64::new(3),
+                path: PathBuf::from("/tmp/spark-test.sock"),
+            }),
+        };
+        server
+            .broadcast("notifications/tools/list_changed")
+            .unwrap();
+        let expected = b"notifications/tools/list_changed\n";
+        let mut buffer = vec![0_u8; expected.len()];
+        first_peer.read_exact(&mut buffer).unwrap();
+        assert_eq!(buffer, expected);
+        second_peer.read_exact(&mut buffer).unwrap();
+        assert_eq!(buffer, expected);
+    }
 }

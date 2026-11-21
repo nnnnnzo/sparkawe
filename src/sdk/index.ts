@@ -6,12 +6,20 @@ export type IconComponent = ComponentType<
   SVGProps<SVGSVGElement> & { size?: number }
 >;
 
+/**
+ * Niveau de garantie d'une extension. `core` désigne le socle livré et
+ * maintenu avec Spark ; `official` une intégration à un service nommé ;
+ * `community` est réservé aux extensions tierces.
+ */
+export type ExtensionTier = "core" | "official" | "community";
+
 export interface Manifest {
   id: string;
   name: string;
   version: string;
   icon?: IconComponent;
   color?: string;
+  tier?: ExtensionTier;
   tileTypes?: readonly string[];
 }
 
@@ -41,8 +49,13 @@ export interface TileAction {
   title: string;
   description?: string;
   input?: Record<string, ActionField>;
-  /** Signale une action qui modifie des données et exige une confirmation. */
-  mutates?: boolean;
+  /** Services dont dépend l'action : absents, elle n'est pas proposée. */
+  requires?: readonly ServiceKey<unknown>[];
+  /**
+   * Signale une action qui modifie des données et exige une confirmation.
+   * Une fonction permet de décider selon l'état de la tuile.
+   */
+  mutates?: boolean | ((tile: Tile) => boolean);
   run(
     tile: Tile,
     input: Record<string, ActionValue>,
@@ -53,6 +66,13 @@ export interface TileDefinition {
   type: string;
   title: string;
   icon?: IconComponent;
+  /** Clés de données acceptées à l'ouverture. Les autres sont refusées. */
+  dataKeys?: readonly string[];
+  /**
+   * Mode d'emploi pour un agent, livré avec la tuile quand elle est lue.
+   * Texte court : les actions, les conventions, les pièges.
+   */
+  guide?: string;
   prepare?(data: Data): Data;
   /** Résumé court et lisible affiché dans le brief d'un onglet. */
   describe?(tile: Tile, surface: TileSurface): string;
@@ -86,7 +106,7 @@ export interface EventKey<Value> {
   readonly value?: Value;
 }
 
-export interface LabAPI {
+export interface SparkAPI {
   state: {
     read(): unknown;
     save(value: unknown): void;
@@ -115,8 +135,8 @@ export interface LabAPI {
   };
 }
 
-export interface LabExtension {
+export interface SparkExtension {
   manifest: Manifest;
-  activate(api: LabAPI): void | Promise<void>;
+  activate(api: SparkAPI): void | Promise<void>;
   deactivate?(): void | Promise<void>;
 }

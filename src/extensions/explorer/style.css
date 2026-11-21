@@ -1,5 +1,5 @@
 .explorer {
-  --explorer-folder: #467868;
+  --explorer-folder: #6f619c;
   display: flex;
   flex-direction: column;
   block-size: 100%;
@@ -9,7 +9,7 @@
 }
 
 :root.dark .explorer {
-  --explorer-folder: #8ac7b3;
+  --explorer-folder: #a69bc8;
 }
 
 .explorer-toolbar,

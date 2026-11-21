@@ -6,10 +6,10 @@
   "tailwind": { "config": "", "css": "src/app/theme.css", "baseColor": "neutral", "cssVariables": true, "prefix": "" },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@lab/ui/components",
-    "ui": "@lab/ui/components",
-    "utils": "@lab/ui/utils",
-    "lib": "@lab/ui",
-    "hooks": "@lab/ui/hooks"
+    "components": "@spark/ui/components",
+    "ui": "@spark/ui/components",
+    "utils": "@spark/ui/utils",
+    "lib": "@spark/ui",
+    "hooks": "@spark/ui/hooks"
   }
 }

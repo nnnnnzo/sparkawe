@@ -9,7 +9,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@lab/ui/components/dialog"
+} from "@spark/ui/components/dialog"
 
 function Command({
   className,

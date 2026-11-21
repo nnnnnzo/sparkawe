@@ -1,11 +1,11 @@
-import type { Dispose, LabExtension, Manifest } from "../sdk/index.ts";
+import type { Dispose, SparkExtension, Manifest } from "../sdk/index.ts";
 import type { ExtensionModule, TileView } from "../sdk/react.ts";
 
 export class TileViews {
   private readonly views = new Map<string, TileView>();
   get = (type: string) => this.views.get(type);
 
-  adapt(manifest: Manifest, extension: ExtensionModule): LabExtension {
+  adapt(manifest: Manifest, extension: ExtensionModule): SparkExtension {
     const disposers = new Set<Dispose>();
     return {
       manifest,

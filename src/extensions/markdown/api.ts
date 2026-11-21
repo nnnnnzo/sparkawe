@@ -17,13 +17,15 @@ export interface MarkdownDocument {
   directory?: string;
   text: string;
   dirty: boolean;
+  /** Dernier auteur du texte : un agent ne réécrit que ses propres documents. */
+  by?: "agent" | "human";
 }
 
 export interface MarkdownDocuments {
   list(): MarkdownDocument[];
   getActive(): MarkdownDocument | undefined;
   get(id: string): MarkdownDocument | undefined;
-  update(id: string, text: string): void;
+  update(id: string, text: string, by?: "agent" | "human"): void;
   save(id: string): Promise<void>;
 }
 

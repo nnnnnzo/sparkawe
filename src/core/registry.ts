@@ -3,9 +3,10 @@ import type {
   ActionValue,
   Command,
   Dispose,
-  LabAPI,
-  LabExtension,
+  SparkAPI,
+  SparkExtension,
   Manifest,
+  Tile,
   TileAction,
   TileDefinition,
   TileSurface,
@@ -15,8 +16,8 @@ import type { WorkspaceRecord } from "./workspace.ts";
 
 type Contribution<T> = T & { owner: Manifest };
 const core: Manifest = {
-  id: "lab.core",
-  name: "Lab",
+  id: "spark.core",
+  name: "Spark",
   version: "1",
 };
 
@@ -47,14 +48,18 @@ function validateAction(
   input: Record<string, ActionValue>,
 ): Record<string, ActionValue> {
   const fields: Record<string, ActionField> = action.input ?? {};
+  const expected = Object.keys(fields);
   for (const key of Object.keys(input))
-    if (!(key in fields)) throw new Error(`Argument inconnu : ${key}`);
+    if (!(key in fields))
+      throw new Error(
+        `Argument inconnu : ${key}. Attendus : ${expected.join(", ") || "aucun"}.`,
+      );
   const args: Record<string, ActionValue> = {};
   for (const [key, field] of Object.entries(fields)) {
     const value = input[key];
     if (value === undefined) {
       if (field.required === false) continue;
-      throw new Error(`Argument manquant : ${key}`);
+      throw new Error(`Argument manquant : ${key} (${field.type}).`);
     }
     if (typeof value !== field.type)
       throw new Error(
@@ -72,6 +77,8 @@ function validateAction(
 }
 
 function validateDefinition(definition: TileDefinition) {
+  if (definition.guide && definition.guide.length > 1200)
+    throw new Error(`Guide trop long : ${definition.type}`);
   for (const [name, action] of Object.entries(definition.actions ?? {})) {
     if (!ACTION_NAME.test(name))
       throw new Error(`Nom d’action invalide : ${name}`);
@@ -92,18 +99,19 @@ export class Registry {
   private readonly commands = new Map<string, Contribution<Command>>();
   private readonly services = new Map<string, unknown>();
   private readonly listeners = new Map<string, Set<(value: never) => void>>();
+  private readonly toolsListeners = new Set<() => void>();
   private readonly active = new Map<
     string,
-    { extension: LabExtension; cleanup: Dispose[]; ready: boolean }
+    { extension: SparkExtension; cleanup: Dispose[]; ready: boolean }
   >();
 
-  private readonly tabs: LabAPI["tabs"];
+  private readonly tabs: SparkAPI["tabs"];
   private readonly state: ExtensionState;
   private readonly journal: WorkspaceRecord;
   private readonly tabForTile: (tileId: string) => string | undefined;
 
   constructor(
-    tabs: LabAPI["tabs"],
+    tabs: SparkAPI["tabs"],
     state: ExtensionState,
     { record = () => {}, tabForTile = () => undefined }: RegistryOptions = {},
   ) {
@@ -114,6 +122,24 @@ export class Registry {
   }
 
   getTile = (type: string) => this.tiles.get(type);
+  /** Prévient quand la liste des types de tuiles change (extension activée ou non). */
+  subscribeTools = (listener: () => void) => {
+    this.toolsListeners.add(listener);
+    return () => {
+      this.toolsListeners.delete(listener);
+    };
+  };
+  private toolsChanged() {
+    for (const listener of this.toolsListeners) listener();
+  }
+  getTileDefinitions = () =>
+    [...this.tiles.values()].map((definition) => ({
+      type: definition.type,
+      title: definition.title,
+      owner: definition.owner,
+      actions: definition.actions,
+      guide: definition.guide,
+    }));
   surface = (tileId: string): TileSurface | undefined => {
     const surface = this.surfaces.get(tileId);
     return surface && { ...surface };
@@ -123,6 +149,18 @@ export class Registry {
   };
   getAction = (type: string, name: string) =>
     this.tiles.get(type)?.actions?.[name];
+  /** Une action n'est disponible que si les services qu'elle exige le sont. */
+  available = (action: TileAction) =>
+    (action.requires ?? []).every((key) => this.services.has(key.id));
+  /** Une écriture conditionnelle devient refusée quand la tuile le décide. */
+  mutates = (tile: Tile, action: TileAction) =>
+    typeof action.mutates === "function"
+      ? action.mutates(tile)
+      : action.mutates === true;
+  missing = (action: TileAction) =>
+    (action.requires ?? [])
+      .filter((key) => !this.services.has(key.id))
+      .map((key) => key.id);
   getActions = () =>
     [...this.tiles.values()].flatMap((definition) =>
       Object.entries(definition.actions ?? {}).map(([name, action]) => ({
@@ -150,6 +188,11 @@ export class Registry {
     if (!tile) throw new Error(`Tuile inconnue : ${tileId}`);
     const action = this.getAction(tile.type, name);
     if (!action) throw new Error(`Action indisponible : ${tile.type}.${name}`);
+    const missing = this.missing(action);
+    if (missing.length)
+      throw new Error(
+        `Action indisponible : ${tile.type}.${name} dépend de ${missing.join(", ")}.`,
+      );
     const args = validateAction(action, input);
     const result = await action.run(tile, args);
     const json = JSON.stringify(result ?? null);
@@ -174,7 +217,7 @@ export class Registry {
   registerCommand = (command: Command) =>
     register(this.commands, command.id, { ...command, owner: core });
 
-  async activate(extension: LabExtension) {
+  async activate(extension: SparkExtension) {
     const owner = extension.manifest;
     const record = { extension, cleanup: [] as Dispose[], ready: false };
     const remove = register(this.active, owner.id, record);
@@ -187,7 +230,7 @@ export class Registry {
       record.cleanup.push(dispose);
       return dispose;
     };
-    const api: LabAPI = {
+    const api: SparkAPI = {
       state: {
         read: () => (pending ? pending.value : this.state.read(owner.id)),
         save: (value) => {
@@ -201,10 +244,15 @@ export class Registry {
         register: (definition) =>
           track(() => {
             validateDefinition(definition);
-            return register(this.tiles, definition.type, {
+            const remove = register(this.tiles, definition.type, {
               ...definition,
               owner,
             });
+            this.toolsChanged();
+            return () => {
+              remove();
+              this.toolsChanged();
+            };
           }),
         publish: (tileId, surface) => {
           const tile = this.tabs

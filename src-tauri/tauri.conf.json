@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Lab",
+  "productName": "Spark",
   "version": "0.1.0",
-  "identifier": "fr.lab.desktop",
+  "identifier": "fr.spark.desktop",
   "build": {
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run sidecar && npm run dev",
+    "beforeBuildCommand": "npm run build && npm run sidecar:release",
     "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../dist"
   },
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Lab",
+        "title": "Spark",
         "width": 1280,
         "height": 800,
         "minWidth": 640,
@@ -28,12 +28,22 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:"
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost asset: http://asset.localhost https://api.openalex.org; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http://asset.localhost; font-src 'self' data:; worker-src 'self' blob:",
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$APPCACHE/pdf/**",
+          "$APPCACHE/openalex/**"
+        ]
+      }
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
+    "externalBin": [
+      "binaries/spark-mcp"
+    ],
     "resources": {
       "src/terminal/zsh/vendor/COPYING.md": "licenses/zsh-syntax-highlighting.md"
     },

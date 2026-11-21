@@ -63,7 +63,7 @@ impl ZshStartup {
                 || env::var_os("ZDOTDIR"),
                 |(_, value)| value.map(OsString::from),
             );
-        let original_key = "LAB_ZSH_ORIGINAL_ZDOTDIR";
+        let original_key = "SPARK_ZSH_ORIGINAL_ZDOTDIR";
         command.env("ZDOTDIR", &startup.0);
         if let Some(original) = original {
             command.env(original_key, original);
@@ -74,7 +74,7 @@ impl ZshStartup {
     }
 
     fn create() -> io::Result<Self> {
-        let directory = env::temp_dir().join(format!("lab-zsh-{}", uuid::Uuid::new_v4()));
+        let directory = env::temp_dir().join(format!("spark-zsh-{}", uuid::Uuid::new_v4()));
         DirBuilder::new().mode(0o700).create(&directory)?;
         let startup = Self(directory);
         fs::write(startup.0.join(".zshenv"), BOOTSTRAP)?;

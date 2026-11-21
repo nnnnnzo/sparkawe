@@ -1,16 +1,16 @@
 //! Pont MCP : relaie les messages stdio d'un client (Claude Code, Cursor…)
-//! vers le socket local de l'application Lab.
+//! vers le socket local de l'application Spark.
 //!
 //! Le pont ne comprend pas le protocole JSON-RPC. Il transporte les lignes et,
-//! quand Lab est fermé, répond de quoi garder le serveur enregistré côté client :
+//! quand Spark est fermé, répond de quoi garder le serveur enregistré côté client :
 //! poignée de main locale, dernière liste d'outils connue, erreur explicite.
 
 use std::io::{self, BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
-use lab_lib::mcp::socket;
 use serde_json::{json, Value};
+use spark_lib::mcp::socket;
 
 fn main() {
     let stdin = io::stdin();
@@ -20,21 +20,22 @@ fn main() {
         if line.trim().is_empty() {
             continue;
         }
-        let Some(reply) = handle(&line) else {
+        let Some(reply) = handle(&line, &mut stdout) else {
             continue;
         };
-        if stdout
-            .write_all(reply.as_bytes())
-            .and_then(|()| stdout.write_all(b"\n"))
-            .and_then(|()| stdout.flush())
-            .is_err()
-        {
+        if write_line(&mut stdout, &reply).is_err() {
             break;
         }
     }
 }
 
-fn handle(line: &str) -> Option<String> {
+fn write_line(out: &mut impl Write, line: &str) -> io::Result<()> {
+    out.write_all(line.as_bytes())?;
+    out.write_all(b"\n")?;
+    out.flush()
+}
+
+fn handle(line: &str, out: &mut impl Write) -> Option<String> {
     let message: Value = match serde_json::from_str(line) {
         Ok(value) => value,
         Err(_) => return Some(error(&Value::Null, -32700, "JSON invalide.")),
@@ -54,11 +55,38 @@ fn handle(line: &str) -> Option<String> {
     // Une notification n'attend pas de réponse.
     let id = id?;
     let mut reader = BufReader::new(stream);
-    let mut response = String::new();
-    match reader.read_line(&mut response) {
-        Ok(0) => Some(error(&id, -32000, "Lab a fermé la connexion MCP.")),
-        Ok(_) => Some(response.trim_end().to_string()),
+    match read_reply(&mut reader, &id, out) {
+        Ok(reply) => Some(reply),
+        Err(failure) if failure.kind() == io::ErrorKind::UnexpectedEof => {
+            Some(error(&id, -32000, "Spark a fermé la connexion MCP."))
+        }
         Err(_) => Some(error(&id, -32000, "Lecture MCP impossible.")),
+    }
+}
+
+/// Lit jusqu'à la réponse portant notre `id`. Les notifications du serveur
+/// (par exemple `tools/list_changed`) sont relayées immédiatement : les
+/// prendre pour la réponse bloquerait le client.
+fn read_reply(reader: &mut impl BufRead, id: &Value, out: &mut impl Write) -> io::Result<String> {
+    loop {
+        let mut line = String::new();
+        if reader.read_line(&mut line)? == 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "Connexion fermée.",
+            ));
+        }
+        let trimmed = line.trim_end();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Ok(value) = serde_json::from_str::<Value>(trimmed) else {
+            return Ok(trimmed.to_string());
+        };
+        if value.get("id") == Some(id) {
+            return Ok(trimmed.to_string());
+        }
+        write_line(out, trimmed)?;
     }
 }
 
@@ -99,8 +127,8 @@ fn offline(id: &Value, method: &str, message: &Value) -> String {
                 json!({
                     "protocolVersion": version,
                     "capabilities": { "tools": {} },
-                    "serverInfo": { "name": "lab", "version": "0.1.0" },
-                    "instructions": "Lab n’est pas lancé. Ouvrez l’application puis relancez la demande."
+                    "serverInfo": { "name": "spark", "version": "0.1.0" },
+                    "instructions": "Spark n’est pas lancé. Ouvrez l’application puis relancez la demande."
                 }),
             )
         }
@@ -111,8 +139,8 @@ fn offline(id: &Value, method: &str, message: &Value) -> String {
             "id": id,
             "error": {
                 "code": -32000,
-                "message": "Lab n’est pas lancé. Ouvrez l’application puis réessayez.",
-                "data": { "code": "lab_not_running" }
+                "message": "Spark n’est pas lancé. Ouvrez l’application puis réessayez.",
+                "data": { "code": "spark_not_running" }
             }
         })
         .to_string(),
@@ -132,6 +160,39 @@ fn result(id: &Value, value: Value) -> String {
 }
 
 fn error(id: &Value, code: i64, message: &str) -> String {
-    json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } })
-        .to_string()
+    json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } }).to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn forwards_notifications_before_the_reply() {
+        let input = concat!(
+            "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/tools/list_changed\"}\n",
+            "{\"jsonrpc\":\"2.0\",\"id\":7,\"result\":{\"ok\":true}}\n",
+        );
+        let mut reader = BufReader::new(Cursor::new(input));
+        let mut forwarded = Vec::new();
+        let reply = read_reply(&mut reader, &json!(7), &mut forwarded).unwrap();
+        let forwarded = String::from_utf8(forwarded).unwrap();
+        assert!(forwarded.contains("tools/list_changed"));
+        assert!(!forwarded.contains("\"id\":7"));
+        assert!(reply.contains("\"id\":7"));
+    }
+
+    #[test]
+    fn relays_a_reply_for_another_request() {
+        let input = concat!(
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n",
+            "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"done\":true}}\n",
+        );
+        let mut reader = BufReader::new(Cursor::new(input));
+        let mut forwarded = Vec::new();
+        let reply = read_reply(&mut reader, &json!(2), &mut forwarded).unwrap();
+        assert!(reply.contains("\"id\":2"));
+        assert!(String::from_utf8(forwarded).unwrap().contains("\"id\":1"));
+    }
 }

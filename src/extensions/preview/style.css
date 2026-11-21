@@ -1,0 +1,136 @@
+.preview-pdf {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--tile);
+  color: var(--foreground);
+}
+
+.preview-pdf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.preview-pdf-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.preview-pdf-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.preview-pdf-actions button {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius);
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.preview-pdf-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.preview-pdf-page {
+  background: #fff;
+  box-shadow: 0 1px 8px rgb(0 0 0 / 0.18);
+}
+
+.preview-pdf-page canvas {
+  display: block;
+}
+
+.preview-pdf-meta {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.preview-pdf-note {
+  padding: 12px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.preview-pdf-error {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  color: var(--destructive);
+  font-size: 12px;
+}
+
+.preview-pdf-error button {
+  align-self: flex-start;
+  border-radius: var(--radius);
+  background: var(--secondary);
+  color: var(--foreground);
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.preview-pdf-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-self: center;
+  width: min(420px, 100%);
+  margin: auto;
+  padding: 24px;
+}
+
+.preview-pdf-empty h2 {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.preview-pdf-empty p {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.preview-pdf-empty input {
+  background: var(--muted);
+  color: var(--foreground);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.preview-pdf-empty input:focus-visible {
+  border-color: var(--ring);
+}
+
+.preview-pdf-empty button {
+  align-self: flex-start;
+  border-radius: var(--radius);
+  background: var(--secondary);
+  color: var(--foreground);
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.preview-pdf-empty button:disabled {
+  opacity: 0.6;
+}

@@ -19,14 +19,15 @@ import { createPortal } from "react-dom";
 import type { Runtime } from "../app/runtime.ts";
 import { report } from "./errors.ts";
 import type { Tab, WorkspaceState } from "../core/workspace.ts";
-import { Button } from "@lab/ui/components/button";
+import { registerLayoutHandler } from "./layoutBridge.ts";
+import { Button } from "@spark/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@lab/ui/components/dropdown-menu";
+} from "@spark/ui/components/dropdown-menu";
 import {
   Empty,
   EmptyContent,
@@ -34,13 +35,14 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@lab/ui/components/empty";
+} from "@spark/ui/components/empty";
 import { Icon } from "./icons.tsx";
+import { SparkMark } from "../shared/brand/index.tsx";
 
 const sideMinimum = 220;
 const dockTheme = {
-  name: "lab",
-  className: "lab-dock",
+  name: "spark",
+  className: "spark-dock",
   gap: 10,
   dndOverlayBorder: "1px solid var(--ring)",
 };
@@ -63,7 +65,7 @@ function Panel({ api }: IDockviewPanelProps) {
       if (target.parentNode === host) target.remove();
     };
   }, [target]);
-  return <div className="tile-host" ref={ref} />;
+  return <div className="tile-host" data-tile-id={api.id} ref={ref} />;
 }
 
 const directions = {
@@ -146,41 +148,239 @@ const components = { tile: Panel };
 const tabComponents = { tile: PanelTab };
 const Watermark = () => null;
 
-function syncPanels(api: DockviewApi, tab: Tab, runtime: Runtime) {
+/**
+ * La tuile qui offre le plus de place. En tiling, on la coupe en deux plutôt
+ * que de couper la dernière arrivée : les tuiles restent larges au lieu de
+ * finir en bandes de plus en plus étroites.
+ */
+function largestGroup(api: DockviewApi) {
+  let best = api.groups[0];
+  let bestArea = -1;
+  for (const group of api.groups) {
+    const rect = group.element.getBoundingClientRect();
+    const area = rect.width * rect.height;
+    if (area > bestArea) {
+      best = group;
+      bestArea = area;
+    }
+  }
+  return best;
+}
+
+function tilingPosition(api: DockviewApi) {
+  const group = largestGroup(api);
+  if (!group) return undefined;
+  const rect = group.element.getBoundingClientRect();
+  const panel = group.activePanel ?? group.panels[0];
+  if (!panel) return undefined;
+  return {
+    referencePanel: panel,
+    direction:
+      rect.width >= rect.height ? ("right" as const) : ("below" as const),
+  };
+}
+
+function syncPanels(
+  api: DockviewApi,
+  tab: Tab,
+  runtime: Runtime,
+  beforeMutate?: () => void,
+  afterMutate?: () => void,
+) {
   const ids = new Set(tab.tiles.map((tile) => tile.id));
   for (const panel of api.panels) {
-    if (!ids.has(panel.id)) api.removePanel(panel);
+    if (!ids.has(panel.id)) {
+      beforeMutate?.();
+      try {
+        api.removePanel(panel);
+      } finally {
+        afterMutate?.();
+      }
+    }
   }
   for (const tile of tab.tiles) {
     if (api.getPanel(tile.id)) continue;
     const last = api.panels.at(-1);
-    const ref = tab.mode === "side" ? last : (api.activePanel ?? last);
-    const position = ref
-      ? {
-          referencePanel: ref,
-          direction:
-            tab.mode === "side" || api.panels.length % 2
-              ? ("right" as const)
-              : ("below" as const),
-        }
-      : undefined;
-    api.addPanel({
-      id: tile.id,
-      component: "tile",
-      tabComponent: "tile",
-      title: runtime.registry.getTile(tile.type)?.title ?? "Tuile indisponible",
-      position,
-      minimumWidth: tab.mode === "side" ? sideMinimum : 120,
-      minimumHeight: 84,
-    });
+    let position;
+    if (tab.mode === "tiling") {
+      position = tilingPosition(api);
+    } else {
+      const ref = tab.mode === "side" ? last : (api.activePanel ?? last);
+      position = ref
+        ? {
+            referencePanel: ref,
+            direction:
+              tab.mode === "stack" ? ("below" as const) : ("right" as const),
+          }
+        : undefined;
+    }
+    beforeMutate?.();
+    try {
+      api.addPanel({
+        id: tile.id,
+        component: "tile",
+        tabComponent: "tile",
+        title:
+          runtime.registry.getTile(tile.type)?.title ?? "Tuile indisponible",
+        position,
+        minimumWidth: tab.mode === "side" ? sideMinimum : 120,
+        minimumHeight: 84,
+      });
+    } finally {
+      afterMutate?.();
+    }
   }
   if (tab.focused) api.getPanel(tab.focused)?.api.setActive();
 }
 
-function Engine({ tab, runtime }: { tab: Tab; runtime: Runtime }) {
+/**
+ * FLIP sur les groupes : quand une tuile se déplace ou qu'une autre doit lui
+ * laisser la place, le groupe glisse vers sa nouvelle position. Le
+ * redimensionnement par poignée n'est pas une mutation structurelle et reste
+ * donc direct.
+ */
+function animateGroupMovement(api: DockviewApi, enabled: () => boolean) {
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let before: Map<string, DOMRect> | undefined;
+  let frame: number | undefined;
+  const running = new Set<Animation>();
+  const timers = new Set<number>();
+  const frameDuration = 220;
+  const will = api.onWillMutateLayout(() => {
+    // Une mutation peut arriver pendant une animation précédente : on la
+    // termine avant de mesurer, sinon le delta part d'une position déjà
+    // transformée et les tuiles sautent.
+    for (const animation of running) animation.finish();
+    running.clear();
+    // Ajouter ou retirer une tuile est structurel : on pose la nouvelle
+    // disposition d'un coup, sans faire glisser puis réapparaître les autres.
+    if (!enabled() || before || reduced.matches) return;
+    before = new Map();
+    for (const group of api.groups) {
+      const element = group.element.parentElement ?? group.element;
+      before.set(group.id, element.getBoundingClientRect());
+    }
+  });
+  const did = api.onDidMutateLayout(() => {
+    if (!before || frame !== undefined) return;
+    frame = requestAnimationFrame(() => {
+      const previous = before ?? new Map<string, DOMRect>();
+      before = undefined;
+      frame = undefined;
+      const movements: {
+        element: Element;
+        groupElement: Element;
+        panels: Set<string>;
+        dx: number;
+        dy: number;
+      }[] = [];
+      for (const group of api.groups) {
+        const from = previous.get(group.id);
+        if (!from) continue;
+        const element = group.element.parentElement ?? group.element;
+        const rect = element.getBoundingClientRect();
+        const dx = from.left - rect.left;
+        const dy = from.top - rect.top;
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+        movements.push({
+          element,
+          groupElement: group.element,
+          panels: new Set(group.panels.map((panel) => panel.id)),
+          dx,
+          dy,
+        });
+      }
+      if (!movements.length) return;
+      for (const movement of movements) {
+        const animation = movement.element.animate(
+          [
+            { transform: `translate(${movement.dx}px, ${movement.dy}px)` },
+            { transform: "translate(0px, 0px)" },
+          ],
+          {
+            duration: frameDuration,
+            easing: "cubic-bezier(0.2, 0.7, 0.2, 1)",
+          },
+        );
+        running.add(animation);
+        animation.finished
+          .catch(() => {})
+          .finally(() => running.delete(animation));
+      }
+      // Le contenu des tuiles vit dans des overlays séparés. On les masque
+      // pendant le glissement, on répare leur boîte à la fin (Dockview peut
+      // avoir échantillonné une position intermédiaire du cadre), puis on les
+      // fait revenir en fondu à la bonne place.
+      const root =
+        (api.groups[0]?.element.closest(".dv-shell") as Element | null) ??
+        document.body;
+      const repairs: { content: Element; overlays: Element[] }[] = [];
+      for (const movement of movements) {
+        const content = movement.groupElement.querySelector(
+          ":scope > .dv-content-container",
+        );
+        const overlays = [
+          ...root.querySelectorAll(".dv-render-overlay"),
+        ].filter((overlay) => {
+          const tileId = overlay
+            .querySelector("[data-tile-id]")
+            ?.getAttribute("data-tile-id");
+          return typeof tileId === "string" && movement.panels.has(tileId);
+        });
+        if (!content || !overlays.length) continue;
+        repairs.push({ content, overlays });
+        for (const overlay of overlays) {
+          overlay.animate(
+            [
+              { opacity: 0, offset: 0 },
+              { opacity: 0, offset: 0.82 },
+              { opacity: 1, offset: 1 },
+            ],
+            { duration: 340, easing: "linear" },
+          );
+        }
+      }
+      if (!repairs.length) return;
+      const timer = window.setTimeout(() => {
+        timers.delete(timer);
+        const shell = root.getBoundingClientRect();
+        for (const { content, overlays } of repairs) {
+          const rect = content.getBoundingClientRect();
+          for (const overlay of overlays) {
+            const element = overlay as HTMLElement;
+            element.style.left = `${rect.left - shell.left}px`;
+            element.style.top = `${rect.top - shell.top}px`;
+            element.style.width = `${rect.width}px`;
+            element.style.height = `${rect.height}px`;
+          }
+        }
+      }, frameDuration + 20);
+      timers.add(timer);
+    });
+  });
+  return () => {
+    will.dispose();
+    did.dispose();
+    if (frame !== undefined) cancelAnimationFrame(frame);
+    for (const timer of timers) window.clearTimeout(timer);
+    timers.clear();
+  };
+}
+
+function Engine({
+  tab,
+  runtime,
+  active,
+}: {
+  tab: Tab;
+  runtime: Runtime;
+  active: boolean;
+}) {
   const [api, setApi] = useState<DockviewApi>();
   const live = useRef(tab);
   const updating = useRef(false);
+  const skipAnimation = useRef(false);
+  const host = useRef<HTMLDivElement>(null);
   live.current = tab;
   function ready(event: DockviewReadyEvent) {
     const saved = tab.layouts[tab.mode];
@@ -212,7 +412,7 @@ function Engine({ tab, runtime }: { tab: Tab; runtime: Runtime }) {
     };
     const layout = api.onDidLayoutChange(persist);
     const focus = api.onDidActivePanelChange(({ panel }) => {
-      if (!panel || updating.current) return;
+      if (!active || !panel || updating.current) return;
       const current = runtime.workspace
         .get()
         .tabs.find((item) => item.id === tab.id);
@@ -229,13 +429,187 @@ function Engine({ tab, runtime }: { tab: Tab; runtime: Runtime }) {
       layout.dispose();
       focus.dispose();
     };
-  }, [api, runtime, tab.id, tab.mode]);
+  }, [api, runtime, tab.id, tab.mode, active]);
+  useEffect(() => {
+    if (!api || !active) return;
+    return registerLayoutHandler((command) => {
+      if (command.type === "undo" || command.type === "redo") {
+        if (!historyControls.current)
+          throw new Error("Historique de disposition indisponible.");
+        if (command.type === "undo") historyControls.current.undo();
+        else historyControls.current.redo();
+        return;
+      }
+      if (command.type === "move") {
+        const moving = api.getPanel(command.tile);
+        const target = api.getPanel(command.target);
+        if (!moving)
+          throw new Error(`Tuile absente de l’onglet actif : ${command.tile}`);
+        if (!target) throw new Error(`Tuile cible absente : ${command.target}`);
+        if (moving === target)
+          throw new Error("Une tuile ne peut pas être déplacée sur elle-même.");
+        moving.api.moveTo({
+          group: target.group,
+          position: command.side,
+          skipSetActive: true,
+        });
+        return;
+      }
+      const panel = api.getPanel(command.tile);
+      if (!panel)
+        throw new Error(`Tuile absente de l’onglet actif : ${command.tile}`);
+      const element = host.current;
+      if (!element) throw new Error("Onglet indisponible.");
+      const size: { width?: number; height?: number } = {};
+      if (command.width !== undefined)
+        size.width = Math.max(
+          120,
+          Math.round(element.clientWidth * command.width),
+        );
+      if (command.height !== undefined)
+        size.height = Math.max(
+          84,
+          Math.round(element.clientHeight * command.height),
+        );
+      if (size.width === undefined && size.height === undefined)
+        throw new Error("Indiquez une largeur ou une hauteur.");
+      panel.group.api.setSize(size);
+    });
+  }, [api, active]);
+
+  const historyControls = useRef<
+    { undo: () => void; redo: () => void } | undefined
+  >(undefined);
+
+  useEffect(() => {
+    if (!api || !active) return;
+    const state = {
+      past: [api.toJSON()] as SerializedDockview[],
+      future: [] as SerializedDockview[],
+      applying: false,
+      timer: undefined as number | undefined,
+      release: undefined as number | undefined,
+    };
+    const samePanels = () => {
+      const panels = api.panels
+        .map((panel) => panel.id)
+        .sort()
+        .join(",");
+      const tiles = live.current.tiles
+        .map((tile) => tile.id)
+        .sort()
+        .join(",");
+      return panels === tiles;
+    };
+    const flush = () => {
+      if (state.timer !== undefined) {
+        window.clearTimeout(state.timer);
+        state.timer = undefined;
+      }
+      if (state.applying) return;
+      const serialized = api.toJSON();
+      // Une ouverture ou une fermeture de tuile remet l'historique à zéro :
+      // annuler ne doit jamais ressusciter une tuile absente du workspace.
+      if (!samePanels()) {
+        state.past = [serialized];
+        state.future = [];
+        return;
+      }
+      const last = state.past[state.past.length - 1];
+      if (last && JSON.stringify(last) === JSON.stringify(serialized)) return;
+      state.past.push(serialized);
+      if (state.past.length > 50) state.past.shift();
+      state.future = [];
+    };
+    const schedule = () => {
+      if (state.applying) return;
+      if (state.timer !== undefined) window.clearTimeout(state.timer);
+      state.timer = window.setTimeout(flush, 250);
+    };
+    const restore = (snapshot: SerializedDockview) => {
+      state.applying = true;
+      if (state.timer !== undefined) {
+        window.clearTimeout(state.timer);
+        state.timer = undefined;
+      }
+      try {
+        api.fromJSON(snapshot, { reuseExistingPanels: true });
+      } finally {
+        // Le changement de disposition arrive de façon asynchrone : on ignore
+        // les événements le temps qu'il retombe, sinon il vide la pile redo.
+        if (state.release !== undefined) window.clearTimeout(state.release);
+        state.release = window.setTimeout(() => {
+          state.applying = false;
+        }, 300);
+      }
+    };
+    const undo = () => {
+      flush();
+      if (state.past.length < 2) return;
+      const current = state.past.pop()!;
+      state.future.push(current);
+      restore(state.past[state.past.length - 1]);
+    };
+    const redo = () => {
+      const next = state.future.pop();
+      if (!next) return;
+      state.past.push(next);
+      restore(next);
+    };
+    historyControls.current = { undo, redo };
+    const changed = api.onDidLayoutChange(schedule);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest(
+          "input, textarea, select, [contenteditable='true'], .cm-editor, .xterm",
+        )
+      )
+        return;
+      const key = event.key.toLowerCase();
+      if (key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (!event.metaKey && event.ctrlKey && key === "y") {
+        event.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      changed.dispose();
+      window.removeEventListener("keydown", onKeyDown);
+      if (state.timer !== undefined) window.clearTimeout(state.timer);
+      if (state.release !== undefined) window.clearTimeout(state.release);
+      if (historyControls.current?.undo === undo)
+        historyControls.current = undefined;
+    };
+  }, [api, active]);
+
+  useEffect(() => {
+    if (!api) return;
+    return animateGroupMovement(api, () => !skipAnimation.current);
+  }, [api]);
 
   useLayoutEffect(() => {
     if (!api) return;
     updating.current = true;
     try {
-      syncPanels(api, live.current, runtime);
+      syncPanels(
+        api,
+        live.current,
+        runtime,
+        () => {
+          skipAnimation.current = true;
+        },
+        () => {
+          skipAnimation.current = false;
+        },
+      );
     } finally {
       updating.current = false;
     }
@@ -257,6 +631,7 @@ function Engine({ tab, runtime }: { tab: Tab; runtime: Runtime }) {
     <div className="layout-scroll">
       <div
         className="layout-engine"
+        ref={host}
         style={{
           minWidth:
             tab.mode === "side"
@@ -272,7 +647,6 @@ function Engine({ tab, runtime }: { tab: Tab; runtime: Runtime }) {
           tabComponents={tabComponents}
           onReady={ready}
           watermarkComponent={Watermark}
-          disableDnd={tab.mode === "side"}
           disableFloatingGroups
           defaultRenderer="always"
         />
@@ -334,12 +708,29 @@ export function WorkspaceLayout({
           tile.id,
         );
       })}
-      {tab.tiles.length ? (
-        <context.Provider value={{ runtime, tab, mounts }}>
-          <Engine key={`${tab.id}:${tab.mode}`} tab={tab} runtime={runtime} />
-        </context.Provider>
-      ) : (
+      {state.tabs.map((item) =>
+        item.tiles.length ? (
+          <div
+            key={`${item.id}:${item.mode}`}
+            className={
+              item.id === tab.id ? "layout-pane is-active" : "layout-pane"
+            }
+            aria-hidden={item.id !== tab.id}
+            inert={item.id !== tab.id}
+          >
+            <context.Provider value={{ runtime, tab: item, mounts }}>
+              <Engine
+                tab={item}
+                runtime={runtime}
+                active={item.id === tab.id}
+              />
+            </context.Provider>
+          </div>
+        ) : null,
+      )}
+      {tab.tiles.length === 0 && (
         <Empty className="layout-empty">
+          <SparkMark variant="mono" className="spark-empty-mark" />
           <EmptyHeader>
             <EmptyMedia variant="icon" aria-hidden>
               <LayoutGrid strokeWidth={1.5} />
@@ -355,14 +746,14 @@ export function WorkspaceLayout({
           </EmptyHeader>
           <EmptyContent>
             {hasTileCommands ? (
-              <Button variant="outline" size="sm" onClick={palette}>
+              <Button variant="secondary" size="sm" onClick={palette}>
                 <Plus data-icon="inline-start" /> Ajouter une tuile
                 <kbd className="shortcut-key" aria-hidden>
                   {shortcut}
                 </kbd>
               </Button>
             ) : (
-              <Button variant="outline" size="sm" onClick={manageExtensions}>
+              <Button variant="secondary" size="sm" onClick={manageExtensions}>
                 <Blocks data-icon="inline-start" /> Gérer les extensions
               </Button>
             )}

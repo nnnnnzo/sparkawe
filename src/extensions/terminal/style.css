@@ -1,43 +1,50 @@
 :root {
-  --terminal-black: #262421;
-  --terminal-red: #a22f40;
-  --terminal-green: #276237;
-  --terminal-yellow: #76530d;
-  --terminal-blue: #2b59a4;
-  --terminal-magenta: #873e90;
-  --terminal-cyan: #19656b;
-  --terminal-white: #d7d3cb;
-  --terminal-bright-black: #716e67;
-  --terminal-bright-red: #b9394d;
-  --terminal-bright-green: #28713e;
-  --terminal-bright-yellow: #8b5b10;
-  --terminal-bright-blue: #3269ba;
-  --terminal-bright-magenta: #9749a2;
-  --terminal-bright-cyan: #1d707b;
-  --terminal-bright-white: #fffefa;
+  /* Palette ANSI accordée au spectre Spark, contraste vérifié sur --tile. */
+  --terminal-black: #24282a;
+  --terminal-red: #a24e3e;
+  --terminal-green: #4f6b3f;
+  --terminal-yellow: #7a5f1c;
+  --terminal-blue: #33579b;
+  --terminal-magenta: #6b579c;
+  --terminal-cyan: #1e6870;
+  --terminal-white: #d9d8d2;
+  --terminal-bright-black: #6d7473;
+  --terminal-bright-red: #b55f4d;
+  --terminal-bright-green: #5c7c49;
+  --terminal-bright-yellow: #8d6f24;
+  --terminal-bright-blue: #3d66b3;
+  --terminal-bright-magenta: #7c66b0;
+  --terminal-bright-cyan: #257a83;
+  --terminal-bright-white: #151719;
+  --terminal-cursor: #1e6870;
+  --terminal-selection: rgba(118, 154, 200, 0.26);
 }
 
 :root.dark {
-  --terminal-black: #242323;
-  --terminal-red: #ed8991;
-  --terminal-green: #87c991;
-  --terminal-yellow: #dfb875;
-  --terminal-blue: #88b3f3;
-  --terminal-magenta: #ca9bdf;
-  --terminal-cyan: #80c9cc;
-  --terminal-white: #d1cec8;
-  --terminal-bright-black: #8b8781;
-  --terminal-bright-red: #ffa3a9;
-  --terminal-bright-green: #a5dfa8;
-  --terminal-bright-yellow: #f3d39a;
-  --terminal-bright-blue: #a6c9fa;
-  --terminal-bright-magenta: #e0b4ee;
-  --terminal-bright-cyan: #a3e1e0;
-  --terminal-bright-white: #f5f3ee;
+  --terminal-black: #24282a;
+  /* Les cinq teintes ANSI viennent directement du spectre de la charte. */
+  --terminal-red: var(--spectral-coral);
+  --terminal-green: var(--spectral-lime);
+  --terminal-yellow: #d9c48f;
+  --terminal-blue: var(--spectral-blue);
+  --terminal-magenta: var(--spectral-violet);
+  --terminal-cyan: var(--spectral-cyan);
+  --terminal-white: #f2f1ec;
+  --terminal-bright-black: #8b9194;
+  --terminal-bright-red: #e0b8a9;
+  --terminal-bright-green: #c9d09b;
+  --terminal-bright-yellow: #e8d7ae;
+  --terminal-bright-blue: #93b1d8;
+  --terminal-bright-magenta: #bdb3d9;
+  --terminal-bright-cyan: #9acdd3;
+  --terminal-bright-white: #f8f7f2;
+  --terminal-cursor: var(--spectral-cyan);
+  --terminal-selection: rgba(118, 154, 200, 0.32);
 }
 
 .terminal-view {
   height: 100%;
-  padding: 8px 9px 4px;
+  /* La dernière ligne ne doit jamais toucher le bord bas de la tuile. */
+  padding: 8px 9px 12px;
   background: var(--tile);
 }

@@ -6,6 +6,7 @@ import {
   LayoutGrid,
   Moon,
   Plus,
+  Rows3,
   ScrollText,
   Search,
   Sun,
@@ -26,7 +27,7 @@ import type { Runtime } from "../app/runtime.ts";
 import { report } from "./errors.ts";
 import type { Mode, Tab } from "../core/workspace.ts";
 import type { Command } from "../sdk/index.ts";
-import { Button } from "@lab/ui/components/button";
+import { Button } from "@spark/ui/components/button";
 import {
   Command as CommandMenu,
   CommandEmpty,
@@ -34,7 +35,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@lab/ui/components/command";
+} from "@spark/ui/components/command";
 import {
   Dialog,
   DialogContent,
@@ -42,7 +43,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@lab/ui/components/dialog";
+} from "@spark/ui/components/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,15 +52,18 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@lab/ui/components/dropdown-menu";
-import { Input } from "@lab/ui/components/input";
-import { SidebarProvider } from "@lab/ui/components/sidebar";
-import { ToggleGroup, ToggleGroupItem } from "@lab/ui/components/toggle-group";
+} from "@spark/ui/components/dropdown-menu";
+import { Input } from "@spark/ui/components/input";
+import { SidebarProvider } from "@spark/ui/components/sidebar";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@spark/ui/components/toggle-group";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@lab/ui/components/tooltip";
+} from "@spark/ui/components/tooltip";
 import { Icon } from "./icons.tsx";
 import { WorkspaceLayout } from "./layout.tsx";
 import { Rail } from "./rail.tsx";
@@ -67,7 +71,7 @@ import { Rail } from "./rail.tsx";
 const macOS = navigator.platform.toLowerCase().includes("mac");
 const modifier = macOS ? "⌘" : "Ctrl+";
 
-export function LabShell({ runtime }: { runtime: Runtime }) {
+export function SparkShell({ runtime }: { runtime: Runtime }) {
   const { workspace, registry } = runtime;
   const state = useSyncExternalStore(workspace.subscribe, workspace.get);
   const settings = useSyncExternalStore(
@@ -82,6 +86,32 @@ export function LabShell({ runtime }: { runtime: Runtime }) {
   const [extensionHub, setExtensionHub] = useState(false);
   const [rename, setRename] = useState<Tab>();
   const [brief, setBrief] = useState(false);
+  const [unread, setUnread] = useState<ReadonlySet<string>>(new Set());
+  // Un onglet créé par un agent ne prend pas le focus : on le signale
+  // discrètement dans la barre, et le signal disparaît dès qu'on l'ouvre.
+  useEffect(() => {
+    return runtime.journal.subscribe(() => {
+      const last = runtime.journal.list(1).at(-1);
+      if (
+        !last ||
+        last.kind !== "tab.create" ||
+        last.source !== "agent" ||
+        !last.tabId
+      )
+        return;
+      if (last.tabId === runtime.workspace.get().active) return;
+      const id = last.tabId;
+      setUnread((previous) => new Set(previous).add(id));
+    });
+  }, [runtime]);
+  useEffect(() => {
+    if (!unread.has(current.id)) return;
+    setUnread((previous) => {
+      const next = new Set(previous);
+      next.delete(current.id);
+      return next;
+    });
+  }, [current.id, unread]);
   const focusBeforePalette = useRef<HTMLElement | null>(null);
   const openPalette = useCallback(() => {
     focusBeforePalette.current = document.activeElement as HTMLElement | null;
@@ -143,6 +173,13 @@ export function LabShell({ runtime }: { runtime: Runtime }) {
         run: () => setMode("tiling"),
       },
       {
+        id: "layout.stack",
+        title: "Mode Stack",
+        category: "Affichage",
+        icon: Rows3,
+        run: () => setMode("stack"),
+      },
+      {
         id: "theme.dark",
         title: "Thème sombre",
         category: "Affichage",
@@ -200,7 +237,7 @@ export function LabShell({ runtime }: { runtime: Runtime }) {
   useLayoutEffect(() => {
     document
       .getElementById(`tab-${current.id}`)
-      ?.closest(".lab-tab")
+      ?.closest(".spark-tab")
       ?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [current.id, currentIndex]);
   useEffect(() => {
@@ -259,7 +296,7 @@ export function LabShell({ runtime }: { runtime: Runtime }) {
   }, [brief, runtime, state]);
 
   return (
-    <SidebarProvider className="lab-shell" open>
+    <SidebarProvider className="spark-shell" open>
       <header
         className="window-bar"
         data-macos={macOS || undefined}
@@ -272,22 +309,26 @@ export function LabShell({ runtime }: { runtime: Runtime }) {
             data-tauri-drag-region
           />
         )}
-        <div role="tablist" aria-label="Onglets Lab" className="tab-list">
+        <div role="tablist" aria-label="Onglets Spark" className="tab-list">
           {state.tabs.map((tab, index) => (
             <div
-              className="lab-tab"
+              className="spark-tab"
               key={tab.id}
               draggable
               onDragStart={(event) => {
-                event.dataTransfer.setData("application/x-lab-tab", tab.id);
+                event.dataTransfer.setData("application/x-spark-tab", tab.id);
                 event.dataTransfer.effectAllowed = "move";
               }}
               onDragOver={(event) => {
-                if (event.dataTransfer.types.includes("application/x-lab-tab"))
+                if (
+                  event.dataTransfer.types.includes("application/x-spark-tab")
+                )
                   event.preventDefault();
               }}
               onDrop={(event) => {
-                const id = event.dataTransfer.getData("application/x-lab-tab");
+                const id = event.dataTransfer.getData(
+                  "application/x-spark-tab",
+                );
                 if (id) workspace.reorder(id, tab.id);
               }}
             >
@@ -296,7 +337,7 @@ export function LabShell({ runtime }: { runtime: Runtime }) {
                   <button
                     id={`tab-${tab.id}`}
                     role="tab"
-                    className="truncate"
+                    className="spark-tab-label"
                     aria-controls={`panel-${tab.id}`}
                     aria-selected={current.id === tab.id}
                     tabIndex={current.id === tab.id ? 0 : -1}
@@ -304,7 +345,10 @@ export function LabShell({ runtime }: { runtime: Runtime }) {
                     onDoubleClick={() => setRename(tab)}
                     onKeyDown={(event) => navigateTabs(event, index)}
                   >
-                    {tab.name}
+                    {unread.has(tab.id) && (
+                      <span className="spark-tab-dot" aria-hidden />
+                    )}
+                    <span className="truncate">{tab.name}</span>
                   </button>
                 </TooltipTrigger>
                 <TooltipContent
@@ -315,7 +359,7 @@ export function LabShell({ runtime }: { runtime: Runtime }) {
                 </TooltipContent>
               </Tooltip>
               <Button
-                className="lab-tab-close size-6 shrink-0"
+                className="spark-tab-close size-6 shrink-0"
                 size="icon"
                 variant="ghost"
                 aria-label={`Fermer ${tab.name}`}
@@ -342,7 +386,7 @@ export function LabShell({ runtime }: { runtime: Runtime }) {
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              className="lab-tab-menu max-w-72"
+              className="spark-tab-menu max-w-72"
             >
               <DropdownMenuRadioGroup
                 value={current.id}
@@ -396,12 +440,13 @@ export function LabShell({ runtime }: { runtime: Runtime }) {
         <ToggleGroup
           type="single"
           value={current.mode}
-          className="mode-control"
+          className="mode-control shadow-none"
           aria-label="Disposition de l’onglet"
           variant="outline"
           size="sm"
           onValueChange={(value) => {
-            if (value === "side" || value === "tiling") setMode(value);
+            if (value === "side" || value === "tiling" || value === "stack")
+              setMode(value);
           }}
         >
           <ToggleGroupItem value="side" aria-label="Side" title="Side">
@@ -411,6 +456,10 @@ export function LabShell({ runtime }: { runtime: Runtime }) {
           <ToggleGroupItem value="tiling" aria-label="Tiling" title="Tiling">
             <LayoutGrid />
             <span>Tiling</span>
+          </ToggleGroupItem>
+          <ToggleGroupItem value="stack" aria-label="Stack" title="Stack">
+            <Rows3 />
+            <span>Stack</span>
           </ToggleGroupItem>
         </ToggleGroup>
         <Tooltip>
@@ -431,8 +480,8 @@ export function LabShell({ runtime }: { runtime: Runtime }) {
           <TooltipContent>Palette de commandes</TooltipContent>
         </Tooltip>
       </header>
-      <div className="lab-content">
-        <div className="lab-body">
+      <div className="spark-content">
+        <div className="spark-body">
           <Rail
             runtime={runtime}
             run={run}
@@ -471,7 +520,7 @@ export function LabShell({ runtime }: { runtime: Runtime }) {
         >
           <DialogTitle className="sr-only">Palette de commandes</DialogTitle>
           <DialogDescription className="sr-only">
-            Rechercher et exécuter une commande Lab.
+            Rechercher et exécuter une commande Spark.
           </DialogDescription>
           <CommandMenu label="Rechercher une commande">
             <CommandInput placeholder="Rechercher une commande…" />

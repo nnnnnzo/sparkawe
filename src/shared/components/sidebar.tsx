@@ -6,23 +6,23 @@ import { cn } from "cn"
 import { PanelLeftIcon } from "lucide-react"
 import { Slot } from "radix-ui"
 
-import { Button } from "@lab/ui/components/button"
-import { Input } from "@lab/ui/components/input"
-import { Separator } from "@lab/ui/components/separator"
+import { Button } from "@spark/ui/components/button"
+import { Input } from "@spark/ui/components/input"
+import { Separator } from "@spark/ui/components/separator"
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@lab/ui/components/sheet"
-import { Skeleton } from "@lab/ui/components/skeleton"
+} from "@spark/ui/components/sheet"
+import { Skeleton } from "@spark/ui/components/skeleton"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@lab/ui/components/tooltip"
+} from "@spark/ui/components/tooltip"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -243,7 +243,7 @@ function Sidebar({
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm"
+          className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg"
         >
           {children}
         </div>

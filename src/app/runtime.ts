@@ -2,9 +2,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { buildBrief } from "../core/brief.ts";
 import {
   createExtensionManager,
-  restoreInstalledExtensions,
+  seedCoreExtensions,
 } from "../core/extensions.ts";
-import { Journal } from "../core/journal.ts";
+import { Journal, type JournalSource } from "../core/journal.ts";
 import { createPersistence } from "../core/persistence.ts";
 import { Registry } from "../core/registry.ts";
 import { Settings, restoreSettings } from "../core/settings.ts";
@@ -51,14 +51,17 @@ export async function createRuntime() {
   settings.subscribe(() =>
     settingsPersistence.queue(JSON.stringify(settings.get())),
   );
+  const seed = seedCoreExtensions(
+    state.installedExtensions,
+    state.seededCore,
+    catalog,
+    state.tabs.flatMap((tab) => tab.tiles),
+  );
   const workspace = new Workspace(
     {
       ...state,
-      installedExtensions: restoreInstalledExtensions(
-        state.installedExtensions,
-        catalog,
-        state.tabs.flatMap((tab) => tab.tiles),
-      ),
+      installedExtensions: seed.installed,
+      seededCore: seed.seeded,
     },
     journal.record,
   );
@@ -136,8 +139,18 @@ export async function createRuntime() {
     brief(tabId?: string) {
       return buildBrief({ workspace, catalog: registry, journal }, tabId);
     },
+    /** Exécute une suite d'actions en attribuant leurs effets à une source. */
+    async runAs<T>(source: JournalSource, run: () => T | Promise<T>) {
+      const previous = workspace.source;
+      workspace.source = source;
+      try {
+        return await run();
+      } finally {
+        workspace.source = previous;
+      }
+    },
     async closeTiles(ids: string[], apply: () => void) {
-      if (closing) return;
+      if (closing) return false;
       closing = true;
       try {
         const tiles = getAllTiles().filter((tile) => ids.includes(tile.id));
@@ -148,7 +161,7 @@ export async function createRuntime() {
               .getTile(tile.type)
               ?.canClose?.(tile, closingIds)) === false
           )
-            return;
+            return false;
         }
         apply();
         for (const tile of tiles) {
@@ -160,6 +173,7 @@ export async function createRuntime() {
             registry.clearSurface(tile.id);
           }
         }
+        return true;
       } finally {
         closing = false;
       }

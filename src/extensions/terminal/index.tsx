@@ -1,11 +1,16 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { Button } from "@lab/ui/components/button";
+import { Button } from "@spark/ui/components/button";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal, type ITheme } from "@xterm/xterm";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { terminalClosed, terminalLauncher, terminalSessions } from "./api.ts";
 import type { ExtensionModule, TileViewProps } from "../../sdk/react.ts";
+import {
+  AgentMark,
+  agentFor,
+  type AgentBrand,
+} from "../../shared/agents/index.tsx";
 import manifest, { sessionType } from "./manifest.ts";
 import "@xterm/xterm/css/xterm.css";
 import "./style.css";
@@ -39,9 +44,9 @@ function terminalTheme(): ITheme {
     ...palette,
     background: color("--tile"),
     foreground: color("--foreground"),
-    cursor: color("--foreground"),
+    cursor: color("--terminal-cursor"),
     cursorAccent: color("--tile"),
-    selectionBackground: color("--accent"),
+    selectionBackground: color("--terminal-selection"),
   };
 }
 
@@ -64,6 +69,49 @@ export default function createTerminal(): ExtensionModule {
     }
   >();
   let notifyClosed: (id: string) => void;
+
+  // Une seule vérification à la fois par agent, mais la proposition revient
+  // à chaque lancement tant que le client n'est pas connecté.
+  const checking = new Set<string>();
+  async function connectAgent(agent: AgentBrand) {
+    if (!agent.setup) {
+      // Client sans format connu : on ouvre la configuration à copier.
+      window.dispatchEvent(
+        new CustomEvent("spark:connect-agent", {
+          detail: { name: agent.name },
+        }),
+      );
+      return;
+    }
+    try {
+      const message = await invoke<string>("agent_setup", { agent: agent.id });
+      toast.success(message, {
+        description: "Relancez la session de l’agent pour qu’il voie Spark.",
+      });
+    } catch (error) {
+      toast.error(String(error));
+    }
+  }
+  function showOffer(agent: AgentBrand) {
+    toast(`${agent.name} est lancé`, {
+      icon: <AgentMark agent={agent} width={18} height={18} />,
+      description: "Connectez Spark pour ouvrir cet espace à l’agent.",
+      action: { label: "Connecter", onClick: () => void connectAgent(agent) },
+      cancel: { label: "Plus tard", onClick: () => {} },
+      duration: 9000,
+    });
+  }
+  function offerAgent(agent: AgentBrand) {
+    if (checking.has(agent.id)) return;
+    checking.add(agent.id);
+    // Déjà branché sur ce pont : on ne repropose rien.
+    void invoke<boolean>("agent_connected", { agent: agent.id })
+      .then((connected) => {
+        if (!connected) showOffer(agent);
+      })
+      .catch(() => showOffer(agent))
+      .finally(() => checking.delete(agent.id));
+  }
 
   async function close(id: string) {
     const session = sessions.get(id);
@@ -97,6 +145,15 @@ export default function createTerminal(): ExtensionModule {
       const fit = new FitAddon();
       terminal.loadAddon(fit);
       terminal.open(element);
+      // Le shell signale chaque commande lancée (OSC 777) : on y reconnaît
+      // un agent pour proposer la connexion MCP sans surveiller les frappes.
+      const agents = terminal.parser.registerOscHandler(777, (data) => {
+        const match = /^spark;(.+)$/.exec(data);
+        if (!match) return false;
+        const agent = agentFor(match[1]);
+        if (agent) offerAgent(agent);
+        return true;
+      });
       let wheelRemainder = 0;
       terminal.attachCustomWheelEventHandler((event) => {
         const buffer = terminal.buffer.active;
@@ -258,19 +315,25 @@ export default function createTerminal(): ExtensionModule {
       });
       const observer = new ResizeObserver(resize);
       observer.observe(element);
-      const theme = new MutationObserver(() => {
+      const refreshTheme = () => {
         terminal.options.theme = terminalTheme();
-      });
+      };
+      const theme = new MutationObserver(refreshTheme);
       theme.observe(document.documentElement, {
         attributes: true,
         attributeFilter: ["class"],
       });
+      // En développement, un changement de token CSS ne change pas la classe
+      // du document : sans cela, le fond xterm resterait sur l'ancienne tuile.
+      import.meta.hot?.on("vite:afterUpdate", refreshTheme);
       fitCurrent.current = resize;
       return () => {
         disposed = true;
         observer.disconnect();
         theme.disconnect();
+        import.meta.hot?.off("vite:afterUpdate", refreshTheme);
         subscription.dispose();
+        agents.dispose();
         terminal.dispose();
         void close(tile.id).catch((error) => toast.error(String(error)));
       };
@@ -324,7 +387,10 @@ export default function createTerminal(): ExtensionModule {
         type: sessionType,
         title: "Terminal",
         icon: manifest.icon,
+        guide:
+          "Terminal interactif : la personne y tape ses commandes. Aucune action MCP ne lit ni n’écrit son contenu. Pour ouvrir un shell dans un dossier, ouvrez une tuile terminal.session avec data.directory.",
         view: terminalSupported ? TerminalTile : UnavailableTerminalTile,
+        dataKeys: ["directory"],
         describe: (tile) => {
           const session = sessions.get(tile.id);
           const state = !session

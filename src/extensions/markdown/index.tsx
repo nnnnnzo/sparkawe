@@ -17,7 +17,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
-import type { Tile } from "../../sdk/index.ts";
+import type { Data, Tile } from "../../sdk/index.ts";
 import {
   documentSaved,
   markdownDocuments,
@@ -70,7 +70,8 @@ function restoredDocuments(snapshot: unknown): Document[] {
       typeof value.savedText === "string" &&
       typeof value.dirty === "boolean" &&
       (value.token === undefined || typeof value.token === "string") &&
-      (value.path === undefined || typeof value.path === "string"),
+      (value.path === undefined || typeof value.path === "string") &&
+      (value.by === undefined || value.by === "agent" || value.by === "human"),
   );
 }
 
@@ -104,15 +105,83 @@ export default function createMarkdown(): ExtensionModule {
       dirty: false,
     });
   }
-  function update(id: string, text: string) {
+  function createFromText(text: string) {
+    return put({
+      id: crypto.randomUUID(),
+      text,
+      savedText: text,
+      dirty: false,
+      by: "agent",
+    });
+  }
+  /** Valide l'ouverture d'un document : identifiant existant, ou texte neuf. */
+  function prepareDocument(data: Data): Data {
+    if (data.document !== undefined && data.text !== undefined)
+      throw new Error("Choisissez data.document ou data.text, pas les deux.");
+    if (data.document !== undefined) {
+      if (!documents.has(data.document))
+        throw new Error(
+          "Document inconnu. Pour créer une note, passez data.text sans data.document.",
+        );
+      return { document: data.document };
+    }
+    return {
+      document: data.text !== undefined ? createFromText(data.text) : create(),
+    };
+  }
+  function preparePreview(data: Data): Data {
+    if (data.document !== undefined && data.text !== undefined)
+      throw new Error("Choisissez data.document ou data.text, pas les deux.");
+    if (data.document !== undefined) {
+      if (!documents.has(data.document))
+        throw new Error(
+          "Document inconnu. Pour créer une note, passez data.text sans data.document.",
+        );
+      return { document: data.document };
+    }
+    return {
+      document:
+        data.text !== undefined
+          ? createFromText(data.text)
+          : (activeId() ?? create()),
+    };
+  }
+  function update(id: string, text: string, by: "agent" | "human" = "human") {
     const doc = documents.get(id);
     if (doc && doc.text !== text)
-      put({ ...doc, text, dirty: text !== doc.savedText });
+      put({ ...doc, text, dirty: text !== doc.savedText, by });
+  }
+  /** Un agent ne touche librement qu'à un document qu'il a créé. */
+  const agentOwned = (doc: Document) =>
+    !doc.path && (doc.by === "agent" || doc.text.length === 0);
+  function edit(tile: Tile, change: (lines: string[]) => string[]) {
+    const doc = documents.get(tile.data.document);
+    if (!doc) throw new Error("Document indisponible.");
+    const lines = change(doc.text.split("\n"));
+    const text = lines.join("\n");
+    update(doc.id, text, "agent");
+    return { ref: tile.id, lines: lines.length, characters: text.length };
+  }
+  function range(total: number, from: number, to: number) {
+    if (!Number.isInteger(from) || !Number.isInteger(to))
+      throw new Error("Les lignes doivent être des entiers.");
+    if (from < 1 || to < from || to > total)
+      throw new Error(`Plage invalide : ${from}–${to} (${total} lignes).`);
+    return [from - 1, to] as const;
+  }
+  function readable(tile: Tile) {
+    const doc = documents.get(tile.data.document);
+    if (!doc) throw new Error("Document indisponible.");
+    return doc;
+  }
+  function guarded(tile: Tile) {
+    const doc = documents.get(tile.data.document);
+    return !doc || !agentOwned(doc);
   }
   function describeDocument(tile: Tile) {
     const doc = documents.get(tile.data.document);
     if (!doc) return "document inconnu";
-    return `${baseName(doc.path)}${doc.dirty ? " · non enregistré" : ""}`;
+    return `${baseName(doc.path)}${doc.text ? "" : " · vide"}${doc.dirty ? " · non enregistré" : ""}`;
   }
   const isDocumentTile = (tile: Tile) =>
     tile.type === editorType || tile.type === previewType;
@@ -201,6 +270,9 @@ export default function createMarkdown(): ExtensionModule {
     const id = tile.data.document;
     await saves.get(id);
     const doc = documents.get(id);
+    // Un document créé par un agent, sans fichier, lui appartient : il peut le
+    // refermer sans demander à une personne d'abandonner son travail.
+    if (doc?.by === "agent" && !doc.path) return true;
     const views = api.tabs
       .getAllTiles()
       .filter((other) => isDocumentTile(other) && other.data.document === id);
@@ -255,6 +327,11 @@ export default function createMarkdown(): ExtensionModule {
     const doc = useDocument(id);
     const host = useRef<HTMLDivElement>(null);
     const editor = useRef<EditorView | null>(null);
+    useEffect(() => {
+      // Référence orpheline (tuile restaurée d'un ancien bug) : on repart sur
+      // un document neuf plutôt que d'afficher « Document indisponible ».
+      if (!doc) api.tabs.updateTileData(tile.id, { document: create() });
+    }, [api, doc, tile.id]);
     useEffect(() => {
       const view = new EditorView({
         parent: host.current!,
@@ -321,6 +398,9 @@ export default function createMarkdown(): ExtensionModule {
   }
   function Preview({ tile }: TileViewProps) {
     const doc = useDocument(tile.data.document);
+    useEffect(() => {
+      if (!doc) api.tabs.updateTileData(tile.id, { document: create() });
+    }, [api, doc, tile.id]);
     return (
       <div className="markdown-editor">
         {doc && <DocumentBar doc={doc} />}
@@ -350,8 +430,8 @@ export default function createMarkdown(): ExtensionModule {
     );
   }
   return {
-    async activate(lab) {
-      api = lab;
+    async activate(spark) {
+      api = spark;
       for (const doc of restoredDocuments(api.state.read())) {
         documents.set(doc.id, doc);
       }
@@ -372,21 +452,196 @@ export default function createMarkdown(): ExtensionModule {
         type: editorType,
         title: "Éditeur Markdown",
         icon: manifest.icon,
+        guide:
+          "Document Markdown éditable. Pour créer une note, ouvrez la tuile avec data.text ; ne passez jamais un titre dans data.document. Pour modifier : read { from, to } renvoie des lignes numérotées (100 max) ; append ajoute à la fin ; insert { line, text } insère avant une ligne (total + 1 = fin) ; replace { from, to, text } et delete { from, to } agissent sur une plage inclusive. write remplace tout le texte : accepté sur un document créé par un agent, sinon confirmation dans l’interface. save est réservé à l’interface.",
         view: Editor,
         describe: describeDocument,
-        prepare: (data) => ({ document: data.document ?? create() }),
+        prepare: prepareDocument,
+        dataKeys: ["document", "text"],
         canClose,
         close,
+        actions: {
+          preview: {
+            title: "Ouvrir l’aperçu",
+            description:
+              "Ouvre l’aperçu Markdown du document de cette tuile, à côté d’elle.",
+            run: (tile) => {
+              const doc = documents.get(tile.data.document);
+              if (!doc) throw new Error("Document indisponible.");
+              const created = api.tabs.openTile(
+                previewType,
+                { document: doc.id },
+                tile.id,
+              );
+              return { ref: created.id, type: previewType };
+            },
+          },
+          write: {
+            title: "Écrire dans le document",
+            description:
+              "Remplace le contenu. Un agent réécrit librement un document qu’il a créé ; un document modifié par une personne ou lié à un fichier exige une confirmation dans l’interface.",
+            input: {
+              text: {
+                type: "string",
+                description: "Contenu Markdown complet.",
+              },
+            },
+            mutates: guarded,
+            run: (tile, input) => {
+              const doc = documents.get(tile.data.document);
+              if (!doc) throw new Error("Document indisponible.");
+              const text = String(input.text);
+              update(doc.id, text, "agent");
+              return { ref: tile.id, characters: text.length };
+            },
+          },
+          read: {
+            title: "Lire le document",
+            description:
+              "Lit des lignes numérotées (100 lignes et 8 000 caractères au plus). Sert à préparer un patch.",
+            input: {
+              from: {
+                type: "number",
+                required: false,
+                description: "Première ligne, à partir de 1.",
+              },
+              to: {
+                type: "number",
+                required: false,
+                description: "Dernière ligne incluse.",
+              },
+            },
+            run: (tile, input) => {
+              const doc = readable(tile);
+              const all = doc.text.split("\n");
+              const from = Math.max(1, Number(input.from ?? 1));
+              if (from > all.length)
+                throw new Error(
+                  `Ligne ${from} hors du document (${all.length} lignes).`,
+                );
+              const last = Math.min(
+                all.length,
+                Number(input.to ?? from + 99),
+                from + 99,
+              );
+              const lines: { n: number; text: string }[] = [];
+              let used = 0;
+              let truncated = false;
+              for (let index = from - 1; index < last; index++) {
+                const text = all[index];
+                if (used + text.length > 8000) {
+                  truncated = true;
+                  break;
+                }
+                used += text.length;
+                lines.push({ n: index + 1, text });
+              }
+              const to = lines.at(-1)?.n ?? from;
+              return { total: all.length, from, to, truncated, lines };
+            },
+          },
+          append: {
+            title: "Ajouter à la fin",
+            description: "Ajoute des lignes à la fin du document.",
+            input: {
+              text: { type: "string", description: "Lignes à ajouter." },
+            },
+            mutates: guarded,
+            run: (tile, input) =>
+              edit(tile, (lines) => [
+                ...lines,
+                ...String(input.text).split("\n"),
+              ]),
+          },
+          insert: {
+            title: "Insérer des lignes",
+            description: "Insère des lignes avant le numéro de ligne donné.",
+            input: {
+              line: {
+                type: "number",
+                description:
+                  "Ligne d’insertion : 1 pour le début, total + 1 pour la fin.",
+              },
+              text: { type: "string", description: "Lignes à insérer." },
+            },
+            mutates: guarded,
+            run: (tile, input) =>
+              edit(tile, (lines) => {
+                const line = Number(input.line);
+                if (
+                  !Number.isInteger(line) ||
+                  line < 1 ||
+                  line > lines.length + 1
+                )
+                  throw new Error(
+                    `Ligne ${line} hors du document (1–${lines.length + 1}).`,
+                  );
+                lines.splice(line - 1, 0, ...String(input.text).split("\n"));
+                return lines;
+              }),
+          },
+          replace: {
+            title: "Remplacer des lignes",
+            description: "Remplace une plage de lignes, numéros inclus.",
+            input: {
+              from: { type: "number", description: "Première ligne." },
+              to: { type: "number", description: "Dernière ligne incluse." },
+              text: { type: "string", description: "Nouvelles lignes." },
+            },
+            mutates: guarded,
+            run: (tile, input) =>
+              edit(tile, (lines) => {
+                const [start, end] = range(
+                  lines.length,
+                  Number(input.from),
+                  Number(input.to),
+                );
+                lines.splice(
+                  start,
+                  end - start,
+                  ...String(input.text).split("\n"),
+                );
+                return lines;
+              }),
+          },
+          delete: {
+            title: "Supprimer des lignes",
+            description: "Supprime une plage de lignes, numéros inclus.",
+            input: {
+              from: { type: "number", description: "Première ligne." },
+              to: { type: "number", description: "Dernière ligne incluse." },
+            },
+            mutates: guarded,
+            run: (tile, input) =>
+              edit(tile, (lines) => {
+                const [start, end] = range(
+                  lines.length,
+                  Number(input.from),
+                  Number(input.to),
+                );
+                lines.splice(start, end - start);
+                return lines;
+              }),
+          },
+          save: {
+            title: "Enregistrer le document",
+            description:
+              "Écrit le document sur le disque. Action réservée à l’interface.",
+            mutates: true,
+            run: (tile) => save(tile.data.document),
+          },
+        },
       });
       api.tiles.register({
         type: previewType,
         title: "Aperçu Markdown",
         icon: Eye,
+        guide:
+          "Aperçu en lecture seule. Ouvrez la tuile avec data.document (identifiant existant) ou data.text pour un nouveau contenu. Aucune action d’écriture : pour modifier, utilisez la tuile Éditeur Markdown.",
         view: Preview,
         describe: describeDocument,
-        prepare: (data) => ({
-          document: data.document ?? activeId() ?? create(),
-        }),
+        prepare: preparePreview,
+        dataKeys: ["document", "text"],
         canClose,
         close,
       });
