@@ -4,6 +4,10 @@ Spark AWE — Agentic Workspace Environment. Spark est une application desktop T
 
 Au premier lancement après le renommage, Spark copie l’espace de travail et les préférences de `fr.lab.desktop` vers `fr.spark.desktop`. L’ancien dossier reste en place comme sauvegarde.
 
+## Documentation
+
+L’architecture, le SDK, le Store, les paquets, les dépôts, la persistance et le modèle de confiance sont documentés dans [`doc/README.md`](doc/README.md). Le code fait foi ; un changement de contrat met à jour le document correspondant.
+
 ## Développement
 
 Prérequis macOS : Node.js 22.18 ou ultérieur, npm, Rust et les outils en ligne de commande de Xcode.
@@ -117,7 +121,7 @@ Un dépôt est un index JSON statique :
 }
 ```
 
-Ajoutez l’URL de l’index dans **Store › Sources**. Spark télécharge le zip, vérifie son empreinte SHA-256, extrait le manifeste et le charge. Quand une version supérieure est publiée, elle apparaît dans **Mises à jour**. Les dépôts de développement peuvent être servis en `http://127.0.0.1` ; en release, seules les URL HTTPS sont acceptées.
+Ajoutez l’URL de l’index dans **Store › Sources**. Le dépôt apparaît dans la liste ; cliquez-le pour ouvrir sa galerie d’extensions, même avant de les installer. Spark télécharge ensuite le zip choisi, vérifie son empreinte SHA-256, extrait le manifeste et le charge. Quand une version supérieure est publiée, elle apparaît dans **Mises à jour**. Les dépôts de développement peuvent être servis en `http://127.0.0.1` ; en release, seules les URL HTTPS sont acceptées.
 
 `examples/registry.json`, `examples/hello-extension.zip` et `examples/hello-extension-v2.zip` forment un dépôt local de test.
 

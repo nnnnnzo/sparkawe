@@ -68,8 +68,19 @@ test("le retour d’une fiche revient à la vue qui l’a ouverte", () => {
     view: "home",
   });
   assert.deepEqual(backRoute({ view: "installed" }), { view: "home" });
+  assert.deepEqual(
+    backRoute({ view: "repository", url: "https://example.org/index.json" }),
+    { view: "sources" },
+  );
   assert.equal(
     activeStoreView({ view: "detail", id: "demo", from: "installed" }),
     "installed",
+  );
+  assert.equal(
+    activeStoreView({
+      view: "repository",
+      url: "https://example.org/index.json",
+    }),
+    "sources",
   );
 });

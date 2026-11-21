@@ -968,47 +968,116 @@
   font-size: 12px;
 }
 
-.store-remote-list {
-  margin: 0;
+.store-source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.store-source-open {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 14px;
   padding: 0;
-  overflow: hidden;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.store-source-open .store-source-info {
+  flex: 1;
+}
+
+.store-source-count {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.store-source-chevron {
+  width: 15px;
+  height: 15px;
+  color: var(--muted-foreground);
+}
+
+.store-remote-card {
+  display: flex;
+  min-height: 160px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--card);
-  list-style: none;
 }
 
-.store-remote-row {
+.store-remote-card-top {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+  gap: 11px;
 }
 
-.store-remote-row:last-child {
-  border-bottom: 0;
+.store-remote-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--muted-foreground);
 }
 
-.store-remote-info {
+.store-remote-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.store-remote-heading {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: 2px;
-  margin-right: auto;
 }
 
-.store-remote-name {
-  font-size: 13px;
+.store-remote-card-name {
+  font-size: 14px;
   font-weight: 600;
 }
 
-.store-remote-meta {
-  overflow: hidden;
+.store-remote-card-publisher {
   color: var(--muted-foreground);
   font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.store-remote-card-summary {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.store-remote-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.store-remote-version {
+  color: var(--muted-foreground);
+  font-size: 11px;
 }
 
 .store-install {

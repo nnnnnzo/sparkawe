@@ -27,6 +27,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { compareVersions } from "../../core/version.ts";
+import type { RemoteExtension } from "../../app/marketplace.ts";
 import type { Runtime } from "../../app/runtime.ts";
 import type { Manifest } from "../../sdk/index.ts";
 import { Button } from "@spark/ui/components/button";
@@ -169,6 +170,62 @@ function StoreRow({
         Détails
       </Button>
     </div>
+  );
+}
+
+function RemoteCard({
+  remote,
+  installed,
+  update,
+  busy,
+  onInstall,
+}: {
+  remote: RemoteExtension;
+  installed: boolean;
+  update: boolean;
+  busy: boolean;
+  onInstall: () => void;
+}) {
+  return (
+    <article className="store-remote-card">
+      <div className="store-remote-card-top">
+        <span className="store-remote-icon">
+          <Blocks />
+        </span>
+        <span className="store-remote-heading">
+          <span className="store-remote-card-name">
+            {remote.extension.name}
+          </span>
+          <span className="store-remote-card-publisher">
+            {remote.extension.publisher ?? remote.source.name}
+          </span>
+        </span>
+      </div>
+      <p className="store-remote-card-summary">
+        {remote.extension.summary ??
+          remote.extension.subtitle ??
+          "Aucune description fournie."}
+      </p>
+      <div className="store-remote-card-foot">
+        <span className="store-remote-version">
+          {remote.version.version}
+        </span>
+        <Button
+          size="sm"
+          variant={update ? "default" : "outline"}
+          disabled={busy}
+          onClick={onInstall}
+        >
+          {busy
+            ? "Installation…"
+            : update
+              ? "Mettre à jour"
+              : installed
+                ? "Réinstaller"
+                : "Installer"}
+        </Button>
+      </div>
+    </article>
   );
 }
 
@@ -522,6 +579,7 @@ export function StorePage({
       await runtime.marketplace.addSource(url, name);
       setSourceUrl("");
       setSourceName("");
+      setRoute({ view: "repository", url });
       toast.success("Dépôt ajouté");
     } catch (error) {
       report(error);
@@ -572,12 +630,18 @@ export function StorePage({
     [catalog, workspace],
   );
 
+  const openRepository = useCallback((url: string) => {
+    setRoute({ view: "repository", url });
+  }, []);
+
   const openDetail = useCallback((id: string) => {
     setRoute((current) => ({
       view: "detail",
       id,
       from:
-        current.view === "detail" ? (current.from ?? "home") : current.view,
+        current.view === "detail"
+          ? (current.from ?? "home")
+          : activeStoreView(current),
     }));
   }, []);
 
@@ -1150,107 +1214,144 @@ export function StorePage({
               découvrir ses extensions.
             </p>
           ) : (
-            runtime.marketplace.sourceList.map((repository) => {
-              const failure = runtime.marketplace.errorFor(repository.url);
-              const entries = remoteEntries.filter(
-                (remote) => remote.source.url === repository.url,
-              );
-              return (
-                <div className="store-source-block" key={repository.url}>
-                  <div className="store-source-card">
-                    <span className="store-source-icon">
-                      <Library />
-                    </span>
-                    <span className="store-source-info">
-                      <span className="store-source-name">
-                        {repository.name}
-                      </span>
-                      <span className="store-source-meta">
-                        {repository.url}
-                      </span>
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Retirer ${repository.name}`}
-                      title="Retirer le dépôt"
-                      onClick={() => void removeRepository(repository.url)}
-                    >
-                      <Trash2 />
-                    </Button>
+            <div className="store-source-list">
+              {runtime.marketplace.sourceList.map((repository) => {
+                const failure = runtime.marketplace.errorFor(
+                  repository.url,
+                );
+                const count = remoteEntries.filter(
+                  (remote) => remote.source.url === repository.url,
+                ).length;
+                return (
+                  <div className="store-source-block" key={repository.url}>
+                    <div className="store-source-card">
+                      <button
+                        type="button"
+                        className="store-source-open"
+                        aria-label={`Ouvrir le dépôt ${repository.name}`}
+                        onClick={() => openRepository(repository.url)}
+                      >
+                        <span className="store-source-icon">
+                          <Library />
+                        </span>
+                        <span className="store-source-info">
+                          <span className="store-source-name">
+                            {repository.name}
+                          </span>
+                          <span className="store-source-meta">
+                            {repository.url}
+                          </span>
+                        </span>
+                        <span className="store-source-count">
+                          {count}{" "}
+                          {count > 1 ? "extensions" : "extension"}
+                        </span>
+                        <ChevronRight
+                          className="store-source-chevron"
+                          aria-hidden
+                        />
+                      </button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Retirer ${repository.name}`}
+                        title="Retirer le dépôt"
+                        onClick={() =>
+                          void removeRepository(repository.url)
+                        }
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+                    {failure && (
+                      <p className="store-source-error">{failure}</p>
+                    )}
                   </div>
-                  {failure && (
-                    <p className="store-source-error">{failure}</p>
-                  )}
-                  {entries.length ? (
-                    <ul className="store-remote-list">
-                      {entries.map((remote) => {
-                        const local = catalog.find(
-                          (manifest) =>
-                            manifest.id === remote.extension.id,
-                        );
-                        const isInstalled =
-                          !!local && installed.has(local.id);
-                        const update =
-                          !!local &&
-                          compareVersions(
-                            remote.version.version,
-                            local.version,
-                          ) > 0;
-                        const busy =
-                          remoteBusy === remote.extension.id;
-                        return (
-                          <li
-                            className="store-remote-row"
-                            key={`${repository.url}:${remote.extension.id}`}
-                          >
-                            <span className="store-remote-info">
-                              <span className="store-remote-name">
-                                {remote.extension.name}
-                              </span>
-                              <span className="store-remote-meta">
-                                {remote.version.version}
-                                {remote.extension.publisher
-                                  ? ` · ${remote.extension.publisher}`
-                                  : ""}
-                                {remote.extension.summary
-                                  ? ` · ${remote.extension.summary}`
-                                  : ""}
-                              </span>
-                            </span>
-                            <Button
-                              size="sm"
-                              variant={update ? "default" : "outline"}
-                              disabled={busy}
-                              onClick={() => void installRemote(remote)}
-                            >
-                              {busy
-                                ? "Installation…"
-                                : update
-                                  ? "Mettre à jour"
-                                  : isInstalled
-                                    ? "Réinstaller"
-                                    : "Installer"}
-                            </Button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    !failure && (
-                      <p className="store-source-empty">
-                        Aucune extension dans ce dépôt.
-                      </p>
-                    )
-                  )}
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           )}
         </section>
       </div>
     </main>
   );
+
+  const renderRepository = () => {
+    if (route.view !== "repository") return null;
+    const repository = runtime.marketplace.sourceList.find(
+      (source) => source.url === route.url,
+    );
+    const failure = runtime.marketplace.errorFor(route.url);
+    const entries = remoteEntries.filter(
+      (remote) => remote.source.url === route.url,
+    );
+    return (
+      <main className="store-main" ref={mainRef} tabIndex={-1}>
+        <div className="store-content">
+          <button type="button" className="store-back" onClick={back}>
+            <ChevronLeft /> Sources
+          </button>
+          <header className="store-header">
+            <div>
+              <h1 className="store-title">
+                {repository?.name ?? "Dépôt"}
+              </h1>
+              <p className="store-subtitle">{route.url}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void refreshMarket()}
+            >
+              <RefreshCw data-icon="inline-start" /> Vérifier
+            </Button>
+          </header>
+          {failure && <p className="store-source-error">{failure}</p>}
+          {entries.length ? (
+            <div className="store-grid">
+              {entries.map((remote) => {
+                const local = catalog.find(
+                  (manifest) =>
+                    manifest.id === remote.extension.id,
+                );
+                const isInstalled = !!local;
+                const update =
+                  !!local &&
+                  compareVersions(
+                    remote.version.version,
+                    local.version,
+                  ) > 0;
+                return (
+                  <RemoteCard
+                    key={`${remote.source.url}:${remote.extension.id}`}
+                    remote={remote}
+                    installed={isInstalled}
+                    update={update}
+                    busy={remoteBusy === remote.extension.id}
+                    onInstall={() => void installRemote(remote)}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            !failure && (
+              <Empty className="store-empty">
+                <EmptyMedia variant="icon">
+                  <Library />
+                </EmptyMedia>
+                <EmptyHeader>
+                  <EmptyTitle>Aucune extension</EmptyTitle>
+                  <EmptyDescription>
+                    Ce dépôt ne publie aucune extension pour le moment.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )
+          )}
+        </div>
+      </main>
+    );
+  };
 
   return (
     <section className="spark-store" aria-label="Store des extensions">
@@ -1304,6 +1405,7 @@ export function StorePage({
       {route.view === "installed" && renderInstalled()}
       {route.view === "updates" && renderUpdates()}
       {route.view === "sources" && renderSources()}
+      {route.view === "repository" && renderRepository()}
       <Dialog
         open={!!removeTarget}
         onOpenChange={(open) => {

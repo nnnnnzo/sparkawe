@@ -4,15 +4,22 @@ export type StoreView = "home" | "updates" | "installed" | "sources";
 
 export type StoreRoute =
   | { view: StoreView }
-  | { view: "detail"; id: string; from?: StoreView };
+  | { view: "detail"; id: string; from?: StoreView }
+  | { view: "repository"; url: string };
 
-/** Vue à mettre en avant dans la sidebar quand une fiche est ouverte. */
-export const activeStoreView = (route: StoreRoute): StoreView =>
-  route.view === "detail" ? (route.from ?? "home") : route.view;
+/** Vue à mettre en avant dans la sidebar quand une fiche ou un dépôt est ouvert. */
+export const activeStoreView = (route: StoreRoute): StoreView => {
+  if (route.view === "detail") return route.from ?? "home";
+  if (route.view === "repository") return "sources";
+  return route.view;
+};
 
-/** Retour réel : une fiche revient à la vue qui l’a ouverte. */
-export const backRoute = (route: StoreRoute): StoreRoute =>
-  route.view === "detail" ? { view: route.from ?? "home" } : { view: "home" };
+/** Retour réel : une fiche revient à son origine, un dépôt à Sources. */
+export const backRoute = (route: StoreRoute): StoreRoute => {
+  if (route.view === "detail") return { view: route.from ?? "home" };
+  if (route.view === "repository") return { view: "sources" };
+  return { view: "home" };
+};
 
 export const FEATURED_IDS = [
   "spark.terminal",
