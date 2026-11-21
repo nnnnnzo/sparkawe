@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   FEATURED_IDS,
+  activeStoreView,
+  backRoute,
   isCertified,
   matchesQuery,
   normalize,
@@ -55,4 +57,19 @@ test("la sélection À la une est stable et sans doublon", () => {
   assert.ok(FEATURED_IDS.includes("spark.terminal"));
   assert.ok(FEATURED_IDS.includes("spark.openalex"));
   assert.equal(new Set(FEATURED_IDS).size, FEATURED_IDS.length);
+});
+
+test("le retour d’une fiche revient à la vue qui l’a ouverte", () => {
+  assert.deepEqual(
+    backRoute({ view: "detail", id: "demo", from: "installed" }),
+    { view: "installed" },
+  );
+  assert.deepEqual(backRoute({ view: "detail", id: "demo" }), {
+    view: "home",
+  });
+  assert.deepEqual(backRoute({ view: "installed" }), { view: "home" });
+  assert.equal(
+    activeStoreView({ view: "detail", id: "demo", from: "installed" }),
+    "installed",
+  );
 });

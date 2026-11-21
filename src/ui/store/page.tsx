@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Compass,
+  FolderSearch,
   Library,
   PackageCheck,
   Pin,
@@ -37,6 +38,7 @@ import {
 } from "@spark/ui/components/empty";
 import { Input } from "@spark/ui/components/input";
 import { SPECTRUM } from "../../shared/brand/index.tsx";
+import { pickFolder } from "../../extensions/explorer/files.ts";
 import { report } from "../errors.ts";
 import { Icon } from "../icons.tsx";
 import { CertifiedBadge } from "./certified-badge.tsx";
@@ -45,6 +47,8 @@ import {
   FEATURED_IDS,
   TIER_LABEL,
   TIER_SECTION,
+  activeStoreView,
+  backRoute,
   isCertified,
   matchesQuery,
   stateLabel,
@@ -315,8 +319,17 @@ export function StorePage({
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
   const [source, setSource] = useState("");
   const [installing, setInstalling] = useState(false);
+  const [picking, setPicking] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+  const origin = activeStoreView(route);
+  const back = useCallback(() => setRoute(backRoute), []);
+  const originLabel = {
+    home: "Extensions",
+    updates: "Mises à jour",
+    installed: "Installées",
+    sources: "Sources",
+  }[origin];
 
   const catalog = useMemo(
     () => runtime.extensions.catalog,
@@ -427,6 +440,19 @@ export function StorePage({
     [installing, runtime, source],
   );
 
+  const browseSource = useCallback(async () => {
+    if (picking || installing) return;
+    setPicking(true);
+    try {
+      const folder = await pickFolder();
+      if (folder) setSource(folder.path);
+    } catch (error) {
+      report(error);
+    } finally {
+      setPicking(false);
+    }
+  }, [installing, picking]);
+
   const togglePin = useCallback(
     (id: string) => {
       const current = workspace.get().pinned ?? catalog.map(({ id }) => id);
@@ -441,7 +467,12 @@ export function StorePage({
   );
 
   const openDetail = useCallback((id: string) => {
-    setRoute({ view: "detail", id });
+    setRoute((current) => ({
+      view: "detail",
+      id,
+      from:
+        current.view === "detail" ? (current.from ?? "home") : current.view,
+    }));
   }, []);
 
   const openExtension = useCallback(
@@ -473,11 +504,11 @@ export function StorePage({
       if (event.key !== "Escape" || event.defaultPrevented) return;
       if (document.querySelector('[data-slot="dialog-content"]')) return;
       if (route.view === "home") onClose();
-      else setRoute({ view: "home" });
+      else back();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose, route.view]);
+  }, [back, onClose, route.view]);
 
   const renderHeader = (subtitle?: string) => (
     <header className="store-header">
@@ -615,9 +646,9 @@ export function StorePage({
             <button
               type="button"
               className="store-back"
-              onClick={() => setRoute({ view: "home" })}
+              onClick={back}
             >
-              <ChevronLeft /> Extensions
+              <ChevronLeft /> {originLabel}
             </button>
             <Empty className="store-empty">
               <EmptyMedia variant="icon">
@@ -657,9 +688,9 @@ export function StorePage({
           <button
             type="button"
             className="store-back"
-            onClick={() => setRoute({ view: "home" })}
+            onClick={back}
           >
-            <ChevronLeft /> Extensions
+            <ChevronLeft /> {originLabel}
           </button>
           <header className="store-detail-head" style={style}>
             <span className="store-detail-icon">
@@ -897,6 +928,15 @@ export function StorePage({
               className="store-install-input"
             />
             <Button
+              type="button"
+              variant="ghost"
+              onClick={() => void browseSource()}
+              disabled={picking || installing}
+            >
+              <FolderSearch data-icon="inline-start" />
+              {picking ? "Sélection…" : "Parcourir"}
+            </Button>
+            <Button
               type="submit"
               variant="outline"
               disabled={installing || !source.trim()}
@@ -920,26 +960,26 @@ export function StorePage({
           <SidebarItem
             icon={<Compass />}
             label="Découvrir"
-            active={route.view === "home" || route.view === "detail"}
+            active={origin === "home"}
             onClick={() => setRoute({ view: "home" })}
           />
           <SidebarItem
             icon={<RefreshCw />}
             label="Mises à jour"
-            active={route.view === "updates"}
+            active={origin === "updates"}
             onClick={() => setRoute({ view: "updates" })}
           />
           <SidebarItem
             icon={<PackageCheck />}
             label="Installées"
             count={installedCount}
-            active={route.view === "installed"}
+            active={origin === "installed"}
             onClick={() => setRoute({ view: "installed" })}
           />
           <SidebarItem
             icon={<Library />}
             label="Sources"
-            active={route.view === "sources"}
+            active={origin === "sources"}
             onClick={() => setRoute({ view: "sources" })}
           />
         </nav>

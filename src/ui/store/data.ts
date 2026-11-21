@@ -4,7 +4,15 @@ export type StoreView = "home" | "updates" | "installed" | "sources";
 
 export type StoreRoute =
   | { view: StoreView }
-  | { view: "detail"; id: string };
+  | { view: "detail"; id: string; from?: StoreView };
+
+/** Vue à mettre en avant dans la sidebar quand une fiche est ouverte. */
+export const activeStoreView = (route: StoreRoute): StoreView =>
+  route.view === "detail" ? (route.from ?? "home") : route.view;
+
+/** Retour réel : une fiche revient à la vue qui l’a ouverte. */
+export const backRoute = (route: StoreRoute): StoreRoute =>
+  route.view === "detail" ? { view: route.from ?? "home" } : { view: "home" };
 
 export const FEATURED_IDS = [
   "spark.terminal",
