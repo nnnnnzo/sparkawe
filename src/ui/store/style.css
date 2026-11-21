@@ -114,6 +114,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: 26px clamp(20px, 4vw, 48px) 64px;
 }
 
