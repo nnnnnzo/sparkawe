@@ -455,7 +455,7 @@ export function StorePage({
   );
   const shelves = useMemo(
     () =>
-      (["core", "official", "community"] as const)
+      (["core", "official"] as const)
         .map((tier) => ({
           tier,
           items: catalog
@@ -484,6 +484,22 @@ export function StorePage({
   const remoteEntries = useMemo(
     () => runtime.marketplace.entries,
     [runtime, marketRevision],
+  );
+  const communityCatalog = useMemo(
+    () =>
+      catalog
+        .filter((manifest) => tierOf(manifest) === "community")
+        .sort(storeOrder),
+    [catalog],
+  );
+  const communityRemote = useMemo(
+    () =>
+      remoteEntries
+        .filter((remote) => !byId.has(remote.extension.id))
+        .sort((first, second) =>
+          first.extension.name.localeCompare(second.extension.name, "fr"),
+        ),
+    [byId, remoteEntries],
   );
   const updates = useMemo(
     () => runtime.marketplace.updates(installedManifests),
@@ -787,6 +803,31 @@ export function StorePage({
                 onOpen={openDetail}
               />
             ))}
+            {(communityCatalog.length > 0 ||
+              communityRemote.length > 0) && (
+              <section className="store-section">
+                <h2 className="store-section-title">Communautaires</h2>
+                <div className="store-grid">
+                  {communityCatalog.map((manifest) => (
+                    <StoreCard
+                      key={manifest.id}
+                      manifest={manifest}
+                      onOpen={openDetail}
+                    />
+                  ))}
+                  {communityRemote.map((remote) => (
+                    <RemoteCard
+                      key={`${remote.source.url}:${remote.extension.id}`}
+                      remote={remote}
+                      installed={false}
+                      update={false}
+                      busy={remoteBusy === remote.extension.id}
+                      onInstall={() => void installRemote(remote)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
             {!catalog.length && (
               <Empty className="store-empty">
                 <EmptyMedia variant="icon">

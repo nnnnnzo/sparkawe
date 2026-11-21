@@ -46,6 +46,7 @@ Un dépôt est une URL HTTPS vers un index JSON statique. Il peut être ajouté 
 
 - La page **Sources** liste les dépôts.
 - Cliquer un dépôt ouvre une **galerie de dépôt** : une carte par extension distante, avec version, éditeur, résumé et action.
+- Les extensions distantes non installées apparaissent aussi dans la section **Communautaires** de Découvrir, avec un bouton **Installer**. La section se remplit dès l’ajout du dépôt, sans installation préalable.
 - Le nombre d’extensions est affiché sur la carte du dépôt.
 - Après l’ajout d’un dépôt, le Store ouvre directement sa galerie. Les extensions sont visibles sans installation.
 - Une erreur d’index est affichée sous la carte et dans la galerie.
