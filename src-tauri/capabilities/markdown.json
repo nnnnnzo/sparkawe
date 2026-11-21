@@ -1,0 +1,12 @@
+{
+  "identifier": "markdown",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "allow-markdown-select",
+    "allow-markdown-confirm-close",
+    "allow-markdown-read",
+    "allow-markdown-write"
+  ]
+}

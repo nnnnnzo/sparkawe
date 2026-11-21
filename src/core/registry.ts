@@ -1,0 +1,307 @@
+import type {
+  ActionField,
+  ActionValue,
+  Command,
+  Dispose,
+  LabAPI,
+  LabExtension,
+  Manifest,
+  TileAction,
+  TileDefinition,
+  TileSurface,
+} from "../sdk/index.ts";
+import { summarize, type JournalSource } from "./journal.ts";
+import type { WorkspaceRecord } from "./workspace.ts";
+
+type Contribution<T> = T & { owner: Manifest };
+const core: Manifest = {
+  id: "lab.core",
+  name: "Lab",
+  version: "1",
+};
+
+export interface ExtensionState {
+  read(id: string): unknown;
+  save(id: string, value: unknown): void;
+}
+
+export interface RegistryOptions {
+  record?: WorkspaceRecord;
+  /** Onglet qui contient une tuile, pour attribuer un événement du journal. */
+  tabForTile?: (tileId: string) => string | undefined;
+}
+
+const ACTION_NAME = /^[a-z][a-z0-9_.-]*$/;
+const MAX_RESULT = 16_000;
+
+function register<T>(map: Map<string, T>, key: string, value: T): Dispose {
+  if (map.has(key)) throw new Error(`Identifiant déjà enregistré : ${key}`);
+  map.set(key, value);
+  return () => {
+    if (map.get(key) === value) map.delete(key);
+  };
+}
+
+function validateAction(
+  action: TileAction,
+  input: Record<string, ActionValue>,
+): Record<string, ActionValue> {
+  const fields: Record<string, ActionField> = action.input ?? {};
+  for (const key of Object.keys(input))
+    if (!(key in fields)) throw new Error(`Argument inconnu : ${key}`);
+  const args: Record<string, ActionValue> = {};
+  for (const [key, field] of Object.entries(fields)) {
+    const value = input[key];
+    if (value === undefined) {
+      if (field.required === false) continue;
+      throw new Error(`Argument manquant : ${key}`);
+    }
+    if (typeof value !== field.type)
+      throw new Error(
+        `Argument invalide : ${key} doit être de type ${field.type}.`,
+      );
+    if (field.type === "number" && !Number.isFinite(value))
+      throw new Error(`Argument invalide : ${key} doit être un nombre fini.`);
+    if (field.enum && !field.enum.includes(String(value)))
+      throw new Error(
+        `Argument invalide : ${key} doit valoir ${field.enum.join(", ")}.`,
+      );
+    args[key] = value;
+  }
+  return args;
+}
+
+function validateDefinition(definition: TileDefinition) {
+  for (const [name, action] of Object.entries(definition.actions ?? {})) {
+    if (!ACTION_NAME.test(name))
+      throw new Error(`Nom d’action invalide : ${name}`);
+    if (!action.title || typeof action.run !== "function")
+      throw new Error(`Action incomplète : ${name}`);
+    for (const [field, spec] of Object.entries(action.input ?? {})) {
+      if (!/^[a-z][a-zA-Z0-9_]*$/.test(field))
+        throw new Error(`Champ d’action invalide : ${name}.${field}`);
+      if (!["string", "number", "boolean"].includes(spec.type))
+        throw new Error(`Type de champ invalide : ${name}.${field}`);
+    }
+  }
+}
+
+export class Registry {
+  private readonly tiles = new Map<string, Contribution<TileDefinition>>();
+  private readonly surfaces = new Map<string, TileSurface>();
+  private readonly commands = new Map<string, Contribution<Command>>();
+  private readonly services = new Map<string, unknown>();
+  private readonly listeners = new Map<string, Set<(value: never) => void>>();
+  private readonly active = new Map<
+    string,
+    { extension: LabExtension; cleanup: Dispose[]; ready: boolean }
+  >();
+
+  private readonly tabs: LabAPI["tabs"];
+  private readonly state: ExtensionState;
+  private readonly journal: WorkspaceRecord;
+  private readonly tabForTile: (tileId: string) => string | undefined;
+
+  constructor(
+    tabs: LabAPI["tabs"],
+    state: ExtensionState,
+    { record = () => {}, tabForTile = () => undefined }: RegistryOptions = {},
+  ) {
+    this.tabs = tabs;
+    this.state = state;
+    this.journal = record;
+    this.tabForTile = tabForTile;
+  }
+
+  getTile = (type: string) => this.tiles.get(type);
+  surface = (tileId: string): TileSurface | undefined => {
+    const surface = this.surfaces.get(tileId);
+    return surface && { ...surface };
+  };
+  clearSurface = (tileId: string) => {
+    this.surfaces.delete(tileId);
+  };
+  getAction = (type: string, name: string) =>
+    this.tiles.get(type)?.actions?.[name];
+  getActions = () =>
+    [...this.tiles.values()].flatMap((definition) =>
+      Object.entries(definition.actions ?? {}).map(([name, action]) => ({
+        tileType: definition.type,
+        name,
+        action,
+        owner: definition.owner,
+      })),
+    );
+  getCommands = () => [...this.commands.values()];
+
+  /**
+   * Exécute une action déclarée par une tuile. Le résultat doit rester un
+   * identifiant ou un résumé : le contenu se lit par la tuile, pas par l'appel.
+   */
+  callAction = async (
+    tileId: string,
+    name: string,
+    input: Record<string, ActionValue> = {},
+    source: JournalSource = "human",
+  ) => {
+    const tile = this.tabs
+      .getAllTiles()
+      .find((candidate) => candidate.id === tileId);
+    if (!tile) throw new Error(`Tuile inconnue : ${tileId}`);
+    const action = this.getAction(tile.type, name);
+    if (!action) throw new Error(`Action indisponible : ${tile.type}.${name}`);
+    const args = validateAction(action, input);
+    const result = await action.run(tile, args);
+    const json = JSON.stringify(result ?? null);
+    if (json.length > MAX_RESULT)
+      throw new Error(
+        `${tile.type}.${name} renvoie ${json.length} caractères. Renvoyez un identifiant plutôt que le contenu.`,
+      );
+    const tabId = this.tabForTile(tileId);
+    this.journal({
+      kind: `action:${tile.type}.${name}`,
+      source,
+      tileId,
+      ...(tabId ? { tabId } : {}),
+      data: summarize(args),
+    });
+    return result;
+  };
+  getExtensions = () =>
+    [...this.active.values()]
+      .filter((record) => record.ready)
+      .map((record) => record.extension.manifest);
+  registerCommand = (command: Command) =>
+    register(this.commands, command.id, { ...command, owner: core });
+
+  async activate(extension: LabExtension) {
+    const owner = extension.manifest;
+    const record = { extension, cleanup: [] as Dispose[], ready: false };
+    const remove = register(this.active, owner.id, record);
+    let activated = false;
+    let pending: { value: unknown } | undefined;
+    const track = (contribute: () => Dispose) => {
+      if (this.active.get(owner.id) !== record)
+        throw new Error(`Extension inactive : ${owner.id}`);
+      const dispose = contribute();
+      record.cleanup.push(dispose);
+      return dispose;
+    };
+    const api: LabAPI = {
+      state: {
+        read: () => (pending ? pending.value : this.state.read(owner.id)),
+        save: (value) => {
+          if (this.active.get(owner.id) !== record) return;
+          if (activated) this.state.save(owner.id, value);
+          else pending = { value };
+        },
+      },
+      tabs: this.tabs,
+      tiles: {
+        register: (definition) =>
+          track(() => {
+            validateDefinition(definition);
+            return register(this.tiles, definition.type, {
+              ...definition,
+              owner,
+            });
+          }),
+        publish: (tileId, surface) => {
+          const tile = this.tabs
+            .getAllTiles()
+            .find((candidate) => candidate.id === tileId);
+          const definition = tile && this.tiles.get(tile.type);
+          // La tuile a été fermée ou l'extension s'arrête.
+          if (!tile || !definition) return;
+          if (definition.owner.id !== owner.id)
+            throw new Error(`Tuile d’une autre extension : ${tileId}`);
+          if (
+            JSON.stringify(surface).length > 2000 ||
+            Object.values(surface).some((value) => typeof value !== "string")
+          )
+            throw new Error(
+              "La surface d’une tuile est un résumé, pas un contenu.",
+            );
+          this.surfaces.set(tileId, { ...surface });
+        },
+      },
+      commands: {
+        register: (command) =>
+          track(() =>
+            register(this.commands, command.id, { ...command, owner }),
+          ),
+      },
+      services: {
+        provide: (key, value) =>
+          track(() => register(this.services, key.id, value)),
+        get: (key) => this.services.get(key.id) as never,
+      },
+      events: {
+        on: (key, listener) =>
+          track(() => {
+            const group = this.listeners.get(key.id) ?? new Set();
+            const handle = (value: never) => listener(value);
+            this.listeners.set(key.id, group);
+            group.add(handle);
+            return () => {
+              group.delete(handle);
+              if (!group.size && this.listeners.get(key.id) === group)
+                this.listeners.delete(key.id);
+            };
+          }),
+        emit: (key, value) => {
+          this.journal({
+            kind: `event:${key.id}`,
+            source: "system",
+            data: summarize(value),
+          });
+          for (const listener of [...(this.listeners.get(key.id) ?? [])]) {
+            queueMicrotask(() => {
+              if (this.listeners.get(key.id)?.has(listener)) {
+                try {
+                  listener(value as never);
+                } catch (error) {
+                  console.error(error);
+                }
+              }
+            });
+          }
+        },
+      },
+    };
+    try {
+      await extension.activate(api);
+      if (pending) this.state.save(owner.id, pending.value);
+      pending = undefined;
+      activated = true;
+      record.ready = true;
+    } catch (error) {
+      try {
+        await extension.deactivate?.();
+      } finally {
+        record.cleanup.reverse().forEach((dispose) => dispose());
+        remove();
+      }
+      throw error;
+    }
+  }
+
+  async deactivate(id: string) {
+    const record = this.active.get(id);
+    if (!record?.ready) return;
+    record.ready = false;
+    const types = new Set(
+      [...this.tiles.values()]
+        .filter((definition) => definition.owner.id === id)
+        .map((definition) => definition.type),
+    );
+    for (const tile of this.tabs.getAllTiles())
+      if (types.has(tile.type)) this.surfaces.delete(tile.id);
+    try {
+      await record.extension.deactivate?.();
+    } finally {
+      record.cleanup.reverse().forEach((dispose) => dispose());
+      this.active.delete(id);
+    }
+  }
+}

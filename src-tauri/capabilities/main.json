@@ -1,0 +1,21 @@
+{
+  "identifier": "main",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-destroy",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
+    "allow-workspace-load",
+    "allow-workspace-save",
+    "allow-set-window-material",
+    "allow-settings-load",
+    "allow-settings-save",
+    "allow-set-window-material",
+    "allow-mcp-reply",
+    "allow-mcp-cache-tools"
+  ]
+}

@@ -1,0 +1,97 @@
+.markdown-editor {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.markdown-document-bar {
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.markdown-document-action {
+  margin-left: auto;
+  padding: 3px 7px;
+  border-radius: var(--radius);
+  color: var(--foreground);
+}
+.markdown-document-action:hover {
+  background: var(--accent);
+}
+.markdown-unsaved {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #d99a45;
+}
+.markdown-editor-host {
+  flex: 1;
+  min-height: 0;
+}
+.markdown-preview {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 22px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.markdown-preview :is(h1, h2, h3, h4, h5, h6) {
+  font-weight: 650;
+  margin: 1em 0 0.45em;
+}
+.markdown-preview h1 {
+  font-size: 1.85em;
+}
+.markdown-preview h2 {
+  font-size: 1.5em;
+}
+.markdown-preview h3 {
+  font-size: 1.2em;
+}
+.markdown-preview > :first-child {
+  margin-top: 0;
+}
+.markdown-preview :is(p, ul, ol, pre, blockquote, table) {
+  margin: 0 0 0.85em;
+}
+.markdown-preview ul {
+  list-style: disc;
+  padding-left: 1.5em;
+}
+.markdown-preview ol {
+  list-style: decimal;
+  padding-left: 1.5em;
+}
+.markdown-preview :is(code, pre) {
+  background: var(--muted);
+  border-radius: 4px;
+  padding: 0.08em 0.3em;
+}
+.markdown-preview pre {
+  overflow: auto;
+  padding: 0.65em;
+}
+.markdown-preview pre > code {
+  padding: 0;
+}
+.markdown-preview blockquote {
+  border-left: 2px solid var(--border);
+  padding-left: 0.8em;
+  color: var(--muted-foreground);
+}
+.markdown-preview :is(th, td) {
+  border: 1px solid var(--border);
+  padding: 3px 8px;
+}
+.markdown-preview a {
+  text-decoration: underline;
+  text-decoration-color: var(--muted-foreground);
+}

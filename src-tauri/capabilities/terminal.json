@@ -1,0 +1,12 @@
+{
+  "identifier": "terminal",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "allow-terminal-start",
+    "allow-terminal-input",
+    "allow-terminal-resize",
+    "allow-terminal-close"
+  ]
+}

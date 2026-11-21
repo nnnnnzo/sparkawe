@@ -1,0 +1,10 @@
+{
+  "identifier": "explorer",
+  "windows": ["main"],
+  "permissions": [
+    "allow-explorer-select",
+    "allow-explorer-list",
+    "allow-explorer-open-markdown",
+    "allow-explorer-directory"
+  ]
+}

@@ -1,0 +1,43 @@
+:root {
+  --terminal-black: #262421;
+  --terminal-red: #a22f40;
+  --terminal-green: #276237;
+  --terminal-yellow: #76530d;
+  --terminal-blue: #2b59a4;
+  --terminal-magenta: #873e90;
+  --terminal-cyan: #19656b;
+  --terminal-white: #d7d3cb;
+  --terminal-bright-black: #716e67;
+  --terminal-bright-red: #b9394d;
+  --terminal-bright-green: #28713e;
+  --terminal-bright-yellow: #8b5b10;
+  --terminal-bright-blue: #3269ba;
+  --terminal-bright-magenta: #9749a2;
+  --terminal-bright-cyan: #1d707b;
+  --terminal-bright-white: #fffefa;
+}
+
+:root.dark {
+  --terminal-black: #242323;
+  --terminal-red: #ed8991;
+  --terminal-green: #87c991;
+  --terminal-yellow: #dfb875;
+  --terminal-blue: #88b3f3;
+  --terminal-magenta: #ca9bdf;
+  --terminal-cyan: #80c9cc;
+  --terminal-white: #d1cec8;
+  --terminal-bright-black: #8b8781;
+  --terminal-bright-red: #ffa3a9;
+  --terminal-bright-green: #a5dfa8;
+  --terminal-bright-yellow: #f3d39a;
+  --terminal-bright-blue: #a6c9fa;
+  --terminal-bright-magenta: #e0b4ee;
+  --terminal-bright-cyan: #a3e1e0;
+  --terminal-bright-white: #f5f3ee;
+}
+
+.terminal-view {
+  height: 100%;
+  padding: 8px 9px 4px;
+  background: var(--tile);
+}
