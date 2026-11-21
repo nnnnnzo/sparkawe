@@ -711,8 +711,18 @@
 .store-gallery-item img {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 9;
   object-fit: cover;
+}
+
+.store-gallery-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.store-gallery-split .store-gallery-item {
+  width: 100%;
 }
 
 .store-gallery-empty {
@@ -971,6 +981,12 @@
 @media (max-width: 980px) {
   .store-grid {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .store-gallery-split {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -206,13 +206,37 @@ function ScreenshotGallery({ manifest }: { manifest: Manifest }) {
       </div>
     );
 
+  if (screenshots.length === 2)
+    return (
+      <section
+        className="store-gallery"
+        aria-label={`Aperçus de ${manifest.name}`}
+      >
+        <div className="store-gallery-head">
+          <span className="store-gallery-label">Aperçus</span>
+        </div>
+        <div className="store-gallery-split">
+          {screenshots.map((source, index) => (
+            <figure className="store-gallery-item" key={source}>
+              <img
+                src={source}
+                alt={`Aperçu ${index + 1} de ${manifest.name}`}
+                loading={index === 0 ? "eager" : "lazy"}
+                draggable={false}
+              />
+            </figure>
+          ))}
+        </div>
+      </section>
+    );
+
   return (
     <section className="store-gallery" aria-label={`Aperçus de ${manifest.name}`}>
       <div className="store-gallery-head">
         <span className="store-gallery-label">
           {screenshots.length > 1 ? "Aperçus" : "Aperçu"}
         </span>
-        {screenshots.length > 1 && (
+        {screenshots.length > 2 && (
           <div className="store-gallery-arrows">
             <button
               type="button"

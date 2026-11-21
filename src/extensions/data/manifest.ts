@@ -1,5 +1,6 @@
 import { Table2 } from "lucide-react";
-import screenshot from "./media/data.webp";
+import tableShot from "./media/data-table.webp";
+import chartShot from "./media/data-chart.webp";
 import type { Manifest } from "../../sdk/index.ts";
 import { SPECTRUM } from "../../shared/brand/index.tsx";
 
@@ -20,6 +21,6 @@ export default {
     "Crée des tableaux, importe des CSV et affiche des graphiques.",
   description:
     "Les tableaux acceptent le copier-coller TSV et les fichiers CSV. Les graphiques se lient à un tableau. Les données restent dans l’espace et sont exposées aux agents par des actions bornées.",
-  screenshots: [screenshot],
+  screenshots: [tableShot, chartShot],
   category: "Données",
 } satisfies Manifest;

@@ -1,5 +1,6 @@
 import { BookOpen } from "lucide-react";
-import screenshot from "./media/openalex.webp";
+import searchShot from "./media/openalex-search.webp";
+import workShot from "./media/openalex-work.webp";
 import type { Manifest } from "../../sdk/index.ts";
 import { SPECTRUM } from "../../shared/brand/index.tsx";
 
@@ -20,6 +21,6 @@ export default {
     "Cherche des travaux OpenAlex et ouvre les PDF libres dans l’aperçu.",
   description:
     "La recherche interroge l’API OpenAlex. Les résultats affichent les auteurs, l’année et le DOI. Quand un PDF libre est disponible, il s’ouvre dans l’aperçu.",
-  screenshots: [screenshot],
+  screenshots: [searchShot, workShot],
   category: "Recherche",
 } satisfies Manifest;
