@@ -21,6 +21,20 @@ export interface Manifest {
   color?: string;
   tier?: ExtensionTier;
   tileTypes?: readonly string[];
+  /** Résumé court affiché dans le Store. */
+  summary?: string;
+  /** Description longue affichée sur la fiche. */
+  description?: string;
+  /** Catégorie éditoriale du Store. */
+  category?: string;
+  /** Accroche d'une carte mise en avant. */
+  tagline?: string;
+  /**
+   * Sceau de distribution. `spark` signifie que le paquet est publié et
+   * signé par Spark ; son absence laisse l'extension dans le régime de
+   * confiance communautaire.
+   */
+  certification?: "spark";
 }
 
 export interface Tile {

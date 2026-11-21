@@ -67,6 +67,7 @@ import {
 import { Icon } from "./icons.tsx";
 import { WorkspaceLayout } from "./layout.tsx";
 import { Rail } from "./rail.tsx";
+import { StorePage } from "./store/page.tsx";
 
 const macOS = navigator.platform.toLowerCase().includes("mac");
 const modifier = macOS ? "⌘" : "Ctrl+";
@@ -83,7 +84,7 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
   const previousTab = state.tabs[currentIndex - 1];
   const nextTab = state.tabs[currentIndex + 1];
   const [palette, setPalette] = useState(false);
-  const [extensionHub, setExtensionHub] = useState(false);
+  const [store, setStore] = useState(false);
   const [rename, setRename] = useState<Tab>();
   const [brief, setBrief] = useState(false);
   const [unread, setUnread] = useState<ReadonlySet<string>>(new Set());
@@ -129,8 +130,16 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
     (mode: Mode) => workspace.updateTab(workspace.active().id, { mode }),
     [workspace],
   );
+  const closeStore = useCallback((restoreFocus = true) => {
+    setStore(false);
+    if (restoreFocus)
+      requestAnimationFrame(() =>
+        document.getElementById("store-trigger")?.focus(),
+      );
+  }, []);
   const run = useCallback((command: Command) => {
     setPalette(false);
+    setStore(false);
     void Promise.resolve()
       .then(() => command.run())
       .catch(report);
@@ -194,10 +203,12 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
         run: () => workspace.patch({ theme: "light" }),
       },
       {
-        id: "extensions.manage",
-        title: "Gérer les extensions",
+        id: "extensions.store",
+        title: "Ouvrir le store",
+        category: "Extensions",
         icon: Blocks,
-        run: () => setExtensionHub(true),
+        keywords: ["extensions", "marketplace", "installer"],
+        run: () => setStore(true),
       },
       {
         id: "dev.brief",
@@ -272,6 +283,7 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
     event.preventDefault();
     const id = state.tabs[next].id;
     workspace.activate(id);
+    setStore(false);
     document.getElementById(`tab-${id}`)?.focus();
   }
 
@@ -341,7 +353,10 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
                     aria-controls={`panel-${tab.id}`}
                     aria-selected={current.id === tab.id}
                     tabIndex={current.id === tab.id ? 0 : -1}
-                    onClick={() => workspace.activate(tab.id)}
+                    onClick={() => {
+                      workspace.activate(tab.id);
+                      setStore(false);
+                    }}
                     onDoubleClick={() => setRename(tab)}
                     onKeyDown={(event) => navigateTabs(event, index)}
                   >
@@ -390,7 +405,10 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
             >
               <DropdownMenuRadioGroup
                 value={current.id}
-                onValueChange={(id) => workspace.activate(id)}
+                onValueChange={(id) => {
+                  workspace.activate(id);
+                  setStore(false);
+                }}
               >
                 {state.tabs.map((tab) => (
                   <DropdownMenuRadioItem
@@ -425,7 +443,10 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
               variant="ghost"
               className="size-8 shrink-0"
               aria-label="Nouvel onglet"
-              onClick={() => workspace.create()}
+              onClick={() => {
+                workspace.create();
+                setStore(false);
+              }}
             >
               <Plus data-icon="inline-start" />
             </Button>
@@ -481,27 +502,33 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
         </Tooltip>
       </header>
       <div className="spark-content">
-        <div className="spark-body">
-          <Rail
-            runtime={runtime}
-            run={run}
-            hub={extensionHub}
-            setHub={setExtensionHub}
-            pinned={state.pinned}
-            theme={state.theme}
-            dev={settings.dev}
-          />
-          <WorkspaceLayout
-            runtime={runtime}
-            state={state}
-            palette={openPalette}
-            manageExtensions={() => setExtensionHub(true)}
-            hasTileCommands={registry
-              .getCommands()
-              .some((command) => !!command.tileType)}
-            shortcut={`${modifier}K`}
-          />
+        <div
+          className="spark-surface"
+          inert={store || undefined}
+          aria-hidden={store || undefined}
+        >
+          <div className="spark-body">
+            <Rail
+              runtime={runtime}
+              run={run}
+              pinned={state.pinned}
+              theme={state.theme}
+              dev={settings.dev}
+              onOpenStore={() => setStore(true)}
+            />
+            <WorkspaceLayout
+              runtime={runtime}
+              state={state}
+              palette={openPalette}
+              manageExtensions={() => setStore(true)}
+              hasTileCommands={registry
+                .getCommands()
+                .some((command) => !!command.tileType)}
+              shortcut={`${modifier}K`}
+            />
+          </div>
         </div>
+        {store && <StorePage runtime={runtime} onClose={closeStore} />}
       </div>
       <Dialog open={palette} onOpenChange={setPalette}>
         <DialogContent
@@ -510,7 +537,12 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
           className="overflow-hidden p-0"
           onCloseAutoFocus={(event) => {
             event.preventDefault();
-            if (extensionHub) return;
+            const storeMain =
+              document.querySelector<HTMLElement>(".store-main");
+            if (storeMain) {
+              storeMain.focus();
+              return;
+            }
             if (focusBeforePalette.current?.isConnected) {
               focusBeforePalette.current.focus();
             } else {

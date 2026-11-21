@@ -30,9 +30,9 @@ npx tauri icon app-icon.svg
 
 ## Extensions
 
-Une nouvelle installation active les cinq extensions **intégrées** : Explorateur, Terminal, Markdown, Aperçu et Données. Les extensions **officielles**, comme OpenAlex, restent désactivées par défaut. Ouvrez **Extensions** dans le rail ou depuis la palette pour activer, désactiver ou épingler. Une fois active, l’extension ajoute ses commandes à la palette ; ses commandes d’ouverture de tuiles sont aussi accessibles depuis le rail si elle est épinglée.
+Une nouvelle installation active les cinq extensions **intégrées** : Explorateur, Terminal, Markdown, Aperçu et Données. Les extensions **officielles**, comme OpenAlex, restent désactivées par défaut. Ouvrez le **Store** depuis le rail ou la palette pour découvrir, activer, désactiver ou épingler une extension. Une fois active, l’extension ajoute ses commandes à la palette ; ses commandes d’ouverture de tuiles sont aussi accessibles depuis le rail si elle est épinglée.
 
-Les trois niveaux sont **Intégrées** (le socle, maintenu avec Spark et sans dépendance externe), **Officielles** (une intégration à un service nommé) et **Communautaires** (réservé). Chaque intégrée reçoit une teinte du spectre ; les officielles restent neutres.
+Les trois niveaux sont **Intégrées** (le socle, maintenu avec Spark et sans dépendance externe), **Officielles** (une intégration à un service nommé) et **Communautaires** (réservé). Chaque extension reçoit une teinte du spectre ; le Store affiche un sceau bleu sur les paquets signés par Spark.
 
 Spark conserve les tuiles et leurs données à la désactivation. Réactivez l’extension pour retrouver ses vues. Terminal démarre une nouvelle session à la réactivation. Un espace créé avant le système d’extensions récupère le socle et les extensions qui ont déjà des tuiles.
 

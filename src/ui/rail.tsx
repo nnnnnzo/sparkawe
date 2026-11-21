@@ -1,9 +1,9 @@
-import { Blocks, Check, Copy, Pin, Settings2 } from "lucide-react";
+import { Blocks, Copy, Settings2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import type { Runtime } from "../app/runtime.ts";
 import type { Theme } from "../core/workspace.ts";
-import type { Command, ExtensionTier, Manifest } from "../sdk/index.ts";
+import type { Command, Manifest } from "../sdk/index.ts";
 import { report } from "./errors.ts";
 import { Button } from "@spark/ui/components/button";
 import {
@@ -41,12 +41,6 @@ import { Icon } from "./icons.tsx";
 import { BRAND, SparkLockup, Spectrum } from "../shared/brand/index.tsx";
 
 const macOS = navigator.platform.toLowerCase().includes("mac");
-
-const TIERS: { id: ExtensionTier; label: string }[] = [
-  { id: "core", label: "Intégrées" },
-  { id: "official", label: "Officielles" },
-  { id: "community", label: "Communautaires" },
-];
 
 interface AgentLink {
   command: string;
@@ -141,18 +135,15 @@ export function Rail({
   pinned,
   theme,
   dev,
-  hub,
-  setHub,
+  onOpenStore,
 }: {
   runtime: Runtime;
   run: (command: Command) => void;
   pinned: string[] | null;
   theme: Theme;
   dev: boolean;
-  hub: boolean;
-  setHub: (open: boolean) => void;
+  onOpenStore: () => void;
 }) {
-  const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
   const [about, setAbout] = useState(false);
   const [agent, setAgent] = useState(false);
   const [link, setLink] = useState<AgentLink | null>(null);
@@ -165,18 +156,6 @@ export function Rail({
   const commands = runtime.registry.getCommands();
   const tileCommands = commands.filter((command) => command.tileType);
 
-  async function setEnabled(id: string, enabled: boolean) {
-    setPending((current) => new Set([...current, id]));
-    try {
-      await runtime.extensions.setEnabled(id, enabled);
-    } catch (error) {
-      report(error);
-    } finally {
-      setPending(
-        (current) => new Set([...current].filter((item) => item !== id)),
-      );
-    }
-  }
   useEffect(() => {
     if (!agent) return;
     let alive = true;
@@ -243,9 +222,10 @@ export function Rail({
           <SidebarMenu className="items-center">
             <SidebarMenuItem>
               <SidebarMenuButton
-                tooltip="Extensions"
-                aria-label="Gérer les extensions"
-                onClick={() => setHub(true)}
+                id="store-trigger"
+                tooltip="Store"
+                aria-label="Ouvrir le store d’extensions"
+                onClick={onOpenStore}
               >
                 <Blocks strokeWidth={1.7} />
               </SidebarMenuButton>
@@ -310,105 +290,6 @@ export function Rail({
           </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
-      <Dialog open={hub} onOpenChange={setHub}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Extensions</DialogTitle>
-            <DialogDescription className="sr-only">
-              Activer les extensions et les épingler à la barre latérale.
-            </DialogDescription>
-          </DialogHeader>
-          {catalog.length === 0 && <p>Aucune extension disponible.</p>}
-          <div className="flex max-h-[60vh] flex-col gap-4 overflow-auto">
-            {TIERS.map(({ id: tier, label }) => {
-              const items = catalog.filter(
-                (extension) => (extension.tier ?? "core") === tier,
-              );
-              if (!items.length) return null;
-              return (
-                <section
-                  key={tier}
-                  aria-labelledby={`extensions-${tier}`}
-                  className="flex flex-col gap-2"
-                >
-                  <h3
-                    id={`extensions-${tier}`}
-                    className="text-muted-foreground text-xs font-medium tracking-wide uppercase"
-                  >
-                    {label}
-                  </h3>
-                  <ul className="flex flex-col gap-2">
-                    {items.map((extension) => {
-                      const active = activeIds.has(extension.id);
-                      const busy = pending.has(extension.id);
-                      const isPinned = selected.includes(extension.id);
-                      const canPin = tileCommands.some(
-                        (command) => command.owner.id === extension.id,
-                      );
-                      const action = active ? "Désactiver" : "Activer";
-                      return (
-                        <li
-                          key={extension.id}
-                          className="flex flex-wrap items-center gap-3 rounded-md border px-3 py-2"
-                        >
-                          <Icon glyph={extension.icon} extension={extension} />
-                          <div className="mr-auto flex flex-col">
-                            <span>{extension.name}</span>
-                            <span className="text-muted-foreground text-xs">
-                              {extension.version} ·{" "}
-                              {active ? "Active" : "Inactive"}
-                            </span>
-                          </div>
-                          {active && canPin && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              disabled={busy}
-                              aria-pressed={isPinned}
-                              title={isPinned ? "Désépingler" : "Épingler"}
-                              aria-label={`${isPinned ? "Désépingler" : "Épingler"} ${extension.name}`}
-                              onClick={() =>
-                                runtime.workspace.patch({
-                                  pinned: isPinned
-                                    ? selected.filter(
-                                        (id) => id !== extension.id,
-                                      )
-                                    : [...selected, extension.id],
-                                })
-                              }
-                            >
-                              {isPinned ? (
-                                <Check data-icon="inline-start" />
-                              ) : (
-                                <Pin data-icon="inline-start" />
-                              )}
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={busy}
-                            aria-label={`${action} ${extension.name}`}
-                            onClick={() =>
-                              void setEnabled(extension.id, !active)
-                            }
-                          >
-                            {busy
-                              ? active
-                                ? "Désactivation…"
-                                : "Activation…"
-                              : action}
-                          </Button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              );
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
       <Dialog open={agent} onOpenChange={setAgent}>
         <DialogContent className="max-w-lg">
           <DialogHeader>

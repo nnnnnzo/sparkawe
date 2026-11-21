@@ -466,9 +466,14 @@ svg {
   }
 }
 .spark-content {
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+.spark-surface {
+  height: 100%;
+  min-height: 0;
 }
 .spark-body {
   display: flex;
@@ -515,6 +520,9 @@ svg {
 }
 .dark .extension-icon {
   color: var(--extension-color, var(--muted-foreground));
+}
+.extension-color {
+  color: var(--extension-color, currentColor);
 }
 .layout-area {
   --scrollbar-track: var(--background);
