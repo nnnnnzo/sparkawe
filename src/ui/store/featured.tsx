@@ -55,24 +55,15 @@ export function FeaturedHero({
           </span>
         </span>
       </span>
-      <span className="store-hero-media">
-        {manifest.screenshots?.[0] ? (
-          <img
-            src={manifest.screenshots[0]}
-            alt=""
-            loading="eager"
-            draggable={false}
+      <span className="store-hero-visual" aria-hidden>
+        <span className="store-hero-icon">
+          <Icon
+            glyph={manifest.icon}
+            extension={manifest}
+            size={78}
+            strokeWidth={1.3}
           />
-        ) : (
-          <span className="store-hero-fallback" aria-hidden>
-            <Icon
-              glyph={manifest.icon}
-              extension={manifest}
-              size={72}
-              strokeWidth={1.3}
-            />
-          </span>
-        )}
+        </span>
       </span>
     </button>
   );
