@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "name": "Dépôt de démonstration",
+  "updatedAt": "2026-11-21T22:00:00Z",
+  "extensions": [
+    {
+      "id": "demo.hello",
+      "name": "Hello",
+      "publisher": "Demo",
+      "subtitle": "Tuile de démonstration",
+      "summary": "Tuile de démonstration importée depuis un dépôt.",
+      "description": "Extension de démonstration utilisée pour vérifier les dépôts, les paquets zip et les mises à jour.",
+      "category": "Démonstration",
+      "versions": [
+        {
+          "version": "0.3.0",
+          "url": "http://127.0.0.1:1420/examples/hello-extension-v3.zip",
+          "sha256": "de32a34c288da8beee94218f896cfa08a126955e71ee352f6320edb7e7b50a5b",
+          "size": 1307,
+          "publishedAt": "2026-11-21T22:00:00Z"
+        },
+        {
+          "version": "0.2.0",
+          "url": "http://127.0.0.1:1420/examples/hello-extension-v2.zip",
+          "sha256": "d25a1b46ffa81fd491c070c2180086fc803241cc1b948fef4460e0e410764abd",
+          "size": 1306,
+          "publishedAt": "2026-11-21T21:50:00Z"
+        },
+        {
+          "version": "0.1.0",
+          "url": "http://127.0.0.1:1420/examples/hello-extension.zip",
+          "sha256": "b20134b240340f37c99175e8866da387b05fcfc225aa5b0fede04a736efb354d",
+          "size": 1322,
+          "publishedAt": "2026-11-21T21:00:00Z"
+        }
+      ]
+    }
+  ]
+}

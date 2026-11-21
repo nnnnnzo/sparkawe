@@ -81,6 +81,21 @@ export function createExtensionManager(
       await registry.activate(await entry.load());
   }
 
+  async function addEntry(entry: CatalogEntry) {
+    entries.set(entry.manifest.id, entry);
+    try {
+      if (isActive(entry.manifest.id))
+        await registry.deactivate(entry.manifest.id);
+      await enable(entry);
+      saveInstalled([
+        ...new Set([...(getInstalled() ?? []), entry.manifest.id]),
+      ]);
+    } finally {
+      notifyCatalog();
+    }
+    return entry.manifest;
+  }
+
   return {
     get catalog() {
       return [...entries.values()].map(({ manifest }) => manifest);
@@ -105,20 +120,9 @@ export function createExtensionManager(
         }
       }
     },
+    addEntry,
     async install(source: string) {
-      const entry = await installEntry(source);
-      entries.set(entry.manifest.id, entry);
-      try {
-        if (isActive(entry.manifest.id))
-          await registry.deactivate(entry.manifest.id);
-        await enable(entry);
-        saveInstalled([
-          ...new Set([...(getInstalled() ?? []), entry.manifest.id]),
-        ]);
-      } finally {
-        notifyCatalog();
-      }
-      return entry.manifest;
+      return addEntry(await installEntry(source));
     },
     async uninstall(id: string) {
       if (!entries.has(id)) return;

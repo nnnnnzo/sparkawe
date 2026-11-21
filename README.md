@@ -97,6 +97,30 @@ En mode développeur, ouvrez **Store › Sources** et collez le chemin d’un do
 
 Le bundle est un script classique qui enregistre une fabrique dans `window.SparkExtensions["<id>"]` et reçoit React par `window.SparkRuntime`. Spark valide le manifeste, refuse les identifiants réservés, les chemins qui sortent du paquet et les liens symboliques, puis copie le dossier dans sa configuration. L’extension apparaît dans **Communautaires** et peut être activée, désactivée ou ouverte dans une tuile.
 
+### Dépôts et mises à jour
+
+Un dépôt est un index JSON statique :
+
+```json
+{
+  "schema": 1,
+  "name": "Mon dépôt",
+  "extensions": [{
+    "id": "demo.hello",
+    "name": "Hello",
+    "versions": [{
+      "version": "0.3.0",
+      "url": "https://…/hello-0.3.0.zip",
+      "sha256": "…"
+    }]
+  }]
+}
+```
+
+Ajoutez l’URL de l’index dans **Store › Sources**. Spark télécharge le zip, vérifie son empreinte SHA-256, extrait le manifeste et le charge. Quand une version supérieure est publiée, elle apparaît dans **Mises à jour**. Les dépôts de développement peuvent être servis en `http://127.0.0.1` ; en release, seules les URL HTTPS sont acceptées.
+
+`examples/registry.json`, `examples/hello-extension.zip` et `examples/hello-extension-v2.zip` forment un dépôt local de test.
+
 Une tuile peut exposer `describe(tile, surface)` pour résumer son état en une ligne dans le brief de l’onglet, et des `actions` typées appelables par l’interface ou un agent. Une action déclare ses champs dans `input` ; Spark valide les arguments et refuse un résultat de plus de 16 000 caractères, afin qu’une action renvoie un identifiant plutôt qu’un contenu.
 
 Une vue publie ce qui est sémantique à l’instant présent — sélection, requête, résultat affiché — avec `api.tiles.publish(id, { … })`. Cette surface n’est jamais persistée et reste bornée à 2 000 caractères : c’est un résumé, pas un contenu. `describe(tile, surface)` s’en sert pour le brief, et une lecture ciblée la rend disponible à un agent sans transporter la tuile.

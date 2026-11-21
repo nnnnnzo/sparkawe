@@ -1,13 +1,17 @@
 use std::{
     collections::BTreeMap,
     fs,
+    io::{Cursor, Read},
     path::{Component, Path, PathBuf},
+    time::Duration,
 };
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use tauri::State;
 use uuid::Uuid;
+use zip::ZipArchive;
 
 use crate::storage::{atomic_write, Result, Storage};
 
@@ -17,18 +21,24 @@ const MAX_BYTES: u64 = 25 * 1024 * 1024;
 const MAX_DEPTH: usize = 8;
 const MAX_TILE_TYPES: usize = 20;
 const MAX_SCREENSHOTS: usize = 8;
+const MAX_DOWNLOAD_BYTES: u64 = 30 * 1024 * 1024;
+const MAX_REGISTRY_BYTES: u64 = 2 * 1024 * 1024;
+const MAX_SOURCES: usize = 20;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstalledExtension {
     manifest: Value,
     path: String,
+    source: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Default)]
 struct StateFile {
     version: u32,
     extensions: BTreeMap<String, StateEntry>,
+    #[serde(default)]
+    sources: Vec<SourceEntry>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -36,6 +46,14 @@ struct StateEntry {
     version: String,
     /// Chemin relatif au dossier de configuration, pour rester portable.
     path: String,
+    #[serde(default)]
+    source: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct SourceEntry {
+    url: String,
+    name: String,
 }
 
 fn state_path(storage: &Storage) -> PathBuf {
@@ -48,6 +66,7 @@ fn read_state(storage: &Storage) -> Result<StateFile> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(StateFile {
             version: 1,
             extensions: BTreeMap::new(),
+            sources: Vec::new(),
         }),
         Err(error) => Err(error.to_string()),
     }
@@ -296,6 +315,7 @@ fn list_from(storage: &Storage) -> Result<Vec<InstalledExtension>> {
         installed.push(InstalledExtension {
             manifest,
             path: directory.to_string_lossy().into_owned(),
+            source: entry.source,
         });
     }
     Ok(installed)
@@ -317,51 +337,66 @@ fn install_from(storage: &Storage, source: &str) -> Result<InstalledExtension> {
     let bytes = fs::read(&manifest_path).map_err(|error| error.to_string())?;
     let manifest: Value = serde_json::from_slice(&bytes)
         .map_err(|error| format!("extension.json invalide : {error}"))?;
-    let id = validate_manifest(&manifest, &source)?;
-    let version = manifest
-        .get("version")
-        .and_then(Value::as_str)
-        .ok_or("Version manquante.")?
-        .to_string();
+    validate_manifest(&manifest, &source)?;
 
     let root = storage.path("extensions");
     if source.starts_with(&root) {
         return Err("Le dossier source se trouve déjà dans les extensions installées.".into());
     }
-    let target = root.join(&id).join(&version);
     let staging = root.join(".staging").join(Uuid::new_v4().to_string());
-
-    let result = (|| -> Result<()> {
+    let copied = (|| -> Result<()> {
         let mut budget = Budget { files: 0, bytes: 0 };
-        copy_dir(&source, &staging, &mut budget, 0)?;
-        if let Some(parent) = target.parent() {
-            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-        }
-        if target.exists() {
-            fs::remove_dir_all(&target).map_err(|error| error.to_string())?;
-        }
-        fs::rename(&staging, &target).map_err(|error| error.to_string())?;
-        Ok(())
+        copy_dir(&source, &staging, &mut budget, 0)
     })();
+    if let Err(error) = copied {
+        let _ = fs::remove_dir_all(&staging);
+        return Err(error);
+    }
+    let result = finalize_install(storage, manifest, &staging, None);
     if result.is_err() {
         let _ = fs::remove_dir_all(&staging);
-        return result.map(|_| unreachable!());
     }
+    result
+}
 
+fn finalize_install(
+    storage: &Storage,
+    manifest: Value,
+    staging: &Path,
+    source: Option<String>,
+) -> Result<InstalledExtension> {
+    let id = validate_manifest(&manifest, staging)?;
+    let version = manifest
+        .get("version")
+        .and_then(Value::as_str)
+        .ok_or("Version manquante.")?
+        .to_string();
+    let root = storage.path("extensions");
+    let target = root.join(&id).join(&version);
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    if target.exists() {
+        fs::remove_dir_all(&target).map_err(|error| error.to_string())?;
+    }
+    fs::rename(staging, &target).map_err(|error| error.to_string())?;
+
+    let relative = format!("extensions/{id}/{version}");
     let mut state = read_state(storage)?;
     state.version = 1;
-    let relative = format!("extensions/{id}/{version}");
     state.extensions.insert(
-        id.clone(),
+        id,
         StateEntry {
-            version: version.clone(),
+            version,
             path: relative,
+            source: source.clone(),
         },
     );
     write_state(storage, &state)?;
     Ok(InstalledExtension {
         manifest,
         path: target.to_string_lossy().into_owned(),
+        source,
     })
 }
 
@@ -376,6 +411,187 @@ fn remove_from(storage: &Storage, id: &str) -> Result<()> {
         fs::remove_dir_all(&directory).map_err(|error| error.to_string())?;
     }
     write_state(storage, &state)
+}
+
+fn allowed_url(url: &str) -> bool {
+    url.starts_with("https://")
+        || (cfg!(debug_assertions)
+            && (url.starts_with("http://127.0.0.1:") || url.starts_with("http://localhost:")))
+}
+
+fn download(url: &str, max: u64) -> Result<Vec<u8>> {
+    if !allowed_url(url) {
+        return Err("URL refusée : HTTPS requis.".into());
+    }
+    let response = ureq::get(url)
+        .set("User-Agent", "Spark/0.1 extension")
+        .timeout(Duration::from_secs(20))
+        .call()
+        .map_err(|error| format!("Téléchargement impossible ({url}) : {error}"))?;
+    let mut bytes = Vec::new();
+    response
+        .into_reader()
+        .take(max + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("Lecture impossible ({url}) : {error}"))?;
+    if bytes.is_empty() {
+        return Err(format!("Réponse vide : {url}"));
+    }
+    if bytes.len() as u64 > max {
+        return Err(format!("Réponse trop volumineuse : {url}"));
+    }
+    Ok(bytes)
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+fn extract_zip(bytes: &[u8], to: &Path, budget: &mut Budget) -> Result<()> {
+    let mut archive = ZipArchive::new(Cursor::new(bytes))
+        .map_err(|error| format!("Archive invalide : {error}"))?;
+    if archive.len() > MAX_FILES {
+        return Err(format!("L’archive contient plus de {MAX_FILES} fichiers."));
+    }
+    fs::create_dir_all(to).map_err(|error| error.to_string())?;
+    for index in 0..archive.len() {
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|error| format!("Archive illisible : {error}"))?;
+        let name = entry.name().to_string();
+        if name == ".git"
+            || name.starts_with(".git/")
+            || name == "node_modules"
+            || name.starts_with("node_modules/")
+        {
+            continue;
+        }
+        if entry
+            .unix_mode()
+            .is_some_and(|mode| mode & 0o170000 == 0o120000)
+        {
+            return Err(format!("Les liens symboliques sont refusés : {name}"));
+        }
+        let relative = safe_relative(&name)?;
+        let target = to.join(relative);
+        if entry.is_dir() {
+            fs::create_dir_all(&target).map_err(|error| error.to_string())?;
+            continue;
+        }
+        budget.files += 1;
+        budget.bytes += entry.size();
+        if budget.files > MAX_FILES {
+            return Err(format!("L’archive contient plus de {MAX_FILES} fichiers."));
+        }
+        if budget.bytes > MAX_BYTES {
+            return Err(format!("Le paquet dépasse {} Mo.", MAX_BYTES / 1_000_000));
+        }
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        let mut file = fs::File::create(&target).map_err(|error| error.to_string())?;
+        std::io::copy(&mut entry, &mut file).map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+fn install_zip_from(
+    storage: &Storage,
+    url: &str,
+    sha256: &str,
+    source: &str,
+) -> Result<InstalledExtension> {
+    let expected = sha256.trim().to_ascii_lowercase();
+    if expected.len() != 64
+        || !expected
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+    {
+        return Err("Empreinte SHA-256 invalide.".into());
+    }
+    let bytes = download(url, MAX_DOWNLOAD_BYTES)?;
+    let actual = sha256_hex(&bytes);
+    if actual != expected {
+        return Err(format!(
+            "Empreinte SHA-256 incorrecte. Attendu {expected}, reçu {actual}."
+        ));
+    }
+    let root = storage.path("extensions");
+    let staging = root.join(".staging").join(Uuid::new_v4().to_string());
+    let result = (|| -> Result<InstalledExtension> {
+        let mut budget = Budget { files: 0, bytes: 0 };
+        extract_zip(&bytes, &staging, &mut budget)?;
+        let manifest_path = staging.join("extension.json");
+        let metadata = fs::metadata(&manifest_path)
+            .map_err(|_| "extension.json est introuvable dans l’archive.".to_string())?;
+        if metadata.len() > MAX_MANIFEST_BYTES {
+            return Err("extension.json est trop volumineux.".into());
+        }
+        let manifest: Value =
+            serde_json::from_slice(&fs::read(&manifest_path).map_err(|error| error.to_string())?)
+                .map_err(|error| format!("extension.json invalide : {error}"))?;
+        validate_manifest(&manifest, &staging)?;
+        finalize_install(
+            storage,
+            manifest,
+            &staging,
+            (!source.is_empty()).then(|| source.to_string()),
+        )
+    })();
+    if result.is_err() {
+        let _ = fs::remove_dir_all(&staging);
+    }
+    result
+}
+
+fn registry_from(url: &str) -> Result<Value> {
+    let bytes = download(url, MAX_REGISTRY_BYTES)?;
+    let value: Value =
+        serde_json::from_slice(&bytes).map_err(|error| format!("Index invalide : {error}"))?;
+    if value.get("schema").and_then(Value::as_u64) != Some(1)
+        || !value.get("extensions").is_some_and(Value::is_array)
+    {
+        return Err("Format d’index inconnu.".into());
+    }
+    Ok(value)
+}
+
+fn sources_from(storage: &Storage) -> Result<Vec<SourceEntry>> {
+    Ok(read_state(storage)?.sources)
+}
+
+fn add_source(storage: &Storage, url: &str, name: &str) -> Result<Vec<SourceEntry>> {
+    let url = url.trim();
+    if !allowed_url(url) {
+        return Err("URL refusée : HTTPS requis.".into());
+    }
+    let name = name.trim();
+    if name.is_empty() || name.len() > 80 {
+        return Err("Le nom du dépôt doit contenir entre 1 et 80 caractères.".into());
+    }
+    let mut state = read_state(storage)?;
+    if state.sources.iter().any(|source| source.url == url) {
+        return Ok(state.sources);
+    }
+    if state.sources.len() >= MAX_SOURCES {
+        return Err(format!("Limite de {MAX_SOURCES} dépôts atteinte."));
+    }
+    state.sources.push(SourceEntry {
+        url: url.to_string(),
+        name: name.to_string(),
+    });
+    write_state(storage, &state)?;
+    Ok(state.sources)
+}
+
+fn remove_source(storage: &Storage, url: &str) -> Result<Vec<SourceEntry>> {
+    let mut state = read_state(storage)?;
+    state.sources.retain(|source| source.url != url);
+    write_state(storage, &state)?;
+    Ok(state.sources)
 }
 
 #[tauri::command]
@@ -396,9 +612,72 @@ pub fn extension_remove(storage: State<'_, Storage>, id: String) -> Result<()> {
     remove_from(&storage, &id)
 }
 
+#[tauri::command]
+pub async fn extension_install_zip(
+    storage: State<'_, Storage>,
+    url: String,
+    sha256: String,
+    source: String,
+) -> Result<InstalledExtension> {
+    let storage = (*storage).clone();
+    tauri::async_runtime::spawn_blocking(move || install_zip_from(&storage, &url, &sha256, &source))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn registry_fetch(url: String) -> Result<Value> {
+    tauri::async_runtime::spawn_blocking(move || registry_from(&url))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub fn extension_sources(storage: State<'_, Storage>) -> Result<Vec<SourceEntry>> {
+    sources_from(&storage)
+}
+
+#[tauri::command]
+pub fn extension_source_add(
+    storage: State<'_, Storage>,
+    url: String,
+    name: String,
+) -> Result<Vec<SourceEntry>> {
+    add_source(&storage, &url, &name)
+}
+
+#[tauri::command]
+pub fn extension_source_remove(
+    storage: State<'_, Storage>,
+    url: String,
+) -> Result<Vec<SourceEntry>> {
+    remove_source(&storage, &url)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+    };
+
+    fn serve_once(body: Vec<u8>) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut buffer = [0_u8; 2048];
+            let _ = stream.read(&mut buffer);
+            let header = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            stream.write_all(header.as_bytes()).unwrap();
+            stream.write_all(&body).unwrap();
+        });
+        format!("http://127.0.0.1:{port}/package")
+    }
 
     fn temporary_storage() -> (Storage, PathBuf) {
         let home = std::env::temp_dir().join(format!("spark-extensions-{}", Uuid::new_v4()));
@@ -454,6 +733,68 @@ mod tests {
         let mut traversal = manifest();
         traversal["entry"] = "../index.js".into();
         assert!(validate_manifest(&traversal, &root).is_err());
+    }
+
+    #[test]
+    fn calcule_une_empreinte_sha256_stable() {
+        assert_eq!(
+            sha256_hex(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
+    #[test]
+    fn installe_un_paquet_zip_verifie_par_empreinte() {
+        let (storage, _) = temporary_storage();
+        let bytes =
+            fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/hello-extension.zip"))
+                .unwrap();
+        let url = serve_once(bytes.clone());
+        let installed = install_zip_from(
+            &storage,
+            &url,
+            &sha256_hex(&bytes),
+            "https://example.org/registry.json",
+        )
+        .unwrap();
+        assert_eq!(
+            installed.source.as_deref(),
+            Some("https://example.org/registry.json")
+        );
+        assert!(Path::new(&installed.path).join("index.js").is_file());
+        assert_eq!(list_from(&storage).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn refuse_une_empreinte_incorrecte() {
+        let (storage, _) = temporary_storage();
+        let bytes =
+            fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/hello-extension.zip"))
+                .unwrap();
+        let url = serve_once(bytes);
+        assert!(install_zip_from(&storage, &url, &"0".repeat(64), "").is_err());
+    }
+
+    #[test]
+    fn lit_un_index_de_depot() {
+        let url = serve_once(br#"{"schema":1,"name":"Test","extensions":[]}"#.to_vec());
+        let value = registry_from(&url).unwrap();
+        assert_eq!(value["name"], "Test");
+    }
+
+    #[test]
+    fn ajoute_et_retire_une_source() {
+        let (storage, _) = temporary_storage();
+        let sources =
+            add_source(&storage, "https://example.org/spark-index.json", "Exemple").unwrap();
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources[0].name, "Exemple");
+        assert_eq!(sources_from(&storage).unwrap().len(), 1);
+        assert!(
+            remove_source(&storage, "https://example.org/spark-index.json")
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]

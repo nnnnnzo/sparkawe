@@ -937,6 +937,80 @@
   text-transform: uppercase;
 }
 
+.store-sources {
+  margin-top: 28px;
+}
+
+.store-source-add {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.45fr) minmax(220px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.store-source-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.store-source-error {
+  margin: 0;
+  color: var(--destructive);
+  font-size: 11px;
+}
+
+.store-source-empty {
+  margin: 8px 0 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.store-remote-list {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  list-style: none;
+}
+
+.store-remote-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.store-remote-row:last-child {
+  border-bottom: 0;
+}
+
+.store-remote-info {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  margin-right: auto;
+}
+
+.store-remote-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.store-remote-meta {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .store-install {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(200px, 340px) auto auto;
@@ -1027,6 +1101,10 @@
   }
 
   .store-install {
+    grid-template-columns: 1fr;
+  }
+
+  .store-source-add {
     grid-template-columns: 1fr;
   }
 }

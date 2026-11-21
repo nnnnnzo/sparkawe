@@ -19,6 +19,7 @@ import { TileViews } from "../ui/contracts.ts";
 import { report } from "../ui/errors.ts";
 import { discoverExtensions, installedEntry } from "./extensions.ts";
 import type { InstalledRecord } from "./installed.ts";
+import { Marketplace } from "./marketplace.ts";
 
 export async function createRuntime() {
   let state: WorkspaceState;
@@ -137,6 +138,16 @@ export async function createRuntime() {
     removeEntry,
   );
   await extensions.restore();
+  const marketplace = new Marketplace();
+  marketplace.setInstaller(async (remote) => {
+    const record = await invoke<InstalledRecord>("extension_install_zip", {
+      url: remote.version.url,
+      sha256: remote.version.sha256,
+      source: remote.source.url,
+    });
+    return extensions.addEntry(installedEntry(record, views));
+  });
+  void marketplace.restore().catch(report);
   workspace.subscribe(queue);
 
   let closing = false;
@@ -144,6 +155,7 @@ export async function createRuntime() {
     workspace,
     registry,
     extensions,
+    marketplace,
     views,
     persistence,
     journal,

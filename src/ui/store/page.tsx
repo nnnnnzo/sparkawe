@@ -26,6 +26,7 @@ import {
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
+import { compareVersions } from "../../core/version.ts";
 import type { Runtime } from "../../app/runtime.ts";
 import type { Manifest } from "../../sdk/index.ts";
 import { Button } from "@spark/ui/components/button";
@@ -322,6 +323,10 @@ export function StorePage({
     runtime.extensions.subscribeCatalog,
     () => runtime.extensions.catalogVersion,
   );
+  const marketRevision = useSyncExternalStore(
+    runtime.marketplace.subscribe,
+    () => runtime.marketplace.version,
+  );
   const [route, setRoute] = useState<StoreRoute>({ view: "home" });
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Tout");
@@ -331,6 +336,10 @@ export function StorePage({
   const [picking, setPicking] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<Manifest | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [sourceName, setSourceName] = useState("");
+  const [addingSource, setAddingSource] = useState(false);
+  const [remoteBusy, setRemoteBusy] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const origin = activeStoreView(route);
@@ -406,6 +415,23 @@ export function StorePage({
     [catalog, installed],
   );
   const installedCount = installedItems.length;
+  const installedManifests = useMemo(
+    () =>
+      catalog.filter(
+        (manifest) =>
+          installed.has(manifest.id) &&
+          (manifest.tier ?? "core") === "community",
+      ),
+    [catalog, installed],
+  );
+  const remoteEntries = useMemo(
+    () => runtime.marketplace.entries,
+    [runtime, marketRevision],
+  );
+  const updates = useMemo(
+    () => runtime.marketplace.updates(installedManifests),
+    [installedManifests, marketRevision, runtime],
+  );
   const featured = useMemo(
     () =>
       FEATURED_IDS.map((id) => byId.get(id)).find(
@@ -476,6 +502,60 @@ export function StorePage({
       report(error);
     } finally {
       setRemoving(false);
+    }
+  }
+
+  async function addRepository(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const url = sourceUrl.trim();
+    if (!url || addingSource) return;
+    setAddingSource(true);
+    try {
+      let name = sourceName.trim();
+      if (!name) {
+        try {
+          name = new URL(url).hostname;
+        } catch {
+          name = "Dépôt";
+        }
+      }
+      await runtime.marketplace.addSource(url, name);
+      setSourceUrl("");
+      setSourceName("");
+      toast.success("Dépôt ajouté");
+    } catch (error) {
+      report(error);
+    } finally {
+      setAddingSource(false);
+    }
+  }
+
+  async function removeRepository(url: string) {
+    try {
+      await runtime.marketplace.removeSource(url);
+    } catch (error) {
+      report(error);
+    }
+  }
+
+  async function refreshMarket() {
+    try {
+      await runtime.marketplace.restore();
+    } catch (error) {
+      report(error);
+    }
+  }
+
+  async function installRemote(remote: (typeof remoteEntries)[number]) {
+    if (remoteBusy) return;
+    setRemoteBusy(remote.extension.id);
+    try {
+      const manifest = await runtime.marketplace.install(remote);
+      toast.success(`${manifest.name} installée`);
+    } catch (error) {
+      report(error);
+    } finally {
+      setRemoteBusy(null);
     }
   }
 
@@ -911,16 +991,66 @@ export function StorePage({
         <header className="store-header">
           <div>
             <h1 className="store-title">Mises à jour</h1>
+            <p className="store-subtitle">
+              {updates.length
+                ? `${updates.length} ${updates.length > 1 ? "extensions à mettre à jour" : "extension à mettre à jour"}.`
+                : "Les versions publiées par les dépôts apparaissent ici."}
+            </p>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void refreshMarket()}
+          >
+            <RefreshCw data-icon="inline-start" /> Vérifier
+          </Button>
         </header>
-        <Empty className="store-empty">
-          <EmptyMedia variant="icon">
-            <CheckCircle2 />
-          </EmptyMedia>
-          <EmptyHeader>
-            <EmptyTitle>Aucune mise à jour</EmptyTitle>
-          </EmptyHeader>
-        </Empty>
+        {updates.length ? (
+          <div className="store-list">
+            {updates.map((remote) => {
+              const local = catalog.find(
+                (manifest) => manifest.id === remote.extension.id,
+              );
+              const busy = remoteBusy === remote.extension.id;
+              return (
+                <div
+                  className="store-row"
+                  key={`${remote.source.url}:${remote.extension.id}`}
+                >
+                  <span className="store-row-icon">
+                    <RefreshCw />
+                  </span>
+                  <span className="store-row-info">
+                    <span className="store-row-open">
+                      {remote.extension.name}
+                    </span>
+                    <span className="store-row-meta">
+                      {local?.version ?? "?"} → {remote.version.version} ·{" "}
+                      {remote.source.name}
+                    </span>
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void installRemote(remote)}
+                  >
+                    {busy ? "Mise à jour…" : "Mettre à jour"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <Empty className="store-empty">
+            <EmptyMedia variant="icon">
+              <CheckCircle2 />
+            </EmptyMedia>
+            <EmptyHeader>
+              <EmptyTitle>Aucune mise à jour</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
+        )}
       </div>
     </main>
   );
@@ -982,6 +1112,142 @@ export function StorePage({
             </Button>
           </form>
         )}
+        <section className="store-sources">
+          <div className="store-section-head">
+            <h2 className="store-section-title">Dépôts</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void refreshMarket()}
+            >
+              <RefreshCw data-icon="inline-start" /> Vérifier
+            </Button>
+          </div>
+          <form className="store-source-add" onSubmit={addRepository}>
+            <Input
+              value={sourceName}
+              onChange={(event) => setSourceName(event.target.value)}
+              placeholder="Nom (optionnel)"
+              aria-label="Nom du dépôt"
+            />
+            <Input
+              value={sourceUrl}
+              onChange={(event) => setSourceUrl(event.target.value)}
+              placeholder="https://…/registry.json"
+              aria-label="URL du dépôt"
+            />
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={addingSource || !sourceUrl.trim()}
+            >
+              {addingSource ? "Ajout…" : "Ajouter"}
+            </Button>
+          </form>
+          {runtime.marketplace.sourceList.length === 0 ? (
+            <p className="store-source-empty">
+              Aucun dépôt ajouté. Ajoutez l’URL d’un index JSON pour
+              découvrir ses extensions.
+            </p>
+          ) : (
+            runtime.marketplace.sourceList.map((repository) => {
+              const failure = runtime.marketplace.errorFor(repository.url);
+              const entries = remoteEntries.filter(
+                (remote) => remote.source.url === repository.url,
+              );
+              return (
+                <div className="store-source-block" key={repository.url}>
+                  <div className="store-source-card">
+                    <span className="store-source-icon">
+                      <Library />
+                    </span>
+                    <span className="store-source-info">
+                      <span className="store-source-name">
+                        {repository.name}
+                      </span>
+                      <span className="store-source-meta">
+                        {repository.url}
+                      </span>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Retirer ${repository.name}`}
+                      title="Retirer le dépôt"
+                      onClick={() => void removeRepository(repository.url)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
+                  {failure && (
+                    <p className="store-source-error">{failure}</p>
+                  )}
+                  {entries.length ? (
+                    <ul className="store-remote-list">
+                      {entries.map((remote) => {
+                        const local = catalog.find(
+                          (manifest) =>
+                            manifest.id === remote.extension.id,
+                        );
+                        const isInstalled =
+                          !!local && installed.has(local.id);
+                        const update =
+                          !!local &&
+                          compareVersions(
+                            remote.version.version,
+                            local.version,
+                          ) > 0;
+                        const busy =
+                          remoteBusy === remote.extension.id;
+                        return (
+                          <li
+                            className="store-remote-row"
+                            key={`${repository.url}:${remote.extension.id}`}
+                          >
+                            <span className="store-remote-info">
+                              <span className="store-remote-name">
+                                {remote.extension.name}
+                              </span>
+                              <span className="store-remote-meta">
+                                {remote.version.version}
+                                {remote.extension.publisher
+                                  ? ` · ${remote.extension.publisher}`
+                                  : ""}
+                                {remote.extension.summary
+                                  ? ` · ${remote.extension.summary}`
+                                  : ""}
+                              </span>
+                            </span>
+                            <Button
+                              size="sm"
+                              variant={update ? "default" : "outline"}
+                              disabled={busy}
+                              onClick={() => void installRemote(remote)}
+                            >
+                              {busy
+                                ? "Installation…"
+                                : update
+                                  ? "Mettre à jour"
+                                  : isInstalled
+                                    ? "Réinstaller"
+                                    : "Installer"}
+                            </Button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    !failure && (
+                      <p className="store-source-empty">
+                        Aucune extension dans ce dépôt.
+                      </p>
+                    )
+                  )}
+                </div>
+              );
+            })
+          )}
+        </section>
       </div>
     </main>
   );

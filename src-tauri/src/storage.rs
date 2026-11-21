@@ -67,6 +67,7 @@ impl PathGrants {
     }
 }
 
+#[derive(Clone)]
 pub struct Storage {
     home: PathBuf,
 }

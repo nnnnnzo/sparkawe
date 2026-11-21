@@ -24,6 +24,7 @@ export interface InstalledManifest {
 export interface InstalledRecord {
   manifest: InstalledManifest;
   path: string;
+  source?: string;
 }
 
 export interface SparkRuntime {
@@ -71,17 +72,17 @@ export async function loadInstalledExtension(
   views: TileViews,
 ): Promise<SparkExtension> {
   const manifest = installedManifest(record);
+  for (const link of document.head.querySelectorAll(
+    `link[data-spark-extension="${manifest.id}"]`,
+  ))
+    link.remove();
   const style = record.manifest.style;
   if (style) {
-    const href = convertFileSrc(`${record.path}/${style}`);
-    const selector = `link[data-spark-extension="${manifest.id}"]`;
-    if (!document.head.querySelector(selector)) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = href;
-      link.dataset.sparkExtension = manifest.id;
-      document.head.append(link);
-    }
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = convertFileSrc(`${record.path}/${style}`);
+    link.dataset.sparkExtension = manifest.id;
+    document.head.append(link);
   }
 
   const source = convertFileSrc(`${record.path}/${record.manifest.entry}`);

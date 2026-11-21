@@ -1,0 +1,22 @@
+.hello-tile {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px;
+  background: var(--tile);
+  color: var(--foreground);
+}
+
+.hello-tile h2 {
+  margin: 0;
+  font-family: var(--font-brand);
+  font-size: 26px;
+  font-weight: 300;
+}
+
+.hello-tile p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
