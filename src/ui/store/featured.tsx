@@ -108,7 +108,7 @@ export function Shelf({
       "(prefers-reduced-motion: reduce)",
     ).matches;
     element.scrollBy({
-      left: direction * Math.max(312, element.clientWidth * 0.8),
+      left: direction * element.clientWidth,
       behavior: reduced ? "auto" : "smooth",
     });
   };
