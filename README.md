@@ -91,6 +91,12 @@ Le pont vise macOS et Linux. Sur macOS et Linux, il est embarqué dans le bundle
 
 Vite inclut les extensions présentes dans les sources au moment de la construction. Leurs modules et styles se chargent à l’activation. Une extension qui ajoute des commandes natives doit aussi les déclarer dans Tauri et dans sa capability, puis reconstruire le binaire.
 
+### Importer une extension locale
+
+En mode développeur, ouvrez **Store › Sources** et collez le chemin d’un dossier contenant `extension.json`, un bundle `index.js` et éventuellement `style.css`. `examples/hello-extension` sert de paquet de démonstration.
+
+Le bundle est un script classique qui enregistre une fabrique dans `window.SparkExtensions["<id>"]` et reçoit React par `window.SparkRuntime`. Spark valide le manifeste, refuse les identifiants réservés, les chemins qui sortent du paquet et les liens symboliques, puis copie le dossier dans sa configuration. L’extension apparaît dans **Communautaires** et peut être activée, désactivée ou ouverte dans une tuile.
+
 Une tuile peut exposer `describe(tile, surface)` pour résumer son état en une ligne dans le brief de l’onglet, et des `actions` typées appelables par l’interface ou un agent. Une action déclare ses champs dans `input` ; Spark valide les arguments et refuse un résultat de plus de 16 000 caractères, afin qu’une action renvoie un identifiant plutôt qu’un contenu.
 
 Une vue publie ce qui est sémantique à l’instant présent — sélection, requête, résultat affiché — avec `api.tiles.publish(id, { … })`. Cette surface n’est jamais persistée et reste bornée à 2 000 caractères : c’est un résumé, pas un contenu. `describe(tile, surface)` s’en sert pour le brief, et une lecture ciblée la rend disponible à un agent sans transporter la tuile.

@@ -20,8 +20,10 @@ import {
   useState,
   useSyncExternalStore,
   type CSSProperties,
+  type FormEvent,
   type ReactNode,
 } from "react";
+import { toast } from "sonner";
 import type { Runtime } from "../../app/runtime.ts";
 import type { Manifest } from "../../sdk/index.ts";
 import { Button } from "@spark/ui/components/button";
@@ -286,9 +288,11 @@ function ScreenshotGallery({ manifest }: { manifest: Manifest }) {
 export function StorePage({
   runtime,
   onClose,
+  dev = false,
 }: {
   runtime: Runtime;
   onClose: (restoreFocus?: boolean) => void;
+  dev?: boolean;
 }) {
   const workspace = runtime.workspace;
   const state = useSyncExternalStore(workspace.subscribe, workspace.get);
@@ -301,14 +305,23 @@ export function StorePage({
         .sort()
         .join("|"),
   );
+  const catalogVersion = useSyncExternalStore(
+    runtime.extensions.subscribeCatalog,
+    () => runtime.extensions.catalogVersion,
+  );
   const [route, setRoute] = useState<StoreRoute>({ view: "home" });
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Tout");
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
+  const [source, setSource] = useState("");
+  const [installing, setInstalling] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement>(null);
 
-  const catalog = runtime.extensions.catalog;
+  const catalog = useMemo(
+    () => runtime.extensions.catalog,
+    [runtime, catalogVersion],
+  );
   const activeIds = useMemo(
     () => new Set(activeKey ? activeKey.split("|") : []),
     [activeKey],
@@ -393,6 +406,25 @@ export function StorePage({
       }
     },
     [runtime],
+  );
+
+  const installExtension = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const path = source.trim();
+      if (!path || installing) return;
+      setInstalling(true);
+      try {
+        const manifest = await runtime.extensions.install(path);
+        setSource("");
+        toast.success(`${manifest.name} installée`);
+      } catch (error) {
+        report(error);
+      } finally {
+        setInstalling(false);
+      }
+    },
+    [installing, runtime, source],
   );
 
   const togglePin = useCallback(
@@ -846,6 +878,33 @@ export function StorePage({
           </span>
           <span className="store-source-badge">Officiel</span>
         </div>
+        {dev && (
+          <form className="store-install" onSubmit={installExtension}>
+            <div className="store-install-text">
+              <span className="store-install-title">
+                Importer une extension
+              </span>
+              <span className="store-install-hint">
+                Dossier contenant extension.json, index.js et éventuellement
+                style.css.
+              </span>
+            </div>
+            <Input
+              value={source}
+              onChange={(event) => setSource(event.target.value)}
+              placeholder="/chemin/vers/extension"
+              aria-label="Dossier de l’extension à importer"
+              className="store-install-input"
+            />
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={installing || !source.trim()}
+            >
+              {installing ? "Installation…" : "Installer"}
+            </Button>
+          </form>
+        )}
       </div>
     </main>
   );

@@ -53,6 +53,9 @@ export function createExtensionManager(
   getInstalled: () => string[],
   saveInstalled: (ids: string[]) => void,
   onError: (error: unknown) => void,
+  installEntry: (source: string) => Promise<CatalogEntry> = async () => {
+    throw new Error("Installation indisponible.");
+  },
 ) {
   const entries = new Map<string, CatalogEntry>();
   for (const entry of catalog) {
@@ -61,8 +64,14 @@ export function createExtensionManager(
     entries.set(id, entry);
   }
   const pending = new Set<string>();
+  const catalogListeners = new Set<() => void>();
+  let catalogVersion = 0;
   const isActive = (id: string) =>
     registry.getExtensions().some((manifest) => manifest.id === id);
+  const notifyCatalog = () => {
+    catalogVersion += 1;
+    for (const listener of catalogListeners) listener();
+  };
 
   async function enable(entry: CatalogEntry) {
     if (!isActive(entry.manifest.id))
@@ -70,7 +79,18 @@ export function createExtensionManager(
   }
 
   return {
-    catalog: catalog.map(({ manifest }) => manifest),
+    get catalog() {
+      return [...entries.values()].map(({ manifest }) => manifest);
+    },
+    get catalogVersion() {
+      return catalogVersion;
+    },
+    subscribeCatalog(listener: () => void) {
+      catalogListeners.add(listener);
+      return () => {
+        catalogListeners.delete(listener);
+      };
+    },
     async restore() {
       for (const id of getInstalled() ?? []) {
         const entry = entries.get(id);
@@ -81,6 +101,21 @@ export function createExtensionManager(
           onError(error);
         }
       }
+    },
+    async install(source: string) {
+      const entry = await installEntry(source);
+      entries.set(entry.manifest.id, entry);
+      try {
+        if (isActive(entry.manifest.id))
+          await registry.deactivate(entry.manifest.id);
+        await enable(entry);
+        saveInstalled([
+          ...new Set([...(getInstalled() ?? []), entry.manifest.id]),
+        ]);
+      } finally {
+        notifyCatalog();
+      }
+      return entry.manifest;
     },
     async setEnabled(id: string, enabled: boolean) {
       const entry = entries.get(id);

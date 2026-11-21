@@ -17,7 +17,8 @@ import {
 import type { Data, Tile } from "../sdk/index.ts";
 import { TileViews } from "../ui/contracts.ts";
 import { report } from "../ui/errors.ts";
-import { discoverExtensions } from "./extensions.ts";
+import { discoverExtensions, installedEntry } from "./extensions.ts";
+import type { InstalledRecord } from "./installed.ts";
 
 export async function createRuntime() {
   let state: WorkspaceState;
@@ -33,7 +34,7 @@ export async function createRuntime() {
   }
 
   const views = new TileViews();
-  const catalog = discoverExtensions(views);
+  const catalog = await discoverExtensions(views);
   const snapshots = new Map(Object.entries(state.extensions ?? {}));
   const journal = new Journal();
   let savedSettings: unknown = null;
@@ -117,12 +118,19 @@ export async function createRuntime() {
       tabForTile: (tileId) => workspace.tabForTile(tileId)?.id,
     },
   );
+  async function installEntry(source: string) {
+    const record = await invoke<InstalledRecord>("extension_install", {
+      source,
+    });
+    return installedEntry(record, views);
+  }
   const extensions = createExtensionManager(
     registry,
     catalog,
     () => workspace.get().installedExtensions ?? [],
     (installedExtensions) => workspace.patch({ installedExtensions }),
     report,
+    installEntry,
   );
   await extensions.restore();
   workspace.subscribe(queue);

@@ -935,6 +935,47 @@
   text-transform: uppercase;
 }
 
+.store-install {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 260px) auto;
+  align-items: end;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.store-install-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.store-install-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.store-install-hint {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.store-install-input {
+  height: 34px;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .store-install {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Sceau */
 .certified-badge {
   display: inline-flex;

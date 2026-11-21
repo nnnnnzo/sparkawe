@@ -1,5 +1,6 @@
 mod agents;
 mod explorer;
+mod extensions;
 mod markdown;
 pub mod mcp;
 mod pdf;
@@ -79,6 +80,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             storage::workspace_load,
             storage::workspace_save,
+            extensions::extension_list,
+            extensions::extension_install,
+            extensions::extension_remove,
             window::set_window_material,
             settings::settings_load,
             settings::settings_save,

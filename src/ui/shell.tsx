@@ -528,7 +528,13 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
             />
           </div>
         </div>
-        {store && <StorePage runtime={runtime} onClose={closeStore} />}
+        {store && (
+          <StorePage
+            runtime={runtime}
+            onClose={closeStore}
+            dev={settings.dev}
+          />
+        )}
       </div>
       <Dialog open={palette} onOpenChange={setPalette}>
         <DialogContent
