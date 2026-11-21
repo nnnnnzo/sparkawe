@@ -56,6 +56,9 @@ export function createExtensionManager(
   installEntry: (source: string) => Promise<CatalogEntry> = async () => {
     throw new Error("Installation indisponible.");
   },
+  removeEntry: (id: string) => Promise<void> = async () => {
+    throw new Error("Désinstallation indisponible.");
+  },
 ) {
   const entries = new Map<string, CatalogEntry>();
   for (const entry of catalog) {
@@ -116,6 +119,16 @@ export function createExtensionManager(
         notifyCatalog();
       }
       return entry.manifest;
+    },
+    async uninstall(id: string) {
+      if (!entries.has(id)) return;
+      await registry.deactivate(id);
+      await removeEntry(id);
+      entries.delete(id);
+      saveInstalled(
+        (getInstalled() ?? []).filter((installed) => installed !== id),
+      );
+      notifyCatalog();
     },
     async setEnabled(id: string, enabled: boolean) {
       const entry = entries.get(id);

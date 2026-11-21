@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Search,
   SearchX,
+  Trash2,
 } from "lucide-react";
 import {
   useCallback,
@@ -28,6 +29,14 @@ import { toast } from "sonner";
 import type { Runtime } from "../../app/runtime.ts";
 import type { Manifest } from "../../sdk/index.ts";
 import { Button } from "@spark/ui/components/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@spark/ui/components/dialog";
 import {
   Empty,
   EmptyContent,
@@ -320,6 +329,8 @@ export function StorePage({
   const [source, setSource] = useState("");
   const [installing, setInstalling] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<Manifest | null>(null);
+  const [removing, setRemoving] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const origin = activeStoreView(route);
@@ -452,6 +463,21 @@ export function StorePage({
       setPicking(false);
     }
   }, [installing, picking]);
+
+  async function uninstallExtension() {
+    if (!removeTarget || removing) return;
+    setRemoving(true);
+    try {
+      await runtime.extensions.uninstall(removeTarget.id);
+      toast.success(`${removeTarget.name} désinstallée`);
+      setRemoveTarget(null);
+      setRoute({ view: "home" });
+    } catch (error) {
+      report(error);
+    } finally {
+      setRemoving(false);
+    }
+  }
 
   const togglePin = useCallback(
     (id: string) => {
@@ -753,6 +779,17 @@ export function StorePage({
                   <Pin fill={pinned ? "currentColor" : "none"} />
                 </Button>
               )}
+              {manifest.tier === "community" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Désinstaller ${manifest.name}`}
+                  title="Désinstaller"
+                  onClick={() => setRemoveTarget(manifest)}
+                >
+                  <Trash2 />
+                </Button>
+              )}
             </div>
           </header>
           <ScreenshotGallery manifest={manifest} />
@@ -1001,6 +1038,40 @@ export function StorePage({
       {route.view === "installed" && renderInstalled()}
       {route.view === "updates" && renderUpdates()}
       {route.view === "sources" && renderSources()}
+      <Dialog
+        open={!!removeTarget}
+        onOpenChange={(open) => {
+          if (!open && !removing) setRemoveTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Désinstaller {removeTarget?.name ?? "cette extension"} ?
+            </DialogTitle>
+            <DialogDescription>
+              Le paquet sera supprimé. Les tuiles ouvertes deviendront
+              indisponibles.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={removing}
+              onClick={() => setRemoveTarget(null)}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={removing}
+              onClick={() => void uninstallExtension()}
+            >
+              {removing ? "Désinstallation…" : "Désinstaller"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

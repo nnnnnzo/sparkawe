@@ -124,6 +124,9 @@ export async function createRuntime() {
     });
     return installedEntry(record, views);
   }
+  async function removeEntry(id: string) {
+    await invoke("extension_remove", { id });
+  }
   const extensions = createExtensionManager(
     registry,
     catalog,
@@ -131,6 +134,7 @@ export async function createRuntime() {
     (installedExtensions) => workspace.patch({ installedExtensions }),
     report,
     installEntry,
+    removeEntry,
   );
   await extensions.restore();
   workspace.subscribe(queue);

@@ -8,15 +8,19 @@ import {
 } from "dockview-react";
 import { Blocks, Ellipsis, LayoutGrid, Plus, X } from "lucide-react";
 import {
+  Component,
   createContext,
   useContext,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
+  type ErrorInfo,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import type { Runtime } from "../app/runtime.ts";
+import type { Tile } from "../sdk/index.ts";
 import { report } from "./errors.ts";
 import type { Tab, WorkspaceState } from "../core/workspace.ts";
 import { registerLayoutHandler } from "./layoutBridge.ts";
@@ -66,6 +70,58 @@ function Panel({ api }: IDockviewPanelProps) {
     };
   }, [target]);
   return <div className="tile-host" data-tile-id={api.id} ref={ref} />;
+}
+
+class TileBoundary extends Component<
+  { runtime: Runtime; tile: Tile; children: ReactNode },
+  { error?: Error }
+> {
+  state: { error?: Error } = {};
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error(error, info);
+  }
+
+  private retry = () => this.setState({ error: undefined });
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    const owner = this.props.runtime.registry.getTile(
+      this.props.tile.type,
+    )?.owner;
+    return (
+      <div className="tile-error" role="alert">
+        <p className="tile-error-title">
+          Cette tuile a rencontré une erreur.
+        </p>
+        <p className="tile-error-detail">
+          {this.state.error.message || String(this.state.error)}
+        </p>
+        <div className="tile-error-actions">
+          <Button size="sm" variant="outline" onClick={this.retry}>
+            Réessayer
+          </Button>
+          {owner && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() =>
+                void this.props.runtime.extensions
+                  .setEnabled(owner.id, false)
+                  .catch(report)
+              }
+            >
+              Désactiver {owner.name}
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
 }
 
 const directions = {
@@ -700,7 +756,9 @@ export function WorkspaceLayout({
         const View = runtime.views.get(tile.type);
         return createPortal(
           View ? (
-            <View tile={tile} active={tab.tiles.includes(tile)} />
+            <TileBoundary runtime={runtime} tile={tile}>
+              <View tile={tile} active={tab.tiles.includes(tile)} />
+            </TileBoundary>
           ) : (
             <p className="tile-message">Tuile indisponible.</p>
           ),

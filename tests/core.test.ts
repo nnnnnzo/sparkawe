@@ -47,7 +47,7 @@ const catalogEntry = (
 const tile = { type: "demo.tile", title: "Demo" };
 const service: ServiceKey<number> = { id: "demo.service@1" };
 const event: EventKey<number> = { id: "demo.event" };
-function setup() {
+function setup(options: { activationTimeout?: number } = {}) {
   const workspace = new Workspace(initialWorkspace());
   const snapshots = new Map<string, unknown>();
   const registry = new Registry(
@@ -68,6 +68,7 @@ function setup() {
         snapshots.set(id, value);
       },
     },
+    options,
   );
   return { workspace, registry, snapshots };
 }
@@ -421,4 +422,16 @@ test("a failed older write cannot overwrite a newer persisted snapshot", async (
   await Promise.all([failed, flushed]);
   await persistence.flush();
   assert.deepEqual(written, ["old", "new"]);
+});
+
+test("une activation trop longue est interrompue", async () => {
+  const { registry } = setup({ activationTimeout: 10 });
+  await assert.rejects(
+    registry.activate({
+      manifest: manifest("slow"),
+      activate: () => new Promise<void>(() => {}),
+    }),
+    /Activation trop longue/,
+  );
+  assert.deepEqual(registry.getExtensions(), []);
 });

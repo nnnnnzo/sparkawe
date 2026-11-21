@@ -727,6 +727,31 @@ svg {
   color: var(--muted-foreground);
   margin: 12px;
 }
+.tile-error {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  overflow: auto;
+  background: var(--tile);
+  color: var(--foreground);
+}
+.tile-error-title {
+  margin: 0;
+  font-weight: 600;
+}
+.tile-error-detail {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+.tile-error-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
 
 html.transparent body {
   border-radius: 10px;

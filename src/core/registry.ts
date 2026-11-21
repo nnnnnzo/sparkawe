@@ -30,6 +30,8 @@ export interface RegistryOptions {
   record?: WorkspaceRecord;
   /** Onglet qui contient une tuile, pour attribuer un événement du journal. */
   tabForTile?: (tileId: string) => string | undefined;
+  /** Délai maximal d’une activation, en millisecondes. */
+  activationTimeout?: number;
 }
 
 const ACTION_NAME = /^[a-z][a-z0-9_.-]*$/;
@@ -109,16 +111,18 @@ export class Registry {
   private readonly state: ExtensionState;
   private readonly journal: WorkspaceRecord;
   private readonly tabForTile: (tileId: string) => string | undefined;
+  private readonly activationTimeout: number;
 
   constructor(
     tabs: SparkAPI["tabs"],
     state: ExtensionState,
-    { record = () => {}, tabForTile = () => undefined }: RegistryOptions = {},
+    options: RegistryOptions = {},
   ) {
     this.tabs = tabs;
     this.state = state;
-    this.journal = record;
-    this.tabForTile = tabForTile;
+    this.journal = options.record ?? (() => {});
+    this.tabForTile = options.tabForTile ?? (() => undefined);
+    this.activationTimeout = options.activationTimeout ?? 5000;
   }
 
   getTile = (type: string) => this.tiles.get(type);
@@ -317,8 +321,22 @@ export class Registry {
         },
       },
     };
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      await extension.activate(api);
+      await Promise.race([
+        Promise.resolve(extension.activate(api)),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () =>
+              reject(
+                new Error(
+                  `Activation trop longue : ${owner.id} (${this.activationTimeout} ms).`,
+                ),
+              ),
+            this.activationTimeout,
+          );
+        }),
+      ]);
       if (pending) this.state.save(owner.id, pending.value);
       pending = undefined;
       activated = true;
@@ -331,6 +349,8 @@ export class Registry {
         remove();
       }
       throw error;
+    } finally {
+      clearTimeout(timer);
     }
   }
 
