@@ -7,6 +7,13 @@ export type IconComponent = ComponentType<
 >;
 
 /**
+ * Texte d’interface : soit une chaîne fournie par l’extension, soit une
+ * référence au dictionnaire de l’hôte. Les paquets importés utilisent des
+ * chaînes ; les intégrées passent par `localized("clé")`.
+ */
+export type LocalizedText = string | { readonly key: string };
+
+/**
  * Niveau de garantie d'une extension. `core` désigne le socle livré et
  * maintenu avec Spark ; `official` une intégration à un service nommé ;
  * `community` est réservé aux extensions tierces.
@@ -15,20 +22,20 @@ export type ExtensionTier = "core" | "official" | "community";
 
 export interface Manifest {
   id: string;
-  name: string;
+  name: LocalizedText;
   version: string;
   icon?: IconComponent;
   color?: string;
   tier?: ExtensionTier;
   tileTypes?: readonly string[];
   /** Résumé court affiché dans le Store. */
-  summary?: string;
+  summary?: LocalizedText;
   /** Description longue affichée sur la fiche. */
-  description?: string;
-  /** Catégorie éditoriale du Store. */
+  description?: LocalizedText;
+  /** Identifiant stable de la catégorie éditoriale du Store. */
   category?: string;
   /** Fonction de l'extension, en quelques mots factuels. */
-  subtitle?: string;
+  subtitle?: LocalizedText;
   /** Captures statiques de la tuile, dans l'ordre de la galerie. */
   screenshots?: readonly string[];
   /**
@@ -62,8 +69,8 @@ export interface ActionField {
 }
 
 export interface TileAction {
-  title: string;
-  description?: string;
+  title: LocalizedText;
+  description?: LocalizedText;
   input?: Record<string, ActionField>;
   /** Services dont dépend l'action : absents, elle n'est pas proposée. */
   requires?: readonly ServiceKey<unknown>[];
@@ -80,7 +87,7 @@ export interface TileAction {
 
 export interface TileDefinition {
   type: string;
-  title: string;
+  title: LocalizedText;
   icon?: IconComponent;
   /** Clés de données acceptées à l'ouverture. Les autres sont refusées. */
   dataKeys?: readonly string[];
@@ -88,7 +95,7 @@ export interface TileDefinition {
    * Mode d'emploi pour un agent, livré avec la tuile quand elle est lue.
    * Texte court : les actions, les conventions, les pièges.
    */
-  guide?: string;
+  guide?: LocalizedText;
   prepare?(data: Data): Data;
   /** Résumé court et lisible affiché dans le brief d'un onglet. */
   describe?(tile: Tile, surface: TileSurface): string;
@@ -102,9 +109,9 @@ export interface TileDefinition {
 
 export interface Command {
   id: string;
-  title: string;
+  title: LocalizedText;
   icon?: IconComponent;
-  category?: string;
+  category?: LocalizedText;
   tileType?: string;
   keywords?: string[];
   /** N'apparaît que lorsque le mode développeur est actif. */

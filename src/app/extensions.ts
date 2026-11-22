@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { CatalogEntry } from "../core/extensions.ts";
 import type { Manifest } from "../sdk/index.ts";
+import { text as translateText, t as translateNow } from "../i18n/index.ts";
 import type { ExtensionModule } from "../sdk/react.ts";
 import type { TileViews } from "../ui/contracts.ts";
 import { report } from "../ui/errors.ts";
@@ -39,7 +40,12 @@ export async function discoverExtensions(
       const load =
         factories[`${directory}/index.ts`] ??
         factories[`${directory}/index.tsx`];
-      if (!load) throw new Error(`Module introuvable : ${manifest.name}`);
+      if (!load)
+        throw new Error(
+          translateNow("errors.moduleMissing", {
+            name: translateText(manifest.name),
+          }),
+        );
       return views.adapt(manifest, (await load())());
     },
   }));

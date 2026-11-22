@@ -1,4 +1,5 @@
 import type { Data, Tile } from "../sdk/index.ts";
+import { t as translateNow } from "../i18n/index.ts";
 import type { JournalSource } from "./journal.ts";
 
 export type WorkspaceRecord = (record: {
@@ -31,7 +32,10 @@ export interface WorkspaceState {
   theme: Theme;
 }
 
-const newTab = (name = "Espace 1", mode: Mode = "side"): Tab => ({
+const newTab = (
+  name = translateNow("workspace.tab.default", { count: 1 }),
+  mode: Mode = "side",
+): Tab => ({
   id: crypto.randomUUID(),
   name,
   mode,
@@ -118,7 +122,7 @@ export function restoreWorkspace(state: unknown): WorkspaceState {
         state.pinned.every((id) => typeof id === "string")
       ))
   ) {
-    throw new Error("Format de l’espace Spark invalide.");
+    throw new Error(translateNow("errors.workspaceFormat"));
   }
   const tabs: Tab[] = (state.tabs as Tab[]).map((tab) => ({
     ...tab,
@@ -141,7 +145,7 @@ export function restoreWorkspace(state: unknown): WorkspaceState {
     ...tab.tiles.map((tile) => tile.id),
   ]);
   if (new Set(ids).size !== ids.length)
-    throw new Error("L’espace Spark contient des identifiants en double.");
+    throw new Error(translateNow("errors.workspaceDuplicateIds"));
   const installed = (state.installedExtensions as string[] | undefined)?.map(
     sparkId,
   );
@@ -207,9 +211,15 @@ export class Workspace {
     let label = name?.trim() ?? "";
     if (!label) {
       let number = 1;
-      while (this.state.tabs.some((tab) => tab.name === `Espace ${number}`))
+      while (
+        this.state.tabs.some(
+          (tab) =>
+            tab.name ===
+            translateNow("workspace.tab.default", { count: number }),
+        )
+      )
         number++;
-      label = `Espace ${number}`;
+      label = translateNow("workspace.tab.default", { count: number });
     } else if (this.state.tabs.some((tab) => tab.name === label)) {
       let number = 2;
       while (this.state.tabs.some((tab) => tab.name === `${label} ${number}`))
@@ -276,7 +286,7 @@ export class Workspace {
   }
   addTile(type: string, data: Data, tabId = this.state.active) {
     const tab = this.state.tabs.find(({ id }) => id === tabId);
-    if (!tab) throw new Error("L’espace de travail a été fermé.");
+    if (!tab) throw new Error(translateNow("errors.workspaceClosed"));
     const tile: Tile = { id: crypto.randomUUID(), type, data };
     this.updateTab(tab.id, { tiles: [...tab.tiles, tile], focused: tile.id });
     this.record({

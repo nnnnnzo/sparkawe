@@ -4,10 +4,12 @@ import {
   createExtensionManager,
   seedCoreExtensions,
 } from "../core/extensions.ts";
+import { detectLocale } from "../core/i18n.ts";
 import { Journal, type JournalSource } from "../core/journal.ts";
 import { createPersistence } from "../core/persistence.ts";
 import { Registry } from "../core/registry.ts";
 import { Settings, restoreSettings } from "../core/settings.ts";
+import { setLocale, getLocale, t as translateNow } from "../i18n/index.ts";
 import {
   Workspace,
   restoreWorkspace,
@@ -46,14 +48,21 @@ export async function createRuntime() {
   } catch (error) {
     report(error);
   }
-  const settings = new Settings(restoreSettings(savedSettings));
+  const settings = new Settings(
+    restoreSettings(
+      savedSettings,
+      detectLocale(navigator.languages ?? [navigator.language]),
+    ),
+  );
+  setLocale(settings.get().locale);
   const settingsPersistence = createPersistence(
     (snapshot) => invoke("settings_save", { snapshot }),
     report,
   );
-  settings.subscribe(() =>
-    settingsPersistence.queue(JSON.stringify(settings.get())),
-  );
+  settings.subscribe(() => {
+    setLocale(settings.get().locale);
+    settingsPersistence.queue(JSON.stringify(settings.get()));
+  });
   const seed = seedCoreExtensions(
     state.installedExtensions,
     state.seededCore,
@@ -85,11 +94,12 @@ export async function createRuntime() {
     {
       openTile(type: string, data: Data = {}, alongside?: string): Tile {
         const definition = registry.getTile(type);
-        if (!definition) throw new Error(`Tuile indisponible : ${type}`);
+        if (!definition)
+          throw new Error(translateNow("errors.tileUnavailable", { type }));
         const tab = alongside
           ? workspace.tabForTile(alongside)
           : workspace.active();
-        if (!tab) throw new Error("La tuile d’origine a été fermée.");
+        if (!tab) throw new Error(translateNow("errors.originTileClosed"));
         return workspace.addTile(
           type,
           definition.prepare?.(data) ?? data,
@@ -165,7 +175,10 @@ export async function createRuntime() {
     journal,
     settings,
     brief(tabId?: string) {
-      return buildBrief({ workspace, catalog: registry, journal }, tabId);
+      return buildBrief(
+        { workspace, catalog: registry, journal, locale: getLocale() },
+        tabId,
+      );
     },
     /** Exécute une suite d'actions en attribuant leurs effets à une source. */
     async runAs<T>(source: JournalSource, run: () => T | Promise<T>) {

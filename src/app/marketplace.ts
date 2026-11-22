@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Manifest } from "../sdk/index.ts";
 import { compareVersions, latestVersion } from "../core/version.ts";
+import { t as translateNow } from "../i18n/index.ts";
 
 export interface RegistryVersion {
   version: string;
@@ -148,7 +149,7 @@ export class Marketplace {
                 url: source.url,
               }),
             );
-            if (!index) throw new Error("Index invalide.");
+            if (!index) throw new Error(translateNow("errors.invalidIndex"));
             return { source, index };
           } catch (error) {
             return { source, error };
@@ -193,7 +194,7 @@ export class Marketplace {
 
   async install(remote: RemoteExtension) {
     if (!this.installer)
-      throw new Error("L’installation depuis un dépôt est indisponible.");
+      throw new Error(translateNow("errors.installFromRepositoryUnavailable"));
     const manifest = await this.installer(remote);
     this.notify();
     return manifest;

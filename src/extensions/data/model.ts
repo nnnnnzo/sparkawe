@@ -1,3 +1,4 @@
+import type { Locale } from "../../core/i18n.ts";
 import type { CellType, Table, TableColumn, TableRow } from "./api.ts";
 
 export const MAX_ROWS = 2_000;
@@ -23,9 +24,14 @@ export function newRow(columns: number): TableRow {
   return { id: uuid(), cells: Array.from({ length: columns }, () => "") };
 }
 
-export function createTable(name = "Tableau", columns = 3, rows = 8): Table {
+export function createTable(
+  name = "Table",
+  columns = 3,
+  rows = 8,
+  columnName: (index: number) => string = (index) => `Column ${index + 1}`,
+): Table {
   const headers = Array.from({ length: columns }, (_, index) =>
-    newColumn(`Colonne ${index + 1}`),
+    newColumn(columnName(index + 1)),
   );
   return {
     version: 1,
@@ -109,10 +115,14 @@ export function dateOf(value: string): number | undefined {
 }
 
 /** Valeur de tri : les nombres et les dates se comparent, le texte suit la locale. */
-function sortValue(value: string, type: CellType): number | string | undefined {
+function sortValue(
+  value: string,
+  type: CellType,
+  locale: Locale,
+): number | string | undefined {
   if (type === "number") return numberOf(value);
   if (type === "date") return dateOf(value);
-  return value.toLocaleLowerCase("fr");
+  return value.toLocaleLowerCase(locale);
 }
 
 export function sortRows(
@@ -120,16 +130,17 @@ export function sortRows(
   column: number,
   direction: "asc" | "desc",
   type: CellType,
+  locale: Locale = "en",
 ): TableRow[] {
   const compare = (first: TableRow, second: TableRow) => {
-    const left = sortValue(first.cells[column] ?? "", type);
-    const right = sortValue(second.cells[column] ?? "", type);
+    const left = sortValue(first.cells[column] ?? "", type, locale);
+    const right = sortValue(second.cells[column] ?? "", type, locale);
     if (left === undefined && right === undefined) return 0;
     if (left === undefined) return 1;
     if (right === undefined) return -1;
     if (typeof left === "number" && typeof right === "number")
       return left - right;
-    return String(left).localeCompare(String(right), "fr", {
+    return String(left).localeCompare(String(right), locale, {
       numeric: true,
       sensitivity: "base",
     });
@@ -141,11 +152,12 @@ export function sortRows(
 export function filterRows(
   rows: readonly TableRow[],
   query: string,
+  locale: Locale = "en",
 ): TableRow[] {
-  const wanted = query.trim().toLocaleLowerCase("fr");
+  const wanted = query.trim().toLocaleLowerCase(locale);
   if (!wanted) return [...rows];
   return rows.filter((row) =>
-    row.cells.some((cell) => cell.toLocaleLowerCase("fr").includes(wanted)),
+    row.cells.some((cell) => cell.toLocaleLowerCase(locale).includes(wanted)),
   );
 }
 
@@ -203,8 +215,8 @@ export function cellValue(table: Table, rowId: string, columnId: string) {
   return column < 0 || !row ? "" : (row.cells[column] ?? "");
 }
 
-export function displayDate(value: number) {
-  return new Date(value).toLocaleDateString("fr-FR", {
+export function displayDate(value: number, locale: Locale = "en") {
+  return new Date(value).toLocaleDateString(locale, {
     day: "2-digit",
     month: "short",
     year: "numeric",

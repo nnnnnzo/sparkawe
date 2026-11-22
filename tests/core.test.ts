@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Registry } from "../src/core/registry.ts";
+import { setLocale } from "../src/i18n/index.ts";
 import {
   Workspace,
   initialWorkspace,
@@ -20,6 +21,8 @@ import type {
   Manifest,
   ServiceKey,
 } from "../src/sdk/index.ts";
+
+setLocale("fr");
 
 const manifest = (id: string): Manifest => ({
   id,
@@ -233,10 +236,7 @@ test("chaque extension du socle est proposée une seule fois", () => {
   const disabled = seedCoreExtensions(
     ["core.one"],
     first.seeded,
-    [
-      catalogEntry("core.one", "core"),
-      catalogEntry("core.two", "core"),
-    ],
+    [catalogEntry("core.one", "core"), catalogEntry("core.two", "core")],
     [],
   );
   assert.deepEqual(disabled.installed, ["core.one"]);
@@ -321,12 +321,24 @@ test("two modes and tabs retain independent layouts and tile identities across r
 });
 
 test("les paramètres applicatifs sont restaurés et validés", () => {
-  assert.deepEqual(restoreSettings(null), { dev: false });
-  assert.deepEqual(restoreSettings({}), { dev: false });
-  assert.deepEqual(restoreSettings({ dev: true }), { dev: true });
-  assert.deepEqual(restoreSettings({ dev: "oui" }), { dev: false });
-  assert.deepEqual(restoreSettings(["dev"]), { dev: false });
-  const settings = new Settings(restoreSettings({ dev: true }));
+  assert.deepEqual(restoreSettings(null, "fr"), {
+    dev: false,
+    locale: "fr",
+  });
+  assert.deepEqual(restoreSettings({}, "fr"), { dev: false, locale: "fr" });
+  assert.deepEqual(restoreSettings({ dev: true }, "fr"), {
+    dev: true,
+    locale: "fr",
+  });
+  assert.deepEqual(restoreSettings({ dev: "oui" }, "fr"), {
+    dev: false,
+    locale: "fr",
+  });
+  assert.deepEqual(restoreSettings(["dev"], "fr"), {
+    dev: false,
+    locale: "fr",
+  });
+  const settings = new Settings(restoreSettings({ dev: true }, "fr"));
   let renders = 0;
   const unsubscribe = settings.subscribe(() => renders++);
   settings.patch({ dev: false });

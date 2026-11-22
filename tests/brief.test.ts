@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { buildBrief } from "../src/core/brief.ts";
+import { setLocale } from "../src/i18n/index.ts";
 import { Journal, summarize } from "../src/core/journal.ts";
 import { Registry } from "../src/core/registry.ts";
 import { Workspace, initialWorkspace } from "../src/core/workspace.ts";
 import type { SparkAPI, Manifest } from "../src/sdk/index.ts";
+
+setLocale("fr");
 
 const manifest = (id: string): Manifest => ({
   id,
@@ -118,7 +121,10 @@ test("le brief décrit l’onglet actif et filtre le bruit", async () => {
   });
   workspace.create();
 
-  const brief = buildBrief({ workspace, catalog: registry, journal }, tab.id);
+  const brief = buildBrief(
+    { workspace, catalog: registry, journal, locale: "fr" },
+    tab.id,
+  );
   assert.equal(brief.tab.name, "Espace 1");
   assert.equal(brief.tab.active, false);
   assert.equal(brief.tab.focused, tile.id);
@@ -163,7 +169,12 @@ test("une surface volatile alimente le brief et reste bornée", async () => {
     selection: "src/ui/shell.tsx",
     kind: "file",
   });
-  const brief = buildBrief({ workspace, catalog: registry, journal });
+  const brief = buildBrief({
+    workspace,
+    catalog: registry,
+    journal,
+    locale: "fr",
+  });
   assert.equal(brief.tab.tiles[0].summary, "sélection src/ui/shell.tsx");
   assert.equal(brief.text.includes("sélection src/ui/shell.tsx"), true);
 
@@ -192,7 +203,11 @@ test("une surface volatile alimente le brief et reste bornée", async () => {
 test("le brief refuse un onglet inconnu", () => {
   const { journal, workspace, registry } = setup();
   assert.throws(
-    () => buildBrief({ workspace, catalog: registry, journal }, "absent"),
+    () =>
+      buildBrief(
+        { workspace, catalog: registry, journal, locale: "fr" },
+        "absent",
+      ),
     /Onglet inconnu/,
   );
 });

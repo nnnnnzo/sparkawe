@@ -6,6 +6,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@spark/ui/components/popover";
+import { localized } from "../../core/i18n.ts";
+import {
+  t as translateNow,
+  tp as translatePluralNow,
+} from "../../i18n/index.ts";
+import { useI18n } from "../../i18n/react.ts";
 import type {
   ExtensionAPI,
   ExtensionModule,
@@ -105,7 +111,7 @@ function optionsFrom(input: Record<string, unknown>): SearchOptions {
 
 async function runSearch(tile: Tile, options: SearchOptions) {
   const query = options.query.trim();
-  if (!query) throw new Error("Recherche vide.");
+  if (!query) throw new Error(translateNow("openalex.error.emptyQuery"));
   update(tile.id, { status: "loading", query, error: undefined });
   publish(tile.id);
   api.tabs.updateTileData(tile.id, { ...tile.data, query });
@@ -132,7 +138,8 @@ function selectWork(tile: Tile, wanted: string): Work {
   const state = snapshotOf(tile.id);
   const clean = wanted.replace(/^https:\/\/openalex\.org\//, "");
   const work = state.results.find((candidate) => candidate.id === clean);
-  if (!work) throw new Error(`Travail inconnu : ${wanted}.`);
+  if (!work)
+    throw new Error(translateNow("openalex.error.unknownWork", { id: wanted }));
   update(tile.id, { selected: work.id });
   publish(tile.id);
   return work;
@@ -143,10 +150,7 @@ function selectedWork(tile: Tile): Work {
   const work = state.results.find(
     (candidate) => candidate.id === state.selected,
   );
-  if (!work)
-    throw new Error(
-      "Aucun travail sélectionné. Appelez select avec un identifiant de la recherche.",
-    );
+  if (!work) throw new Error(translateNow("openalex.error.noSelection"));
   return work;
 }
 
@@ -173,7 +177,10 @@ function fieldsOf(work: Work, fields: string[]) {
   for (const field of fields) {
     if (!(field in all))
       throw new Error(
-        `Champ inconnu : ${field}. Champs : ${Object.keys(all).join(", ")}.`,
+        translateNow("openalex.error.unknownField", {
+          field,
+          fields: Object.keys(all).join(", "),
+        }),
       );
     picked[field] = all[field];
   }
@@ -186,9 +193,9 @@ function openWorkTile(tile: Tile, work: Work) {
 
 async function openPdfTile(tile: Tile, work: Work) {
   if (!work.pdfCandidates.length)
-    throw new Error("Aucun PDF libre pour ce travail. Consultez le DOI.");
+    throw new Error(translateNow("openalex.error.noPdf"));
   const viewer = api.services.get(previewPdf);
-  if (!viewer) throw new Error("L’extension Aperçu est désactivée.");
+  if (!viewer) throw new Error(translateNow("openalex.error.previewDisabled"));
   return viewer.open(
     { id: work.id, title: work.title, urls: work.pdfCandidates },
     tile.id,
@@ -196,6 +203,7 @@ async function openPdfTile(tile: Tile, work: Work) {
 }
 
 function SearchView({ tile }: TileViewProps) {
+  const { t, text, tp } = useI18n();
   const state = useSyncExternalStore(subscribe, () => snapshots.get(tile.id));
   const [query, setQuery] = useState(tile.data.query ?? "");
   const [yearFrom, setYearFrom] = useState("");
@@ -254,13 +262,13 @@ function SearchView({ tile }: TileViewProps) {
 
   const placeholder =
     by === "doi"
-      ? "10.1234/abcd ou https://doi.org/…"
+      ? t("openalex.search.placeholder.doi")
       : by === "author"
-        ? "Nom d’auteur (ex. Christopher Manning)"
-        : "Chercher des travaux…";
+        ? t("openalex.search.placeholder.author")
+        : t("openalex.search.placeholder.topic");
 
   return (
-    <section className="openalex" aria-label={manifest.name}>
+    <section className="openalex" aria-label={text(manifest.name)}>
       <form
         className="openalex-search"
         onSubmit={(event) => void submit(event)}
@@ -271,10 +279,10 @@ function SearchView({ tile }: TileViewProps) {
           onChange={(event) =>
             setBy(event.target.value as "topic" | "author" | "doi")
           }
-          aria-label="Type de recherche"
+          aria-label={t("openalex.search.mode")}
         >
-          <option value="topic">Sujet</option>
-          <option value="author">Auteur</option>
+          <option value="topic">{t("openalex.search.mode.topic")}</option>
+          <option value="author">{t("openalex.search.mode.author")}</option>
           <option value="doi">DOI</option>
         </select>
         <input
@@ -282,25 +290,27 @@ function SearchView({ tile }: TileViewProps) {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={placeholder}
-          aria-label="Recherche OpenAlex"
+          aria-label={t("openalex.search.label")}
         />
         <button type="submit" disabled={current.status === "loading"}>
-          {current.status === "loading" ? "Recherche…" : "Chercher"}
+          {current.status === "loading"
+            ? t("openalex.search.loading")
+            : t("openalex.search.submit")}
         </button>
         <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
           <PopoverTrigger asChild>
             <button
               type="button"
               className="openalex-filter-trigger"
-              aria-label="Filtres de recherche"
-              title="Filtres"
+              aria-label={t("openalex.search.filters")}
+              title={t("openalex.search.filtersTitle")}
             >
               <SlidersHorizontal size={14} aria-hidden />
             </button>
           </PopoverTrigger>
           <PopoverContent align="end" className="openalex-filter-panel">
             <label>
-              Année de
+              {t("openalex.filters.yearFrom")}
               <input
                 type="number"
                 min="1800"
@@ -310,7 +320,7 @@ function SearchView({ tile }: TileViewProps) {
               />
             </label>
             <label>
-              à
+              {t("openalex.filters.yearTo")}
               <input
                 type="number"
                 min="1800"
@@ -320,7 +330,7 @@ function SearchView({ tile }: TileViewProps) {
               />
             </label>
             <label>
-              Accès ouvert
+              {t("openalex.filters.openAccess")}
               <input
                 type="checkbox"
                 checked={openAccess}
@@ -328,20 +338,24 @@ function SearchView({ tile }: TileViewProps) {
               />
             </label>
             <label>
-              Type
+              {t("openalex.filters.type")}
               <select
                 value={type}
                 onChange={(event) => setType(event.target.value)}
               >
-                <option value="">Tous</option>
-                <option value="article">Article</option>
-                <option value="review">Revue</option>
-                <option value="book-chapter">Chapitre</option>
-                <option value="dissertation">Thèse</option>
+                <option value="">{t("openalex.filters.all")}</option>
+                <option value="article">{t("openalex.type.article")}</option>
+                <option value="review">{t("openalex.type.review")}</option>
+                <option value="book-chapter">
+                  {t("openalex.type.chapter")}
+                </option>
+                <option value="dissertation">
+                  {t("openalex.type.dissertation")}
+                </option>
               </select>
             </label>
             <label>
-              Tri
+              {t("openalex.filters.sort")}
               <select
                 value={sort}
                 onChange={(event) =>
@@ -350,9 +364,13 @@ function SearchView({ tile }: TileViewProps) {
                   )
                 }
               >
-                <option value="relevance">Pertinence</option>
-                <option value="citations">Citations</option>
-                <option value="date">Date</option>
+                <option value="relevance">
+                  {t("openalex.sort.relevance")}
+                </option>
+                <option value="citations">
+                  {t("openalex.sort.citations")}
+                </option>
+                <option value="date">{t("openalex.sort.date")}</option>
               </select>
             </label>
           </PopoverContent>
@@ -364,7 +382,7 @@ function SearchView({ tile }: TileViewProps) {
         </p>
       )}
       <div className="openalex-body">
-        <ul className="openalex-results" aria-label="Résultats">
+        <ul className="openalex-results" aria-label={t("openalex.results")}>
           {current.results.map((work) => (
             <li key={work.id}>
               <button
@@ -384,8 +402,8 @@ function SearchView({ tile }: TileViewProps) {
                   {[work.venue, work.year].filter(Boolean).join(" · ") || "—"}
                 </span>
                 <span className="openalex-meta">
-                  {work.citedBy} citations
-                  {work.openAccess ? " · accès ouvert" : ""}
+                  {tp("openalex.citations", work.citedBy)}
+                  {work.openAccess ? ` · ${t("openalex.openAccess")}` : ""}
                   {work.pdfUrl ? " · PDF" : ""}
                 </span>
               </button>
@@ -409,12 +427,14 @@ function SearchView({ tile }: TileViewProps) {
                 .join(" · ")}
             </p>
             {selected.topic && (
-              <p className="openalex-meta">Sujet : {selected.topic}</p>
+              <p className="openalex-meta">
+                {t("openalex.detail.topic", { topic: selected.topic })}
+              </p>
             )}
             {selected.abstract ? (
               <p className="openalex-abstract">{selected.abstract}</p>
             ) : (
-              <p className="openalex-meta">Pas d’abstract disponible.</p>
+              <p className="openalex-meta">{t("openalex.detail.noAbstract")}</p>
             )}
             {selected.doi && (
               <p className="openalex-meta">doi:{selected.doi}</p>
@@ -424,19 +444,21 @@ function SearchView({ tile }: TileViewProps) {
                 type="button"
                 onClick={() => openWorkTile(tile, selected)}
               >
-                Ouvrir en tuile
+                {t("openalex.action.openTile")}
               </button>
               <button
                 type="button"
                 disabled={!selected.pdfCandidates.length || opening}
                 title={
                   selected.pdfCandidates.length
-                    ? "Ouvrir le PDF libre dans une tuile"
-                    : "Aucun PDF libre pour ce travail"
+                    ? t("openalex.action.openPdfTitle")
+                    : t("openalex.action.noPdfTitle")
                 }
                 onClick={() => void openPdf(selected)}
               >
-                {opening ? "Vérification…" : "Lire le PDF"}
+                {opening
+                  ? t("openalex.action.checking")
+                  : t("openalex.action.readPdf")}
               </button>
             </div>
             {pdfError && (
@@ -448,8 +470,8 @@ function SearchView({ tile }: TileViewProps) {
         ) : (
           <p className="openalex-note">
             {current.status === "loading"
-              ? "Recherche en cours…"
-              : "Cherchez un sujet pour commencer."}
+              ? t("openalex.state.searching")
+              : t("openalex.state.empty")}
           </p>
         )}
       </div>
@@ -458,6 +480,7 @@ function SearchView({ tile }: TileViewProps) {
 }
 
 function WorkView({ tile }: TileViewProps) {
+  const { t, tp } = useI18n();
   const [work, setWork] = useState<Work | undefined>(works.get(tile.data.work));
   const [error, setError] = useState<string>();
   const [opening, setOpening] = useState(false);
@@ -495,7 +518,8 @@ function WorkView({ tile }: TileViewProps) {
   }
 
   if (error) return <p className="openalex-error">{error}</p>;
-  if (!work) return <p className="openalex-note">Chargement du travail…</p>;
+  if (!work)
+    return <p className="openalex-note">{t("openalex.work.loading")}</p>;
 
   return (
     <article className="openalex-work">
@@ -507,37 +531,50 @@ function WorkView({ tile }: TileViewProps) {
         <p className="openalex-meta">
           {[work.venue, work.year, work.type].filter(Boolean).join(" · ")}
         </p>
-        {work.topic && <p className="openalex-meta">Sujet : {work.topic}</p>}
+        {work.topic && (
+          <p className="openalex-meta">
+            {t("openalex.detail.topic", { topic: work.topic })}
+          </p>
+        )}
         <div className="openalex-detail-actions">
           {work.pdfCandidates.length > 0 ? (
-            <button type="button" disabled={opening} onClick={() => void openPdf()}>
-              {opening ? "Ouverture…" : "Lire le PDF"}
+            <button
+              type="button"
+              disabled={opening}
+              onClick={() => void openPdf()}
+            >
+              {opening
+                ? t("openalex.action.opening")
+                : t("openalex.action.readPdf")}
             </button>
           ) : (
             <button
               type="button"
               disabled
-              title="Aucun PDF libre n’est référencé pour ce travail"
+              title={t("openalex.work.noPdfTitle")}
             >
-              Aucun PDF libre
+              {t("openalex.work.noPdf")}
             </button>
           )}
           {pdfError && <span className="openalex-error">{pdfError}</span>}
           <span className="openalex-meta">
-            {work.citedBy} citations · {work.references} références
-            {work.openAccess ? " · accès ouvert" : ""}
+            {tp("openalex.citations", work.citedBy)} ·{" "}
+            {tp("openalex.references", work.references)}
+            {work.openAccess ? ` · ${t("openalex.openAccess")}` : ""}
           </span>
         </div>
       </header>
       {work.abstract ? (
         <p className="openalex-abstract">{work.abstract}</p>
       ) : (
-        <p className="openalex-meta">Pas d’abstract disponible.</p>
+        <p className="openalex-meta">{t("openalex.detail.noAbstract")}</p>
       )}
       <footer className="openalex-work-footer">
         {work.doi && <p className="openalex-meta">doi:{work.doi}</p>}
         {work.pdfCandidates[0] && (
-          <p className="openalex-meta">PDF : {work.pdfCandidates[0]}</p>
+          <p className="openalex-meta">
+            {t("openalex.work.pdf", { url: work.pdfCandidates[0] })}
+          </p>
         )}
         <p className="openalex-meta">openalex.org/{work.id}</p>
       </footer>
@@ -555,62 +592,63 @@ export default function createOpenAlex(): ExtensionModule {
         icon: manifest.icon,
         view: SearchView,
         dataKeys: ["query"],
-        guide:
-          "Recherche bibliographique OpenAlex. search { query, by?, limit?, yearFrom?, yearTo?, openAccess?, type?, sort? } où by vaut topic, author ou doi (un DOI est détecté seul) ; renvoie { ref, count, top }. select { work } choisit un identifiant ; read_fields { fields? } renvoie les champs du travail sélectionné (abstract plafonné) ; cite { format: bibtex|apa } ; open_work { work } ouvre la fiche dans une tuile à côté. Les résultats restent dans la tuile.",
+        guide: localized("openalex.guide.search"),
         describe: (tile) => {
           const state = snapshots.get(tile.id);
-          if (!state?.query) return "aucune recherche";
+          if (!state?.query) return translateNow("openalex.describe.empty");
           const selected = state.results.find(
             (work) => work.id === state.selected,
           );
-          return `${state.query} · ${state.results.length} résultats${
-            selected ? ` · ${selected.title}` : ""
-          }`;
+          return `${state.query} · ${translatePluralNow(
+            "openalex.resultsCount",
+            state.results.length,
+          )}${selected ? ` · ${selected.title}` : ""}`;
         },
         actions: {
           search: {
-            title: "Chercher",
-            description:
-              "Interroge OpenAlex avec filtres et tri. Renvoie un compte et les premiers titres, sans contenu lourd.",
+            title: localized("openalex.action.search.title"),
+            description: localized("openalex.action.search.description"),
             input: {
-              query: { type: "string", description: "Sujet ou mots-clés." },
+              query: {
+                type: "string",
+                description: translateNow("openalex.action.search.query"),
+              },
               by: {
                 type: "string",
                 required: false,
                 enum: ["topic", "author", "doi"],
-                description:
-                  "Mode de recherche. Un DOI est détecté automatiquement.",
+                description: translateNow("openalex.action.search.by"),
               },
               limit: {
                 type: "number",
                 required: false,
-                description: "Nombre de résultats (1 à 25, défaut 10).",
+                description: translateNow("openalex.action.search.limit"),
               },
               yearFrom: {
                 type: "number",
                 required: false,
-                description: "Année minimale.",
+                description: translateNow("openalex.action.search.yearFrom"),
               },
               yearTo: {
                 type: "number",
                 required: false,
-                description: "Année maximale.",
+                description: translateNow("openalex.action.search.yearTo"),
               },
               openAccess: {
                 type: "boolean",
                 required: false,
-                description: "Ne garder que les accès ouverts.",
+                description: translateNow("openalex.action.search.openAccess"),
               },
               type: {
                 type: "string",
                 required: false,
-                description: "article, review, book-chapter, dissertation…",
+                description: translateNow("openalex.action.search.type"),
               },
               sort: {
                 type: "string",
                 required: false,
                 enum: ["relevance", "citations", "date"],
-                description: "Ordre des résultats.",
+                description: translateNow("openalex.action.search.sort"),
               },
             },
             run: async (tile, input) => {
@@ -631,13 +669,12 @@ export default function createOpenAlex(): ExtensionModule {
             },
           },
           select: {
-            title: "Sélectionner un travail",
-            description:
-              "Choisit un résultat de la recherche par son identifiant.",
+            title: localized("openalex.action.select.title"),
+            description: localized("openalex.action.select.description"),
             input: {
               work: {
                 type: "string",
-                description: "Identifiant OpenAlex, par exemple W2741809807.",
+                description: translateNow("openalex.action.select.work"),
               },
             },
             run: (tile, input) => {
@@ -651,15 +688,13 @@ export default function createOpenAlex(): ExtensionModule {
             },
           },
           read_fields: {
-            title: "Lire le travail sélectionné",
-            description:
-              "Renvoie les champs du travail sélectionné. L’abstract est plafonné.",
+            title: localized("openalex.action.readFields.title"),
+            description: localized("openalex.action.readFields.description"),
             input: {
               fields: {
                 type: "string",
                 required: false,
-                description:
-                  "Champs séparés par des virgules : title, authors, institutions, venue, year, type, doi, citations, references, openAccess, topic, abstract, pdfUrl.",
+                description: translateNow("openalex.action.readFields.fields"),
               },
             },
             run: (tile, input) => {
@@ -674,14 +709,13 @@ export default function createOpenAlex(): ExtensionModule {
             },
           },
           cite: {
-            title: "Citer le travail",
-            description:
-              "Renvoie une citation BibTeX ou APA du travail sélectionné.",
+            title: localized("openalex.action.cite.title"),
+            description: localized("openalex.action.cite.description"),
             input: {
               format: {
                 type: "string",
                 enum: ["bibtex", "apa"],
-                description: "Format de citation.",
+                description: translateNow("openalex.action.cite.format"),
               },
             },
             run: (tile, input) => ({
@@ -692,15 +726,13 @@ export default function createOpenAlex(): ExtensionModule {
             }),
           },
           open_work: {
-            title: "Ouvrir la fiche",
-            description:
-              "Ouvre le travail sélectionné dans une tuile de fiche, à côté de la recherche.",
+            title: localized("openalex.action.openWork.title"),
+            description: localized("openalex.action.openWork.description"),
             input: {
               work: {
                 type: "string",
                 required: false,
-                description:
-                  "Identifiant à ouvrir. Par défaut, le travail sélectionné.",
+                description: translateNow("openalex.action.openWork.work"),
               },
             },
             run: (tile, input) => {
@@ -717,12 +749,11 @@ export default function createOpenAlex(): ExtensionModule {
 
       api.tiles.register({
         type: workType,
-        title: "Travail",
+        title: localized("openalex.tile.work"),
         icon: manifest.icon,
         view: WorkView,
         dataKeys: ["work"],
-        guide:
-          "Fiche d’un travail OpenAlex. open_pdf { } ouvre son PDF libre dans Aperçu et renvoie sa référence. Sans PDF libre, l’action refuse et propose le DOI ; si Aperçu est désactivé, l’action est indisponible.",
+        guide: localized("openalex.guide.work"),
         describe: (tile) => {
           const work = works.get(tile.data.work);
           return work
@@ -731,13 +762,13 @@ export default function createOpenAlex(): ExtensionModule {
         },
         actions: {
           open_pdf: {
-            title: "Lire le PDF",
-            description:
-              "Ouvre le PDF libre du travail dans une tuile Aperçu.",
+            title: localized("openalex.action.readPdf"),
+            description: localized("openalex.action.openPdf.description"),
             requires: [previewPdf],
             run: async (tile) => {
               const work = works.get(tile.data.work);
-              if (!work) throw new Error("Travail non chargé.");
+              if (!work)
+                throw new Error(translateNow("openalex.error.workNotLoaded"));
               const created = await openPdfTile(tile, work);
               return { ref: created.id };
             },
@@ -747,7 +778,7 @@ export default function createOpenAlex(): ExtensionModule {
 
       api.commands.register({
         id: "openalex.search",
-        title: "Recherche OpenAlex",
+        title: localized("openalex.command.search.title"),
         icon: manifest.icon,
         tileType: searchType,
         keywords: ["papier", "article", "science", "bibliographie", "pdf"],

@@ -7,7 +7,7 @@ import {
   isCertified,
   matchesQuery,
   normalize,
-  stateLabel,
+  stateOf,
   tierOf,
 } from "../src/ui/store/data.ts";
 import type { Manifest } from "../src/sdk/index.ts";
@@ -22,12 +22,12 @@ const manifest = (overrides: Partial<Manifest> = {}): Manifest => ({
 test("la recherche ignore les accents et la casse", () => {
   const entry = manifest({
     summary: "Éditeur de données",
-    category: "Données",
+    category: "data",
   });
-  assert.equal(matchesQuery(entry, "editeur"), true);
-  assert.equal(matchesQuery(entry, "DONNEES"), true);
-  assert.equal(matchesQuery(entry, "spark"), false);
-  assert.equal(normalize("Éditeur"), "editeur");
+  assert.equal(matchesQuery(entry, "editeur", "fr"), true);
+  assert.equal(matchesQuery(entry, "DONNEES", "fr"), true);
+  assert.equal(matchesQuery(entry, "spark", "fr"), false);
+  assert.equal(normalize("Éditeur", "fr"), "editeur");
 });
 
 test("une extension sans tier est traitée comme intégrée", () => {
@@ -41,15 +41,15 @@ test("seul le sceau Spark marque une extension comme certifiée", () => {
 });
 
 test("l’état distingue une intégrée désactivée d’une tierce non installée", () => {
-  assert.equal(stateLabel(manifest(), true, true), "Active");
-  assert.equal(stateLabel(manifest({ tier: "core" }), false, false), "Inactive");
+  assert.equal(stateOf(manifest(), true, true), "active");
+  assert.equal(stateOf(manifest({ tier: "core" }), false, false), "inactive");
   assert.equal(
-    stateLabel(manifest({ tier: "community" }), false, false),
-    "Non installée",
+    stateOf(manifest({ tier: "community" }), false, false),
+    "not-installed",
   );
   assert.equal(
-    stateLabel(manifest({ tier: "community" }), false, true),
-    "Inactive",
+    stateOf(manifest({ tier: "community" }), false, true),
+    "inactive",
   );
 });
 

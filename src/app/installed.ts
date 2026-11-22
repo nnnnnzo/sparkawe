@@ -2,6 +2,7 @@ import * as React from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { IconComponent, Manifest, SparkExtension } from "../sdk/index.ts";
+import { t as translateNow } from "../i18n/index.ts";
 import type { ExtensionModule } from "../sdk/react.ts";
 import type { TileViews } from "../ui/contracts.ts";
 
@@ -149,14 +150,20 @@ export async function loadInstalledExtension(
     script.dataset.sparkExtension = manifest.id;
     script.onload = () => resolve();
     script.onerror = () =>
-      reject(new Error(`Chargement impossible : ${record.manifest.entry}`));
+      reject(
+        new Error(
+          translateNow("errors.extensionLoad", {
+            entry: record.manifest.entry,
+          }),
+        ),
+      );
     document.head.append(script);
   });
 
   const factory = window.SparkExtensions?.[manifest.id];
   if (!factory)
     throw new Error(
-      `Le paquet n’a pas enregistré l’extension ${manifest.id} dans SparkExtensions.`,
+      translateNow("errors.extensionRegister", { id: manifest.id }),
     );
   return views.adapt(manifest, factory(sparkRuntime));
 }

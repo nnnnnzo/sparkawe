@@ -30,6 +30,9 @@ import type {
   ExtensionModule,
   TileViewProps,
 } from "../../sdk/react.ts";
+import { localized } from "../../core/i18n.ts";
+import { t as translateNow } from "../../i18n/index.ts";
+import { useI18n } from "../../i18n/react.ts";
 import manifest, { editorType, previewType } from "./manifest.ts";
 import "./style.css";
 
@@ -58,7 +61,7 @@ const editorTheme = EditorView.theme({
   },
 });
 const baseName = (path?: string) =>
-  path?.split(/[/\\]/).at(-1) ?? "Sans titre.md";
+  path?.split(/[/\\]/).at(-1) ?? translateNow("markdown.untitled");
 
 function restoredDocuments(snapshot: unknown): Document[] {
   if (!Array.isArray(snapshot)) return [];
@@ -117,12 +120,10 @@ export default function createMarkdown(): ExtensionModule {
   /** Valide l'ouverture d'un document : identifiant existant, ou texte neuf. */
   function prepareDocument(data: Data): Data {
     if (data.document !== undefined && data.text !== undefined)
-      throw new Error("Choisissez data.document ou data.text, pas les deux.");
+      throw new Error(translateNow("markdown.error.exclusive"));
     if (data.document !== undefined) {
       if (!documents.has(data.document))
-        throw new Error(
-          "Document inconnu. Pour créer une note, passez data.text sans data.document.",
-        );
+        throw new Error(translateNow("markdown.error.unknown"));
       return { document: data.document };
     }
     return {
@@ -131,12 +132,10 @@ export default function createMarkdown(): ExtensionModule {
   }
   function preparePreview(data: Data): Data {
     if (data.document !== undefined && data.text !== undefined)
-      throw new Error("Choisissez data.document ou data.text, pas les deux.");
+      throw new Error(translateNow("markdown.error.exclusive"));
     if (data.document !== undefined) {
       if (!documents.has(data.document))
-        throw new Error(
-          "Document inconnu. Pour créer une note, passez data.text sans data.document.",
-        );
+        throw new Error(translateNow("markdown.error.unknown"));
       return { document: data.document };
     }
     return {
@@ -156,7 +155,7 @@ export default function createMarkdown(): ExtensionModule {
     !doc.path && (doc.by === "agent" || doc.text.length === 0);
   function edit(tile: Tile, change: (lines: string[]) => string[]) {
     const doc = documents.get(tile.data.document);
-    if (!doc) throw new Error("Document indisponible.");
+    if (!doc) throw new Error(translateNow("markdown.error.unavailable"));
     const lines = change(doc.text.split("\n"));
     const text = lines.join("\n");
     update(doc.id, text, "agent");
@@ -164,14 +163,16 @@ export default function createMarkdown(): ExtensionModule {
   }
   function range(total: number, from: number, to: number) {
     if (!Number.isInteger(from) || !Number.isInteger(to))
-      throw new Error("Les lignes doivent être des entiers.");
+      throw new Error(translateNow("markdown.error.integers"));
     if (from < 1 || to < from || to > total)
-      throw new Error(`Plage invalide : ${from}–${to} (${total} lignes).`);
+      throw new Error(
+        translateNow("markdown.error.range", { from, to, total }),
+      );
     return [from - 1, to] as const;
   }
   function readable(tile: Tile) {
     const doc = documents.get(tile.data.document);
-    if (!doc) throw new Error("Document indisponible.");
+    if (!doc) throw new Error(translateNow("markdown.error.unavailable"));
     return doc;
   }
   function guarded(tile: Tile) {
@@ -180,8 +181,14 @@ export default function createMarkdown(): ExtensionModule {
   }
   function describeDocument(tile: Tile) {
     const doc = documents.get(tile.data.document);
-    if (!doc) return "document inconnu";
-    return `${baseName(doc.path)}${doc.text ? "" : " · vide"}${doc.dirty ? " · non enregistré" : ""}`;
+    if (!doc) return translateNow("markdown.describe.unknown");
+    const empty = doc.text
+      ? ""
+      : ` · ${translateNow("markdown.describe.empty")}`;
+    const dirty = doc.dirty
+      ? ` · ${translateNow("markdown.describe.dirty")}`
+      : "";
+    return `${baseName(doc.path)}${empty}${dirty}`;
   }
   const isDocumentTile = (tile: Tile) =>
     tile.type === editorType || tile.type === previewType;
@@ -210,8 +217,7 @@ export default function createMarkdown(): ExtensionModule {
       const owner = [...documents.values()].find(
         (other) => other.id !== id && other.token === selection.token,
       );
-      if (owner)
-        throw new Error("Ce fichier est déjà ouvert dans un autre document.");
+      if (owner) throw new Error(translateNow("markdown.error.alreadyOpen"));
       const latest = documents.get(id);
       if (!latest) return;
       const text = latest.text;
@@ -249,7 +255,7 @@ export default function createMarkdown(): ExtensionModule {
       alongside &&
       !api.tabs.getAllTiles().some((tile) => tile.id === alongside)
     ) {
-      throw new Error("La tuile d’origine a été fermée.");
+      throw new Error(translateNow("markdown.error.originClosed"));
     }
     const doc = [...documents.values()].find(
       (doc) => doc.token === selection.token,
@@ -300,6 +306,7 @@ export default function createMarkdown(): ExtensionModule {
     return useSyncExternalStore(subscribe, () => documents.get(id));
   }
   function DocumentBar({ doc, editor }: { doc: Document; editor?: boolean }) {
+    const { t } = useI18n();
     function saveFromButton() {
       void save(doc.id).catch((error) => toast.error(String(error)));
     }
@@ -311,18 +318,19 @@ export default function createMarkdown(): ExtensionModule {
         {doc.dirty && (
           <span
             className="markdown-unsaved"
-            aria-label="Modifications non enregistrées"
+            aria-label={t("markdown.unsaved")}
           />
         )}
         {editor && (
           <button className="markdown-document-action" onClick={saveFromButton}>
-            Enregistrer
+            {t("markdown.save")}
           </button>
         )}
       </div>
     );
   }
   function Editor({ tile }: TileViewProps) {
+    const { t } = useI18n();
     const id = tile.data.document;
     const doc = useDocument(id);
     const host = useRef<HTMLDivElement>(null);
@@ -391,12 +399,15 @@ export default function createMarkdown(): ExtensionModule {
     return (
       <div className="markdown-editor">
         {doc && <DocumentBar doc={doc} editor />}
-        {!doc && <p className="tile-message">Document indisponible</p>}
+        {!doc && (
+          <p className="tile-message">{t("markdown.error.unavailable")}</p>
+        )}
         <div className="markdown-editor-host" ref={host} hidden={!doc} />
       </div>
     );
   }
   function Preview({ tile }: TileViewProps) {
+    const { t } = useI18n();
     const doc = useDocument(tile.data.document);
     useEffect(() => {
       if (!doc) api.tabs.updateTileData(tile.id, { document: create() });
@@ -423,7 +434,7 @@ export default function createMarkdown(): ExtensionModule {
               {doc.text}
             </ReactMarkdown>
           ) : (
-            <p>Document indisponible</p>
+            <p>{t("markdown.error.unavailable")}</p>
           )}
         </article>
       </div>
@@ -450,10 +461,9 @@ export default function createMarkdown(): ExtensionModule {
       );
       api.tiles.register({
         type: editorType,
-        title: "Éditeur Markdown",
+        title: localized("markdown.tile.editor"),
         icon: manifest.icon,
-        guide:
-          "Document Markdown éditable. Pour créer une note, ouvrez la tuile avec data.text ; ne passez jamais un titre dans data.document. Pour modifier : read { from, to } renvoie des lignes numérotées (100 max) ; append ajoute à la fin ; insert { line, text } insère avant une ligne (total + 1 = fin) ; replace { from, to, text } et delete { from, to } agissent sur une plage inclusive. write remplace tout le texte : accepté sur un document créé par un agent, sinon confirmation dans l’interface. save est réservé à l’interface.",
+        guide: localized("markdown.guide.editor"),
         view: Editor,
         describe: describeDocument,
         prepare: prepareDocument,
@@ -462,12 +472,12 @@ export default function createMarkdown(): ExtensionModule {
         close,
         actions: {
           preview: {
-            title: "Ouvrir l’aperçu",
-            description:
-              "Ouvre l’aperçu Markdown du document de cette tuile, à côté d’elle.",
+            title: localized("markdown.action.preview.title"),
+            description: localized("markdown.action.preview.description"),
             run: (tile) => {
               const doc = documents.get(tile.data.document);
-              if (!doc) throw new Error("Document indisponible.");
+              if (!doc)
+                throw new Error(translateNow("markdown.error.unavailable"));
               const created = api.tabs.openTile(
                 previewType,
                 { document: doc.id },
@@ -477,38 +487,37 @@ export default function createMarkdown(): ExtensionModule {
             },
           },
           write: {
-            title: "Écrire dans le document",
-            description:
-              "Remplace le contenu. Un agent réécrit librement un document qu’il a créé ; un document modifié par une personne ou lié à un fichier exige une confirmation dans l’interface.",
+            title: localized("markdown.action.write.title"),
+            description: localized("markdown.action.write.description"),
             input: {
               text: {
                 type: "string",
-                description: "Contenu Markdown complet.",
+                description: translateNow("markdown.action.write.input.text"),
               },
             },
             mutates: guarded,
             run: (tile, input) => {
               const doc = documents.get(tile.data.document);
-              if (!doc) throw new Error("Document indisponible.");
+              if (!doc)
+                throw new Error(translateNow("markdown.error.unavailable"));
               const text = String(input.text);
               update(doc.id, text, "agent");
               return { ref: tile.id, characters: text.length };
             },
           },
           read: {
-            title: "Lire le document",
-            description:
-              "Lit des lignes numérotées (100 lignes et 8 000 caractères au plus). Sert à préparer un patch.",
+            title: localized("markdown.action.read.title"),
+            description: localized("markdown.action.read.description"),
             input: {
               from: {
                 type: "number",
                 required: false,
-                description: "Première ligne, à partir de 1.",
+                description: translateNow("markdown.action.read.input.from"),
               },
               to: {
                 type: "number",
                 required: false,
-                description: "Dernière ligne incluse.",
+                description: translateNow("markdown.action.read.input.to"),
               },
             },
             run: (tile, input) => {
@@ -517,7 +526,10 @@ export default function createMarkdown(): ExtensionModule {
               const from = Math.max(1, Number(input.from ?? 1));
               if (from > all.length)
                 throw new Error(
-                  `Ligne ${from} hors du document (${all.length} lignes).`,
+                  translateNow("markdown.error.lineOutside", {
+                    from,
+                    total: all.length,
+                  }),
                 );
               const last = Math.min(
                 all.length,
@@ -541,10 +553,13 @@ export default function createMarkdown(): ExtensionModule {
             },
           },
           append: {
-            title: "Ajouter à la fin",
-            description: "Ajoute des lignes à la fin du document.",
+            title: localized("markdown.action.append.title"),
+            description: localized("markdown.action.append.description"),
             input: {
-              text: { type: "string", description: "Lignes à ajouter." },
+              text: {
+                type: "string",
+                description: translateNow("markdown.action.append.input.text"),
+              },
             },
             mutates: guarded,
             run: (tile, input) =>
@@ -554,15 +569,17 @@ export default function createMarkdown(): ExtensionModule {
               ]),
           },
           insert: {
-            title: "Insérer des lignes",
-            description: "Insère des lignes avant le numéro de ligne donné.",
+            title: localized("markdown.action.insert.title"),
+            description: localized("markdown.action.insert.description"),
             input: {
               line: {
                 type: "number",
-                description:
-                  "Ligne d’insertion : 1 pour le début, total + 1 pour la fin.",
+                description: translateNow("markdown.action.insert.input.line"),
               },
-              text: { type: "string", description: "Lignes à insérer." },
+              text: {
+                type: "string",
+                description: translateNow("markdown.action.insert.input.text"),
+              },
             },
             mutates: guarded,
             run: (tile, input) =>
@@ -574,19 +591,31 @@ export default function createMarkdown(): ExtensionModule {
                   line > lines.length + 1
                 )
                   throw new Error(
-                    `Ligne ${line} hors du document (1–${lines.length + 1}).`,
+                    translateNow("markdown.error.insertLine", {
+                      line,
+                      max: lines.length + 1,
+                    }),
                   );
                 lines.splice(line - 1, 0, ...String(input.text).split("\n"));
                 return lines;
               }),
           },
           replace: {
-            title: "Remplacer des lignes",
-            description: "Remplace une plage de lignes, numéros inclus.",
+            title: localized("markdown.action.replace.title"),
+            description: localized("markdown.action.replace.description"),
             input: {
-              from: { type: "number", description: "Première ligne." },
-              to: { type: "number", description: "Dernière ligne incluse." },
-              text: { type: "string", description: "Nouvelles lignes." },
+              from: {
+                type: "number",
+                description: translateNow("markdown.action.replace.input.from"),
+              },
+              to: {
+                type: "number",
+                description: translateNow("markdown.action.replace.input.to"),
+              },
+              text: {
+                type: "string",
+                description: translateNow("markdown.action.replace.input.text"),
+              },
             },
             mutates: guarded,
             run: (tile, input) =>
@@ -605,11 +634,17 @@ export default function createMarkdown(): ExtensionModule {
               }),
           },
           delete: {
-            title: "Supprimer des lignes",
-            description: "Supprime une plage de lignes, numéros inclus.",
+            title: localized("markdown.action.delete.title"),
+            description: localized("markdown.action.delete.description"),
             input: {
-              from: { type: "number", description: "Première ligne." },
-              to: { type: "number", description: "Dernière ligne incluse." },
+              from: {
+                type: "number",
+                description: translateNow("markdown.action.delete.input.from"),
+              },
+              to: {
+                type: "number",
+                description: translateNow("markdown.action.delete.input.to"),
+              },
             },
             mutates: guarded,
             run: (tile, input) =>
@@ -624,9 +659,8 @@ export default function createMarkdown(): ExtensionModule {
               }),
           },
           save: {
-            title: "Enregistrer le document",
-            description:
-              "Écrit le document sur le disque. Action réservée à l’interface.",
+            title: localized("markdown.action.save.title"),
+            description: localized("markdown.action.save.description"),
             mutates: true,
             run: (tile) => save(tile.data.document),
           },
@@ -634,10 +668,9 @@ export default function createMarkdown(): ExtensionModule {
       });
       api.tiles.register({
         type: previewType,
-        title: "Aperçu Markdown",
+        title: localized("markdown.tile.preview"),
         icon: Eye,
-        guide:
-          "Aperçu en lecture seule. Ouvrez la tuile avec data.document (identifiant existant) ou data.text pour un nouveau contenu. Aucune action d’écriture : pour modifier, utilisez la tuile Éditeur Markdown.",
+        guide: localized("markdown.guide.preview"),
         view: Preview,
         describe: describeDocument,
         prepare: preparePreview,
@@ -647,27 +680,27 @@ export default function createMarkdown(): ExtensionModule {
       });
       api.commands.register({
         id: "markdown.new",
-        title: "Nouvel éditeur Markdown",
+        title: localized("markdown.command.new"),
         icon: manifest.icon,
         tileType: editorType,
         run: () => api.tabs.openTile(editorType),
       });
       api.commands.register({
         id: "markdown.preview",
-        title: "Aperçu Markdown",
+        title: localized("markdown.command.preview"),
         icon: Eye,
         tileType: previewType,
         run: preview,
       });
       api.commands.register({
         id: "markdown.open",
-        title: "Ouvrir un fichier Markdown",
+        title: localized("markdown.command.open"),
         icon: FolderOpen,
         run: open,
       });
       api.commands.register({
         id: "markdown.save",
-        title: "Enregistrer le document",
+        title: localized("markdown.command.save"),
         icon: Save,
         run: () => {
           const id = activeId();
@@ -676,7 +709,7 @@ export default function createMarkdown(): ExtensionModule {
       });
       api.commands.register({
         id: "markdown.save-as",
-        title: "Enregistrer le document sous…",
+        title: localized("markdown.command.saveAs"),
         icon: Save,
         run: () => {
           const id = activeId();

@@ -1,24 +1,23 @@
 import { FolderTree } from "lucide-react";
 import screenshot from "./media/explorer.webp";
 import type { Manifest } from "../../sdk/index.ts";
+import { localized } from "../../core/i18n.ts";
 import { SPECTRUM } from "../../shared/brand/index.tsx";
 
 export const explorerType = "explorer.tree";
 
 export default {
   id: "spark.explorer",
-  name: "Explorateur",
+  name: localized("manifest.explorer.name"),
   version: "0.1.0",
   icon: FolderTree,
   color: SPECTRUM.violet,
   tier: "core",
   tileTypes: [explorerType],
   certification: "spark",
-  subtitle: "Arborescence de fichiers",
-  summary:
-    "Parcourt les dossiers autorisés et ouvre les fichiers dans Spark.",
-  description:
-    "L’explorateur affiche les dossiers que vous avez choisis. Il ouvre les fichiers Markdown dans l’éditeur et les PDF dans l’aperçu. Aucun autre chemin n’est accessible.",
+  subtitle: localized("manifest.explorer.subtitle"),
+  summary: localized("manifest.explorer.summary"),
+  description: localized("manifest.explorer.description"),
   screenshots: [screenshot],
-  category: "Fichiers",
+  category: "files",
 } satisfies Manifest;

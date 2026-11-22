@@ -2,8 +2,10 @@ import { Blocks, Copy, Settings2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import type { Runtime } from "../app/runtime.ts";
+import { LOCALES, LANGUAGES, type Locale } from "../core/i18n.ts";
 import type { Theme } from "../core/workspace.ts";
 import type { Command, Manifest } from "../sdk/index.ts";
+import { useI18n } from "../i18n/react.ts";
 import { report } from "./errors.ts";
 import { Button } from "@spark/ui/components/button";
 import {
@@ -22,6 +24,9 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@spark/ui/components/dropdown-menu";
 import {
@@ -57,6 +62,7 @@ function ExtensionButton({
   commands: Command[];
   run: (command: Command) => void;
 }) {
+  const { text } = useI18n();
   const [open, setOpen] = useState<"hover" | "click" | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const cancel = () => clearTimeout(timer.current);
@@ -75,8 +81,8 @@ function ExtensionButton({
       >
         <PopoverTrigger asChild>
           <SidebarMenuButton
-            aria-label={extension.name}
-            title={extension.name}
+            aria-label={text(extension.name)}
+            title={text(extension.name)}
             onPointerEnter={(event) => {
               if (event.pointerType !== "mouse") return;
               cancel();
@@ -98,7 +104,7 @@ function ExtensionButton({
           align="start"
           sideOffset={9}
           className="w-52 p-1.5"
-          aria-label={extension.name}
+          aria-label={text(extension.name)}
           onOpenAutoFocus={(event) => {
             if (open === "hover") event.preventDefault();
           }}
@@ -120,7 +126,7 @@ function ExtensionButton({
               }}
             >
               <Icon glyph={command.icon} extension={extension} />
-              {command.title}
+              {text(command.title)}
             </Button>
           ))}
         </PopoverContent>
@@ -148,6 +154,7 @@ export function Rail({
   const [agent, setAgent] = useState(false);
   const [link, setLink] = useState<AgentLink | null>(null);
   const [copied, setCopied] = useState(false);
+  const { t, locale } = useI18n();
   const catalog = runtime.extensions.catalog;
   const activeIds = new Set(
     runtime.registry.getExtensions().map(({ id }) => id),
@@ -193,7 +200,7 @@ export function Rail({
     setTimeout(() => setCopied(false), 1600);
   }
   return (
-    <aside className="spark-rail" aria-label="Extensions">
+    <aside className="spark-rail" aria-label={t("rail.extensions")}>
       <Sidebar variant="floating" collapsible="icon">
         <SidebarContent>
           <SidebarMenu className="items-center pt-1.5">
@@ -224,7 +231,7 @@ export function Rail({
               <SidebarMenuButton
                 id="store-trigger"
                 tooltip="Store"
-                aria-label="Ouvrir le store d’extensions"
+                aria-label={t("rail.store")}
                 onClick={onOpenStore}
               >
                 <Blocks strokeWidth={1.7} />
@@ -234,8 +241,8 @@ export function Rail({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuButton
-                    tooltip="Paramètres"
-                    aria-label="Paramètres"
+                    tooltip={t("rail.settings")}
+                    aria-label={t("rail.settings")}
                   >
                     <Settings2 strokeWidth={1.7} />
                   </SidebarMenuButton>
@@ -249,18 +256,56 @@ export function Rail({
                       }
                     >
                       <DropdownMenuRadioItem value="light">
-                        Thème clair
+                        {t("rail.theme.light")}
                       </DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value="dark">
-                        Thème sombre
+                        {t("rail.theme.dark")}
                       </DropdownMenuRadioItem>
                       {macOS && (
                         <DropdownMenuRadioItem value="transparent">
-                          Thème transparent
+                          {t("rail.theme.transparent")}
                         </DropdownMenuRadioItem>
                       )}
                     </DropdownMenuRadioGroup>
                   </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <span className="language-flag" aria-hidden>
+                        {LANGUAGES[locale].flag}
+                      </span>
+                      <span>{t("rail.language")}</span>
+                      <span
+                        className="text-muted-foreground text-xs"
+                        lang={locale}
+                      >
+                        {LANGUAGES[locale].native}
+                      </span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="min-w-52">
+                      <DropdownMenuRadioGroup
+                        value={locale}
+                        aria-label={t("rail.language.group")}
+                        onValueChange={(value) =>
+                          runtime.settings.patch({ locale: value as Locale })
+                        }
+                      >
+                        {LOCALES.map((language) => (
+                          <DropdownMenuRadioItem
+                            key={language}
+                            value={language}
+                          >
+                            <span className="language-flag" aria-hidden>
+                              {LANGUAGES[language].flag}
+                            </span>
+                            <span lang={language}>
+                              {LANGUAGES[language].native}
+                            </span>
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
                     <DropdownMenuCheckboxItem
@@ -269,19 +314,19 @@ export function Rail({
                         runtime.settings.patch({ dev: value === true })
                       }
                     >
-                      Mode développeur
+                      {t("rail.dev")}
                     </DropdownMenuCheckboxItem>
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
                     <DropdownMenuItem onSelect={() => setAgent(true)}>
-                      Connecter un agent…
+                      {t("rail.agent.connect")}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
                     <DropdownMenuItem onSelect={() => setAbout(true)}>
-                      À propos de {BRAND.name}
+                      {t("rail.about", { name: BRAND.name })}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                 </DropdownMenuContent>
@@ -293,24 +338,22 @@ export function Rail({
       <Dialog open={agent} onOpenChange={setAgent}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Connecter un agent</DialogTitle>
-            <DialogDescription>
-              Déclarez ce serveur MCP dans Claude Code, Codex ou Cursor. Le pont
-              relaie les outils vers cette fenêtre ; aucun port réseau n’est
-              ouvert.
-            </DialogDescription>
+            <DialogTitle>{t("rail.agent.title")}</DialogTitle>
+            <DialogDescription>{t("rail.agent.description")}</DialogDescription>
           </DialogHeader>
           {link ? (
             <div className="flex flex-col gap-4">
               <div className="flex min-w-0 flex-col gap-1">
-                <span className="text-muted-foreground text-xs">Commande</span>
+                <span className="text-muted-foreground text-xs">
+                  {t("rail.agent.command")}
+                </span>
                 <code className="bg-muted wrap-anywhere rounded-md px-2 py-1.5 font-mono text-xs">
                   {link.command}
                 </code>
               </div>
               <div className="flex min-w-0 flex-col gap-1">
                 <span className="text-muted-foreground text-xs">
-                  Configuration MCP
+                  {t("rail.agent.config")}
                 </span>
                 <pre className="bg-muted wrap-anywhere rounded-md p-2.5 font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
                   {link.config}
@@ -318,8 +361,7 @@ export function Rail({
               </div>
               {!link.available && (
                 <p className="text-destructive text-xs">
-                  Le pont n’est pas encore construit. Lancez{" "}
-                  <code>npm run sidecar</code>.
+                  {t("rail.agent.missing", { command: "npm run sidecar" })}
                 </p>
               )}
               <Button
@@ -329,11 +371,13 @@ export function Rail({
                 onClick={() => void copyLink()}
               >
                 <Copy data-icon="inline-start" />
-                {copied ? "Configuration copiée" : "Copier la configuration"}
+                {copied ? t("rail.agent.copied") : t("rail.agent.copy")}
               </Button>
             </div>
           ) : (
-            <p className="text-muted-foreground text-sm">Lecture…</p>
+            <p className="text-muted-foreground text-sm">
+              {t("rail.agent.loading")}
+            </p>
           )}
         </DialogContent>
       </Dialog>
@@ -341,7 +385,7 @@ export function Rail({
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="sr-only">
-              À propos de {BRAND.name}
+              {t("rail.about", { name: BRAND.name })}
             </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-5 py-1">
@@ -352,8 +396,7 @@ export function Rail({
             <div className="flex flex-col gap-2">
               <span className="spark-kicker">{BRAND.descriptor}</span>
               <p className="text-muted-foreground text-xs leading-relaxed">
-                Un environnement de travail modulaire où les personnes, les
-                outils et les agents partagent un même espace.
+                {t("rail.about.description")}
               </p>
             </div>
             <Spectrum />

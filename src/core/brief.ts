@@ -1,12 +1,14 @@
-import type { Tile, TileSurface } from "../sdk/index.ts";
+import type { LocalizedText, Tile, TileSurface } from "../sdk/index.ts";
+import { resolveText, translate, type Locale } from "./i18n.ts";
 import type { JournalEntry, JournalSource } from "./journal.ts";
 import type { Mode, WorkspaceState } from "./workspace.ts";
 
 export interface TileCatalog {
-  getTile(
-    type: string,
-  ):
-    | { title: string; describe?(tile: Tile, surface: TileSurface): string }
+  getTile(type: string):
+    | {
+        title: LocalizedText;
+        describe?(tile: Tile, surface: TileSurface): string;
+      }
     | undefined;
   surface?(tileId: string): TileSurface | undefined;
 }
@@ -15,6 +17,7 @@ export interface BriefInputs {
   workspace: { get(): WorkspaceState };
   catalog: TileCatalog;
   journal: { list(limit?: number): JournalEntry[]; lastSeq: number };
+  locale?: Locale;
 }
 
 export interface TileBrief {
@@ -57,12 +60,12 @@ const EVENT_LIMIT = 8;
 const MAX_SUMMARY = 120;
 const MAX_TEXT = 1400;
 
-const labels: Record<string, string> = {
-  "tab.create": "onglet créé",
-  "tab.remove": "onglet fermé",
-  "tab.activate": "onglet activé",
-  "tile.open": "tuile ouverte",
-  "tile.close": "tuile fermée",
+const eventKeys: Record<string, string> = {
+  "tab.create": "brief.event.tab.create",
+  "tab.remove": "brief.event.tab.remove",
+  "tab.activate": "brief.event.tab.activate",
+  "tile.open": "brief.event.tile.open",
+  "tile.close": "brief.event.tile.close",
 };
 
 function summaryOf(catalog: TileCatalog, tile: Tile): string | undefined {
@@ -79,15 +82,15 @@ function summaryOf(catalog: TileCatalog, tile: Tile): string | undefined {
   }
 }
 
-function clock(at: number) {
-  return new Date(at).toLocaleTimeString("fr-FR", {
+function clock(at: number, locale: Locale) {
+  return new Date(at).toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
 export function buildBrief(
-  { workspace, catalog, journal }: BriefInputs,
+  { workspace, catalog, journal, locale = "en" }: BriefInputs,
   tabId?: string,
 ): Brief {
   const state = workspace.get();
@@ -101,7 +104,9 @@ export function buildBrief(
     return {
       id: tile.id,
       type: tile.type,
-      title: definition?.title ?? tile.type,
+      title: definition
+        ? resolveText(definition.title, locale) || tile.type
+        : tile.type,
       ...(summary ? { summary } : {}),
     };
   });
@@ -142,46 +147,61 @@ export function buildBrief(
     })),
     text: "",
   };
-  brief.text = renderBrief(brief, titles);
+  brief.text = renderBrief(brief, titles, locale);
   return brief;
 }
 
 function describeEntry(
   entry: Brief["events"][number],
   titles: Map<string, string>,
+  locale: Locale,
 ) {
-  const label = labels[entry.kind] ?? entry.kind.replace(/^event:/, "");
-  const lines = [`${clock(entry.at)} ${label}`];
+  const key = eventKeys[entry.kind];
+  const label = key
+    ? translate(locale, key)
+    : entry.kind.replace(/^event:/, "");
+  const lines = [`${clock(entry.at, locale)} ${label}`];
   const data = entry.data as { type?: unknown } | undefined;
   const subject =
     (entry.tileId ? titles.get(entry.tileId) : undefined) ??
     (typeof data?.type === "string" ? data.type : undefined);
   if (subject) lines.push(subject);
-  if (entry.source === "agent") lines.push("(agent)");
+  if (entry.source === "agent") lines.push(translate(locale, "brief.agent"));
   return lines.join(" · ");
 }
 
-export function renderBrief(brief: Brief, titles = new Map<string, string>()) {
+export function renderBrief(
+  brief: Brief,
+  titles = new Map<string, string>(),
+  locale: Locale = "en",
+) {
   const lines: string[] = [
-    `Spark · ${brief.tab.name} · ${brief.tab.mode}${brief.tab.active ? " · actif" : ""}`,
+    `Spark · ${brief.tab.name} · ${brief.tab.mode}${
+      brief.tab.active ? ` · ${translate(locale, "brief.active")}` : ""
+    }`,
   ];
-  if (!brief.tab.tiles.length) lines.push("Aucune tuile.");
+  if (!brief.tab.tiles.length) lines.push(translate(locale, "brief.noTiles"));
   else {
-    lines.push("Tuiles :");
+    lines.push(translate(locale, "brief.tiles"));
     for (const tile of brief.tab.tiles) {
-      const mark = tile.id === brief.tab.focused ? " (focus)" : "";
+      const mark =
+        tile.id === brief.tab.focused
+          ? ` ${translate(locale, "brief.focus")}`
+          : "";
       const summary = tile.summary ? ` — ${tile.summary}` : "";
       lines.push(`- ${tile.id} · ${tile.title}${summary}${mark}`);
     }
   }
   if (brief.others.length)
     lines.push(
-      `Autres onglets : ${brief.others.map((tab) => tab.name).join(", ")}`,
+      translate(locale, "brief.otherTabs", {
+        tabs: brief.others.map((tab) => tab.name).join(", "),
+      }),
     );
   if (brief.events.length) {
-    lines.push("Derniers événements :");
+    lines.push(translate(locale, "brief.events"));
     for (const entry of brief.events)
-      lines.push(`- ${describeEntry(entry, titles)}`);
+      lines.push(`- ${describeEntry(entry, titles, locale)}`);
   }
   const text = lines.join("\n");
   return text.length > MAX_TEXT ? `${text.slice(0, MAX_TEXT - 1)}…` : text;

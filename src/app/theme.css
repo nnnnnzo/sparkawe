@@ -784,3 +784,16 @@ html.transparent body {
     animation-delay: 0s !important;
   }
 }
+
+/* Drapeaux du sélecteur de langue : emoji, alignés sur le texte. */
+.language-flag {
+  display: inline-flex;
+  width: 1.25em;
+  align-items: center;
+  justify-content: center;
+  font-family:
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 1.05em;
+  line-height: 1;
+  flex: none;
+}

@@ -10,6 +10,8 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { toast } from "sonner";
+import { t as translateNow } from "../../i18n/index.ts";
+import { useI18n } from "../../i18n/react.ts";
 import type { ExtensionAPI, TileViewProps } from "../../sdk/react.ts";
 import type { CellType, Table, TablesService } from "./api.ts";
 import { chartType } from "./manifest.ts";
@@ -62,6 +64,7 @@ export function TableView({
   tables,
   tile,
 }: TileViewProps & { api: ExtensionAPI; tables: TablesService }) {
+  const { t, tp, locale } = useI18n();
   const table = useSyncExternalStore(tables.subscribe, () =>
     tables.get(tile.data.table),
   );
@@ -78,15 +81,16 @@ export function TableView({
   const sortType = sortIndex >= 0 ? table?.columns[sortIndex]?.type : "text";
   const visibleRows = useMemo(() => {
     if (!table) return [];
-    const filtered = filterRows(table.rows, query);
+    const filtered = filterRows(table.rows, query, locale);
     if (!sort || sortIndex < 0) return filtered;
     return sortRows(
       filtered,
       sortIndex,
       sort.direction,
       (sortType as CellType | undefined) ?? "text",
+      locale,
     );
-  }, [table, query, sort, sortIndex, sortType]);
+  }, [table, query, sort, sortIndex, sortType, locale]);
 
   useEffect(() => {
     if (!table) {
@@ -122,9 +126,20 @@ export function TableView({
       name: table.name,
       rows: String(table.rows.length),
       columns: String(table.columns.length),
-      selection: column && row > 0 ? `${column.name} · ligne ${row}` : "",
+      selection:
+        column && row > 0
+          ? translateNow("data.surface.selection", {
+              column: column.name,
+              row,
+            })
+          : "",
       sort: sorted
-        ? `${sorted} ${sort?.direction === "asc" ? "croissant" : "décroissant"}`
+        ? translateNow(
+            sort?.direction === "asc"
+              ? "data.surface.sort.asc"
+              : "data.surface.sort.desc",
+            { column: sorted },
+          )
         : "",
       filter: query,
     });
@@ -132,9 +147,9 @@ export function TableView({
 
   if (!table) {
     return (
-      <section className="data-table" aria-label="Tableau">
+      <section className="data-table" aria-label={t("data.tile.table.title")}>
         <div className="data-table-missing">
-          <p>Ce tableau n’existe plus.</p>
+          <p>{t("data.table.missing")}</p>
           <button
             type="button"
             onClick={() => {
@@ -142,13 +157,13 @@ export function TableView({
                 const created = tables.create();
                 api.tabs.updateTileData(tile.id, { table: created.id });
               } catch (error) {
-                toast.error("Création impossible.", {
+                toast.error(t("data.error.createFailed"), {
                   description: String(error),
                 });
               }
             }}
           >
-            Créer un tableau
+            {t("data.table.create")}
           </button>
         </div>
       </section>
@@ -313,7 +328,9 @@ export function TableView({
     const width = Math.max(...matrix.map((row) => row.length));
     const columns = [...data.columns];
     while (columns.length < startColumn + width && columns.length < MAX_COLUMNS)
-      columns.push(newColumn(`Colonne ${columns.length + 1}`));
+      columns.push(
+        newColumn(t("data.default.column", { index: columns.length + 1 })),
+      );
     const rows = data.rows.map((row) => ({
       ...row,
       cells: [
@@ -341,8 +358,8 @@ export function TableView({
       rows.push(newRow(columns.length));
     tables.update(data.id, { ...data, columns, rows });
     if (columns.length !== startColumn + width)
-      toast.warning(`Limite de ${MAX_COLUMNS} colonnes atteinte.`);
-    else toast.success(`${matrix.length} ligne(s) collée(s).`);
+      toast.warning(t("data.limit.columns", { count: MAX_COLUMNS }));
+    else toast.success(tp("data.toast.pasted", matrix.length));
   }
 
   async function copyTable() {
@@ -353,18 +370,22 @@ export function TableView({
     );
     try {
       await copyText(tsv);
-      toast.success("Tableau copié en TSV.");
+      toast.success(t("data.toast.copied"));
     } catch (error) {
-      toast.error("Copie impossible.", { description: String(error) });
+      toast.error(t("data.error.copyFailed"), {
+        description: String(error),
+      });
     }
   }
 
   function addColumn() {
     if (data.columns.length >= MAX_COLUMNS) {
-      toast.warning(`Limite de ${MAX_COLUMNS} colonnes atteinte.`);
+      toast.warning(t("data.limit.columns", { count: MAX_COLUMNS }));
       return;
     }
-    const column = newColumn(`Colonne ${data.columns.length + 1}`);
+    const column = newColumn(
+      t("data.default.column", { index: data.columns.length + 1 }),
+    );
     tables.update(data.id, {
       ...data,
       columns: [...data.columns, column],
@@ -379,7 +400,7 @@ export function TableView({
 
   function addRow() {
     if (data.rows.length >= MAX_ROWS) {
-      toast.warning(`Limite de ${MAX_ROWS} lignes atteinte.`);
+      toast.warning(t("data.limit.rows", { count: MAX_ROWS }));
       return;
     }
     const row = newRow(data.columns.length);
@@ -439,7 +460,7 @@ export function TableView({
 
   function createChart() {
     if (!data.columns.length) {
-      toast.warning("Ajoutez une colonne avant de créer un graphique.");
+      toast.warning(t("data.toast.needColumn"));
       return;
     }
     const x = data.columns[0];
@@ -461,13 +482,13 @@ export function TableView({
     : -1;
 
   return (
-    <section className="data-table" aria-label="Tableau">
+    <section className="data-table" aria-label={t("data.tile.table.title")}>
       <header className="data-table-toolbar">
         <input
           className="data-table-name"
           defaultValue={data.name}
           key={`${data.id}-${data.name}`}
-          aria-label="Nom du tableau"
+          aria-label={t("data.table.name")}
           onBlur={(event) => renameTable(event.target.value)}
         />
         <span className="data-table-count">
@@ -478,20 +499,20 @@ export function TableView({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           maxLength={200}
-          placeholder="Filtrer…"
-          aria-label="Filtrer les lignes"
+          placeholder={t("data.table.filter.placeholder")}
+          aria-label={t("data.table.filter.aria")}
         />
         <button type="button" onClick={addRow}>
-          + ligne
+          {t("data.table.addRow")}
         </button>
         <button type="button" onClick={addColumn}>
-          + colonne
+          {t("data.table.addColumn")}
         </button>
         <button type="button" onClick={() => void copyTable()}>
-          Copier
+          {t("data.table.copy")}
         </button>
         <button type="button" onClick={createChart}>
-          Graphique
+          {t("data.table.chart")}
         </button>
       </header>
       <div className="data-table-scroll">
@@ -521,7 +542,9 @@ export function TableView({
                       defaultValue={column.name}
                       key={`${column.id}-${column.name}`}
                       maxLength={80}
-                      aria-label={`Nom de la colonne ${column.name}`}
+                      aria-label={t("data.table.column.name", {
+                        name: column.name,
+                      })}
                       onBlur={(event) =>
                         renameColumn(column.id, event.target.value)
                       }
@@ -529,21 +552,25 @@ export function TableView({
                     />
                     <select
                       value={column.type}
-                      aria-label={`Type de ${column.name}`}
+                      aria-label={t("data.table.column.type", {
+                        name: column.name,
+                      })}
                       onChange={(event) =>
                         setType(column.id, event.target.value as CellType)
                       }
                       onClick={(event) => event.stopPropagation()}
                     >
-                      <option value="text">Texte</option>
-                      <option value="number">Nombre</option>
-                      <option value="date">Date</option>
+                      <option value="text">{t("data.type.text")}</option>
+                      <option value="number">{t("data.type.number")}</option>
+                      <option value="date">{t("data.type.date")}</option>
                     </select>
                     <button
                       type="button"
                       className="data-table-icon"
-                      aria-label={`Trier par ${column.name}`}
-                      title="Trier"
+                      aria-label={t("data.table.column.sort", {
+                        name: column.name,
+                      })}
+                      title={t("data.table.column.sortTitle")}
                       onClick={() =>
                         setSort((current) =>
                           current?.columnId === column.id
@@ -565,8 +592,10 @@ export function TableView({
                     <button
                       type="button"
                       className="data-table-icon"
-                      aria-label={`Supprimer ${column.name}`}
-                      title="Supprimer la colonne"
+                      aria-label={t("data.table.column.remove", {
+                        name: column.name,
+                      })}
+                      title={t("data.table.column.removeTitle")}
                       onClick={() => removeColumn(column.id)}
                     >
                       ×
@@ -577,7 +606,7 @@ export function TableView({
               <th className="data-table-add" scope="col">
                 <button
                   type="button"
-                  aria-label="Ajouter une colonne"
+                  aria-label={t("data.table.column.add")}
                   onClick={addColumn}
                 >
                   +
@@ -668,8 +697,10 @@ export function TableView({
                   <button
                     type="button"
                     className="data-table-icon"
-                    aria-label={`Supprimer la ligne ${rowIndex + 1}`}
-                    title="Supprimer la ligne"
+                    aria-label={t("data.table.row.remove", {
+                      index: rowIndex + 1,
+                    })}
+                    title={t("data.table.row.removeTitle")}
                     onClick={() => removeRow(row.id)}
                   >
                     ×

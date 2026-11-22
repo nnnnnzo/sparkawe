@@ -8,6 +8,9 @@ import type {
   ExtensionModule,
   TileViewProps,
 } from "../../sdk/react.ts";
+import { localized } from "../../core/i18n.ts";
+import { t as translateNow } from "../../i18n/index.ts";
+import { useI18n } from "../../i18n/react.ts";
 import { previewPdf } from "./api.ts";
 import manifest, { pdfType } from "./manifest.ts";
 import "./style.css";
@@ -100,6 +103,7 @@ function PdfPage({
 }
 
 function PdfView({ api, tile }: TileViewProps & { api: ExtensionAPI }) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState("");
   const [doc, setDoc] = useState<PDFDocumentProxy>();
   const [error, setError] = useState<string>();
@@ -157,7 +161,7 @@ function PdfView({ api, tile }: TileViewProps & { api: ExtensionAPI }) {
     const value = draft.trim();
     if (!value) return;
     if (!/^https:\/\//i.test(value)) {
-      setError("Le lien doit commencer par https://.");
+      setError(translateNow("preview.error.url"));
       return;
     }
     setError(undefined);
@@ -170,22 +174,19 @@ function PdfView({ api, tile }: TileViewProps & { api: ExtensionAPI }) {
 
   if (!url) {
     return (
-      <section className="preview-pdf" aria-label="Aperçu PDF">
+      <section className="preview-pdf" aria-label={t("preview.section.label")}>
         <form className="preview-pdf-empty" onSubmit={openLink}>
-          <h2>Ouvrir un PDF</h2>
-          <p>
-            Collez le lien d’un PDF libre. La lecture se fait dans Spark, sans
-            quitter l’espace.
-          </p>
+          <h2>{t("preview.command.open")}</h2>
+          <p>{t("preview.form.description")}</p>
           <input
             type="url"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="https://… .pdf"
-            aria-label="Lien du PDF"
+            placeholder={t("preview.form.placeholder")}
+            aria-label={t("preview.form.url")}
           />
           <button type="submit" disabled={!draft.trim()}>
-            Ouvrir
+            {t("preview.form.submit")}
           </button>
           {error && <p className="preview-pdf-error">{error}</p>}
         </form>
@@ -194,7 +195,7 @@ function PdfView({ api, tile }: TileViewProps & { api: ExtensionAPI }) {
   }
 
   return (
-    <section className="preview-pdf" aria-label="Aperçu PDF">
+    <section className="preview-pdf" aria-label={t("preview.section.label")}>
       <div className="preview-pdf-toolbar">
         <span className="preview-pdf-title">
           {tile.data.title || fileName(url)}
@@ -202,7 +203,7 @@ function PdfView({ api, tile }: TileViewProps & { api: ExtensionAPI }) {
         <div className="preview-pdf-actions">
           <button
             type="button"
-            aria-label="Réduire"
+            aria-label={t("preview.zoom.out")}
             onClick={() => setScale((value) => Math.max(0.5, value - 0.15))}
           >
             −
@@ -210,16 +211,20 @@ function PdfView({ api, tile }: TileViewProps & { api: ExtensionAPI }) {
           <span className="preview-pdf-meta">{Math.round(scale * 100)} %</span>
           <button
             type="button"
-            aria-label="Agrandir"
+            aria-label={t("preview.zoom.in")}
             onClick={() => setScale((value) => Math.min(3, value + 0.15))}
           >
             +
           </button>
-          {doc && <span className="preview-pdf-meta">{doc.numPages} p.</span>}
+          {doc && (
+            <span className="preview-pdf-meta">
+              {t("preview.pages", { count: doc.numPages })}
+            </span>
+          )}
         </div>
       </div>
       <div className="preview-pdf-scroll">
-        {loading && <p className="preview-pdf-note">Lecture du PDF…</p>}
+        {loading && <p className="preview-pdf-note">{t("preview.loading")}</p>}
         {error && (
           <div className="preview-pdf-error">
             <p>{error}</p>
@@ -228,7 +233,7 @@ function PdfView({ api, tile }: TileViewProps & { api: ExtensionAPI }) {
               type="button"
               onClick={() => api.tabs.updateTileData(tile.id, {})}
             >
-              Choisir un autre lien
+              {t("preview.chooseAnother")}
             </button>
           </div>
         )}
@@ -249,12 +254,10 @@ export default function createPreview(): ExtensionModule {
           const urls = source.urls.filter((value) =>
             /^https:\/\//i.test(value),
           );
-          if (!urls.length) throw new Error("Aucun lien PDF proposé.");
+          if (!urls.length)
+            throw new Error(translateNow("preview.error.noLink"));
           const url = await invoke<string | null>("pdf_probe", { urls });
-          if (!url)
-            throw new Error(
-              "Aucun lien PDF libre ne répond pour ce document. Consultez le DOI.",
-            );
+          if (!url) throw new Error(translateNow("preview.error.noFreeLink"));
           return api.tabs.openTile(
             pdfType,
             { id: source.id, title: source.title ?? "", url },
@@ -268,18 +271,17 @@ export default function createPreview(): ExtensionModule {
         icon: manifest.icon,
         view: (props) => <PdfView {...props} api={api} />,
         dataKeys: ["id", "title", "url"],
-        guide:
-          "Visualiseur PDF. Ouvrez un lien https:// vers un PDF ; Spark le télécharge et le met en cache. Aucune action d’écriture et aucun accès MCP au contenu du fichier ; la surface expose seulement le titre et le nombre de pages.",
+        guide: localized("preview.guide"),
         describe: (tile) =>
           tile.data.title
             ? `PDF · ${tile.data.title}`
             : tile.data.url
               ? `PDF · ${fileName(tile.data.url)}`
-              : "aucun PDF",
+              : translateNow("preview.describe.none"),
       });
       api.commands.register({
         id: "preview.open",
-        title: "Ouvrir un PDF",
+        title: localized("preview.command.open"),
         icon: manifest.icon,
         tileType: pdfType,
         keywords: ["pdf", "aperçu", "lien", "document"],

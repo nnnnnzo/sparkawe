@@ -80,7 +80,10 @@ function validateAction(
 }
 
 function validateDefinition(definition: TileDefinition) {
-  if (definition.guide && definition.guide.length > 1200)
+  if (
+    typeof definition.guide === "string" &&
+    definition.guide.length > 1200
+  )
     throw new Error(`Guide trop long : ${definition.type}`);
   for (const [name, action] of Object.entries(definition.actions ?? {})) {
     if (!ACTION_NAME.test(name))

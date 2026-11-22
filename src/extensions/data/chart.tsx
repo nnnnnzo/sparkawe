@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { toast } from "sonner";
+import { useI18n } from "../../i18n/react.ts";
 import { SPECTRUM_ORDER } from "../../shared/brand/index.tsx";
 import type { ExtensionAPI, TileViewProps } from "../../sdk/react.ts";
 import type { ChartType, TablesService } from "./api.ts";
@@ -11,16 +12,7 @@ const MARGIN = { top: 30, right: 18, bottom: 48, left: 58 };
 const PLOT_WIDTH = WIDTH - MARGIN.left - MARGIN.right;
 const PLOT_HEIGHT = HEIGHT - MARGIN.top - MARGIN.bottom;
 
-const TYPES: { id: ChartType; label: string }[] = [
-  { id: "bar", label: "Barres" },
-  { id: "line", label: "Lignes" },
-  { id: "area", label: "Aires" },
-  { id: "scatter", label: "Points" },
-];
-
-const format = new Intl.NumberFormat("fr-FR", {
-  maximumFractionDigits: 2,
-});
+const TYPES: ChartType[] = ["bar", "line", "area", "scatter"];
 
 const seriesColor = (index: number) =>
   SPECTRUM_ORDER[(index + 2) % SPECTRUM_ORDER.length];
@@ -47,11 +39,16 @@ export function ChartView({
   tables,
   tile,
 }: TileViewProps & { api: ExtensionAPI; tables: TablesService }) {
+  const { t, locale } = useI18n();
   const table = useSyncExternalStore(tables.subscribe, () =>
     tables.get(tile.data.table),
   );
   const svg = useRef<SVGSVGElement>(null);
   const type = chartType(tile.data.type);
+  const format = useMemo(
+    () => new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }),
+    [locale],
+  );
 
   const xIndex = table
     ? table.columns.findIndex((column) => column.id === tile.data.x)
@@ -198,10 +195,10 @@ export function ChartView({
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${table?.name ?? "graphique"}.svg`;
+    anchor.download = `${table?.name ?? t("data.chart.defaultName")}.svg`;
     anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast.success("Graphique exporté en SVG.");
+    toast.success(t("data.chart.exported"));
   }
 
   const xPosition = (value: number) =>
@@ -234,7 +231,7 @@ export function ChartView({
           position: xPosition(value),
           label:
             xColumn?.type === "date"
-              ? displayDate(value)
+              ? displayDate(value, locale)
               : format.format(value),
         };
       });
@@ -249,14 +246,14 @@ export function ChartView({
   })();
 
   return (
-    <section className="data-chart" aria-label="Graphique">
+    <section className="data-chart" aria-label={t("data.tile.chart.title")}>
       <header className="data-chart-toolbar">
         <select
-          aria-label="Tableau source"
+          aria-label={t("data.chart.source")}
           value={table?.id ?? ""}
           onChange={(event) => chooseTable(event.target.value)}
         >
-          <option value="">Choisir un tableau…</option>
+          <option value="">{t("data.chart.chooseTable")}</option>
           {tables.list().map((item) => (
             <option key={item.id} value={item.id}>
               {item.name}
@@ -264,7 +261,7 @@ export function ChartView({
           ))}
         </select>
         <select
-          aria-label="Colonne X"
+          aria-label={t("data.chart.x")}
           value={xColumn?.id ?? ""}
           disabled={!table}
           onChange={(event) => update({ x: event.target.value })}
@@ -287,19 +284,21 @@ export function ChartView({
                   onChange={() => toggleY(column.id)}
                 />
                 {column.name}
-                <span className="data-chart-type-tag">{column.type}</span>
+                <span className="data-chart-type-tag">
+                  {t(`data.type.${column.type}`)}
+                </span>
               </label>
             ))}
           </div>
         </details>
         <select
-          aria-label="Type de graphique"
+          aria-label={t("data.chart.type")}
           value={type}
           onChange={(event) => update({ type: event.target.value })}
         >
           {TYPES.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
+            <option key={item} value={item}>
+              {t(`data.chart.type.${item}`)}
             </option>
           ))}
         </select>
@@ -314,19 +313,15 @@ export function ChartView({
       </header>
       <div className="data-chart-canvas">
         {!table && (
-          <p className="data-chart-note">
-            Choisissez un tableau pour construire le graphique.
-          </p>
+          <p className="data-chart-note">{t("data.chart.note.chooseTable")}</p>
         )}
         {table && (!xColumn || !yColumns.length) && (
           <p className="data-chart-note">
-            Choisissez une colonne X et au moins une colonne Y.
+            {t("data.chart.note.chooseColumns")}
           </p>
         )}
         {table && xColumn && yColumns.length > 0 && !model && (
-          <p className="data-chart-note">
-            Aucune valeur numérique à tracer dans ces colonnes.
-          </p>
+          <p className="data-chart-note">{t("data.chart.note.noValues")}</p>
         )}
         {model && (
           <svg
@@ -334,7 +329,11 @@ export function ChartView({
             className="data-chart-svg"
             viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
             role="img"
-            aria-label={`${TYPES.find((item) => item.id === type)?.label ?? "Graphique"} de ${yColumns.map((column) => column.name).join(", ")} par ${xColumn?.name}`}
+            aria-label={t("data.chart.aria", {
+              type: t(`data.chart.type.${type}`),
+              series: yColumns.map((column) => column.name).join(", "),
+              x: xColumn?.name ?? "",
+            })}
           >
             {ticks.map((tick, index) => (
               <g key={index}>

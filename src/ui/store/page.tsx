@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import type { RemoteExtension } from "../../app/marketplace.ts";
 import type { Runtime } from "../../app/runtime.ts";
+import { useI18n } from "../../i18n/react.ts";
 import type { Manifest } from "../../sdk/index.ts";
 import { Button } from "@spark/ui/components/button";
 import {
@@ -54,23 +55,31 @@ import { Icon } from "../icons.tsx";
 import { CertifiedBadge } from "./certified-badge.tsx";
 import { StoreCard } from "./card.tsx";
 import {
+  ALL_CATEGORIES,
   FEATURED_IDS,
-  TIER_LABEL,
-  TIER_SECTION,
+  TIER_LABEL_KEY,
+  TIER_SECTION_KEY,
   activeStoreView,
   backRoute,
+  categoryLabel,
   isCertified,
   matchesQuery,
-  stateLabel,
+  stateOf,
   storeOrder,
   tierOf,
   type StoreRoute,
+  type StoreState,
 } from "./data.ts";
 import { FeaturedHero, Shelf } from "./featured.tsx";
 import "./style.css";
 
-const extensionColor = (manifest: Manifest) =>
-  manifest.color ?? SPECTRUM.blue;
+const extensionColor = (manifest: Manifest) => manifest.color ?? SPECTRUM.blue;
+
+const STATE_KEY: Record<StoreState, string> = {
+  active: "store.state.active",
+  inactive: "store.state.inactive",
+  "not-installed": "store.state.not-installed",
+};
 
 function SidebarItem({
   icon,
@@ -120,6 +129,11 @@ function StoreRow({
   onToggle: () => void;
   onPin: () => void;
 }) {
+  const { t, text } = useI18n();
+  const name = text(manifest.name);
+  const subtitle = text(manifest.subtitle);
+  const tier = t(TIER_LABEL_KEY[tierOf(manifest)]);
+  const label = subtitle ? t("store.list.item", { name, subtitle }) : name;
   return (
     <div className="store-row">
       <span className="store-row-icon">
@@ -134,39 +148,44 @@ function StoreRow({
         <button
           type="button"
           className="store-row-open"
-          aria-label={`${manifest.name}${manifest.subtitle ? `, ${manifest.subtitle}` : ""}${isCertified(manifest) ? ", certifiée par Spark" : ""}`}
+          aria-label={
+            isCertified(manifest)
+              ? `${label}${t("store.certified.suffix")}`
+              : label
+          }
           onClick={onOpen}
         >
-          {manifest.name}
+          {name}
           {isCertified(manifest) && (
             <CertifiedBadge size={13} focusable={false} decorative />
           )}
         </button>
         <span className="store-row-meta">
-          {manifest.subtitle ?? TIER_LABEL[tierOf(manifest)]} ·{" "}
-          {manifest.version}
+          {subtitle || tier} · {manifest.version}
         </span>
       </span>
       <span className="store-row-state" data-active={active}>
-        {active ? "Active" : "Inactive"}
+        {active ? t("store.state.active") : t("store.state.inactive")}
       </span>
       {active && (
         <Button
           variant="ghost"
           size="icon-sm"
           aria-pressed={pinned}
-          aria-label={`${pinned ? "Désépingler" : "Épingler"} ${manifest.name}`}
-          title={pinned ? "Désépingler" : "Épingler"}
+          aria-label={t(pinned ? "store.row.unpinAria" : "store.row.pinAria", {
+            name,
+          })}
+          title={t(pinned ? "store.row.unpin" : "store.row.pin")}
           onClick={onPin}
         >
           <Pin fill={pinned ? "currentColor" : "none"} />
         </Button>
       )}
       <Button variant="outline" size="sm" disabled={busy} onClick={onToggle}>
-        {busy ? "…" : active ? "Désactiver" : "Activer"}
+        {busy ? "…" : active ? t("store.row.disable") : t("store.row.enable")}
       </Button>
       <Button variant="ghost" size="sm" onClick={onOpen}>
-        Détails
+        {t("store.row.details")}
       </Button>
     </div>
   );
@@ -179,11 +198,12 @@ function RemoteCard({
   remote: RemoteExtension;
   onOpen: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
       className="store-card store-card-grid"
-      aria-label={`Ouvrir ${remote.extension.name}`}
+      aria-label={t("store.card.open", { name: remote.extension.name })}
       onClick={onOpen}
     >
       <span className="store-card-body">
@@ -205,7 +225,9 @@ function RemoteCard({
 }
 
 function ScreenshotGallery({ manifest }: { manifest: Manifest }) {
+  const { t, text } = useI18n();
   const screenshots = manifest.screenshots ?? [];
+  const name = text(manifest.name);
   const ref = useRef<HTMLDivElement>(null);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(screenshots.length <= 1);
@@ -250,7 +272,7 @@ function ScreenshotGallery({ manifest }: { manifest: Manifest }) {
           size={64}
           strokeWidth={1.3}
         />
-        <span>{manifest.subtitle ?? manifest.name}</span>
+        <span>{text(manifest.subtitle) || name}</span>
       </div>
     );
 
@@ -258,17 +280,19 @@ function ScreenshotGallery({ manifest }: { manifest: Manifest }) {
     return (
       <section
         className="store-gallery"
-        aria-label={`Aperçus de ${manifest.name}`}
+        aria-label={t("store.gallery.aria", { name })}
       >
         <div className="store-gallery-head">
-          <span className="store-gallery-label">Aperçus</span>
+          <span className="store-gallery-label">
+            {t("store.gallery.label")}
+          </span>
         </div>
         <div className="store-gallery-split">
           {screenshots.map((source, index) => (
             <figure className="store-gallery-item" key={source}>
               <img
                 src={source}
-                alt={`Aperçu ${index + 1} de ${manifest.name}`}
+                alt={t("store.gallery.alt", { index: index + 1, name })}
                 loading={index === 0 ? "eager" : "lazy"}
                 draggable={false}
               />
@@ -279,16 +303,21 @@ function ScreenshotGallery({ manifest }: { manifest: Manifest }) {
     );
 
   return (
-    <section className="store-gallery" aria-label={`Aperçus de ${manifest.name}`}>
+    <section
+      className="store-gallery"
+      aria-label={t("store.gallery.aria", { name })}
+    >
       <div className="store-gallery-head">
         <span className="store-gallery-label">
-          {screenshots.length > 1 ? "Aperçus" : "Aperçu"}
+          {screenshots.length > 1
+            ? t("store.gallery.label")
+            : t("store.gallery.labelOne")}
         </span>
         {screenshots.length > 2 && (
           <div className="store-gallery-arrows">
             <button
               type="button"
-              aria-label="Aperçu précédent"
+              aria-label={t("store.gallery.previous")}
               disabled={atStart}
               onClick={() => move(-1)}
             >
@@ -296,7 +325,7 @@ function ScreenshotGallery({ manifest }: { manifest: Manifest }) {
             </button>
             <button
               type="button"
-              aria-label="Aperçu suivant"
+              aria-label={t("store.gallery.next")}
               disabled={atEnd}
               onClick={() => move(1)}
             >
@@ -320,7 +349,7 @@ function ScreenshotGallery({ manifest }: { manifest: Manifest }) {
           <figure className="store-gallery-item" key={source}>
             <img
               src={source}
-              alt={`Aperçu ${index + 1} de ${manifest.name}`}
+              alt={t("store.gallery.alt", { index: index + 1, name })}
               loading={index === 0 ? "eager" : "lazy"}
               draggable={false}
             />
@@ -342,14 +371,12 @@ export function StorePage({
 }) {
   const workspace = runtime.workspace;
   const state = useSyncExternalStore(workspace.subscribe, workspace.get);
-  const activeKey = useSyncExternalStore(
-    runtime.registry.subscribeTools,
-    () =>
-      runtime.registry
-        .getExtensions()
-        .map(({ id }) => id)
-        .sort()
-        .join("|"),
+  const activeKey = useSyncExternalStore(runtime.registry.subscribeTools, () =>
+    runtime.registry
+      .getExtensions()
+      .map(({ id }) => id)
+      .sort()
+      .join("|"),
   );
   const catalogVersion = useSyncExternalStore(
     runtime.extensions.subscribeCatalog,
@@ -359,9 +386,10 @@ export function StorePage({
     runtime.marketplace.subscribe,
     () => runtime.marketplace.version,
   );
+  const { locale, t, tp, text } = useI18n();
   const [route, setRoute] = useState<StoreRoute>({ view: "home" });
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("Tout");
+  const [category, setCategory] = useState<string>(ALL_CATEGORIES);
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
   const [source, setSource] = useState("");
   const [installing, setInstalling] = useState(false);
@@ -379,12 +407,12 @@ export function StorePage({
   const fromRepository =
     route.view === "detail" && typeof route.from === "object";
   const originLabel = fromRepository
-    ? "Dépôt"
+    ? t("store.sources.repositoryFallback")
     : {
-        home: "Extensions",
-        updates: "Mises à jour",
-        installed: "Installées",
-        sources: "Sources",
+        home: t("store.title"),
+        updates: t("store.nav.updates"),
+        installed: t("store.nav.installed"),
+        sources: t("store.nav.sources"),
       }[origin];
 
   const catalog = useMemo(
@@ -409,7 +437,7 @@ export function StorePage({
   );
   const categories = useMemo(
     () => [
-      "Tout",
+      ALL_CATEGORIES,
       ...Array.from(
         new Set(
           catalog
@@ -426,11 +454,11 @@ export function StorePage({
       catalog
         .filter(
           (manifest) =>
-            matchesQuery(manifest, trimmedQuery) &&
-            (category === "Tout" || manifest.category === category),
+            matchesQuery(manifest, trimmedQuery, locale) &&
+            (category === ALL_CATEGORIES || manifest.category === category),
         )
-        .sort(storeOrder),
-    [catalog, category, trimmedQuery],
+        .sort((first, second) => storeOrder(first, second, locale)),
+    [catalog, category, locale, trimmedQuery],
   );
   const shelves = useMemo(
     () =>
@@ -439,16 +467,17 @@ export function StorePage({
           tier,
           items: catalog
             .filter((manifest) => tierOf(manifest) === tier)
-            .sort(storeOrder),
+            .sort((first, second) => storeOrder(first, second, locale)),
         }))
         .filter(({ items }) => items.length > 0),
-    [catalog],
+    [catalog, locale],
   );
   const installedItems = useMemo(
-    () => catalog
+    () =>
+      catalog
         .filter((manifest) => installed.has(manifest.id))
-        .sort(storeOrder),
-    [catalog, installed],
+        .sort((first, second) => storeOrder(first, second, locale)),
+    [catalog, installed, locale],
   );
   const installedCount = installedItems.length;
   const installedManifests = useMemo(
@@ -468,17 +497,17 @@ export function StorePage({
     () =>
       catalog
         .filter((manifest) => tierOf(manifest) === "community")
-        .sort(storeOrder),
-    [catalog],
+        .sort((first, second) => storeOrder(first, second, locale)),
+    [catalog, locale],
   );
   const communityRemote = useMemo(
     () =>
       remoteEntries
         .filter((remote) => !byId.has(remote.extension.id))
         .sort((first, second) =>
-          first.extension.name.localeCompare(second.extension.name, "fr"),
+          first.extension.name.localeCompare(second.extension.name, locale),
         ),
-    [byId, remoteEntries],
+    [byId, locale, remoteEntries],
   );
   const updates = useMemo(
     () => runtime.marketplace.updates(installedManifests),
@@ -519,14 +548,16 @@ export function StorePage({
       try {
         const manifest = await runtime.extensions.install(path);
         setSource("");
-        toast.success(`${manifest.name} installée`);
+        toast.success(
+          t("store.toast.installed", { name: text(manifest.name) }),
+        );
       } catch (error) {
         report(error);
       } finally {
         setInstalling(false);
       }
     },
-    [installing, runtime, source],
+    [installing, runtime, source, t, text],
   );
 
   const browseSource = useCallback(async () => {
@@ -547,7 +578,9 @@ export function StorePage({
     setRemoving(true);
     try {
       await runtime.extensions.uninstall(removeTarget.id);
-      toast.success(`${removeTarget.name} désinstallée`);
+      toast.success(
+        t("store.toast.uninstalled", { name: text(removeTarget.name) }),
+      );
       setRemoveTarget(null);
       setRoute({ view: "home" });
     } catch (error) {
@@ -568,14 +601,14 @@ export function StorePage({
         try {
           name = new URL(url).hostname;
         } catch {
-          name = "Dépôt";
+          name = t("store.sources.repositoryFallback");
         }
       }
       await runtime.marketplace.addSource(url, name);
       setSourceUrl("");
       setSourceName("");
       setRoute({ view: "repository", url });
-      toast.success("Dépôt ajouté");
+      toast.success(t("store.toast.sourceAdded"));
     } catch (error) {
       report(error);
     } finally {
@@ -604,7 +637,7 @@ export function StorePage({
     setRemoteBusy(remote.extension.id);
     try {
       const manifest = await runtime.marketplace.install(remote);
-      toast.success(`${manifest.name} installée`);
+      toast.success(t("store.toast.installed", { name: text(manifest.name) }));
     } catch (error) {
       report(error);
     } finally {
@@ -681,9 +714,9 @@ export function StorePage({
   const renderHeader = (subtitle?: string) => (
     <header className="store-header">
       <div>
-        <h1 className="store-title">Extensions</h1>
+        <h1 className="store-title">{t("store.title")}</h1>
         <p className="store-subtitle">
-          {subtitle ?? "Découvrez et gérez les extensions de Spark."}
+          {subtitle ?? t("store.header.subtitle")}
         </p>
       </div>
       <div className="store-search">
@@ -692,8 +725,8 @@ export function StorePage({
           ref={searchRef}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Rechercher…"
-          aria-label="Rechercher une extension"
+          placeholder={t("store.search.placeholder")}
+          aria-label={t("store.search.label")}
           className="store-search-input"
         />
       </div>
@@ -701,7 +734,11 @@ export function StorePage({
   );
 
   const renderChips = () => (
-    <div className="store-chips" role="group" aria-label="Catégories">
+    <div
+      className="store-chips"
+      role="group"
+      aria-label={t("store.chips.label")}
+    >
       {categories.map((value) => (
         <button
           key={value}
@@ -710,7 +747,9 @@ export function StorePage({
           aria-pressed={category === value}
           onClick={() => setCategory(value)}
         >
-          {value}
+          {value === ALL_CATEGORIES
+            ? t("store.chips.all")
+            : categoryLabel(value, t)}
         </button>
       ))}
     </div>
@@ -722,7 +761,9 @@ export function StorePage({
         <h2 className="store-section-title">
           {title}
           <span className="store-section-count">
-            {items.length} {items.length > 1 ? "extensions" : "extension"}
+            {tp("store.count.extension", items.length, {
+              count: items.length,
+            })}
           </span>
         </h2>
       )}
@@ -745,16 +786,18 @@ export function StorePage({
         {renderChips()}
         {trimmedQuery ? (
           filtered.length ? (
-            renderGrid(filtered, "Résultats")
+            renderGrid(filtered, t("store.results.title"))
           ) : (
             <Empty className="store-empty">
               <EmptyMedia variant="icon">
                 <SearchX />
               </EmptyMedia>
               <EmptyHeader>
-                <EmptyTitle>Aucun résultat</EmptyTitle>
+                <EmptyTitle>{t("store.results.empty.title")}</EmptyTitle>
                 <EmptyDescription>
-                  Aucune extension ne correspond à « {query.trim()} ».
+                  {t("store.results.empty.description", {
+                    query: query.trim(),
+                  })}
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
@@ -762,16 +805,16 @@ export function StorePage({
                   variant="outline"
                   onClick={() => {
                     setQuery("");
-                    setCategory("Tout");
+                    setCategory(ALL_CATEGORIES);
                   }}
                 >
-                  Tout afficher
+                  {t("store.results.empty.action")}
                 </Button>
               </EmptyContent>
             </Empty>
           )
-        ) : category !== "Tout" ? (
-          renderGrid(filtered, category)
+        ) : category !== ALL_CATEGORIES ? (
+          renderGrid(filtered, categoryLabel(category, t))
         ) : (
           <>
             {featured && (
@@ -780,15 +823,16 @@ export function StorePage({
             {shelves.map(({ tier, items }) => (
               <Shelf
                 key={tier}
-                title={TIER_SECTION[tier]}
+                title={t(TIER_SECTION_KEY[tier])}
                 entries={items}
                 onOpen={openDetail}
               />
             ))}
-            {(communityCatalog.length > 0 ||
-              communityRemote.length > 0) && (
+            {(communityCatalog.length > 0 || communityRemote.length > 0) && (
               <section className="store-section">
-                <h2 className="store-section-title">Communautaires</h2>
+                <h2 className="store-section-title">
+                  {t("store.section.community")}
+                </h2>
                 <div className="store-grid">
                   {communityCatalog.map((manifest) => (
                     <StoreCard
@@ -802,10 +846,7 @@ export function StorePage({
                       key={`${remote.source.url}:${remote.extension.id}`}
                       remote={remote}
                       onOpen={() =>
-                        openDetail(
-                          remote.extension.id,
-                          remote.source.url,
-                        )
+                        openDetail(remote.extension.id, remote.source.url)
                       }
                     />
                   ))}
@@ -818,9 +859,9 @@ export function StorePage({
                   <Blocks />
                 </EmptyMedia>
                 <EmptyHeader>
-                  <EmptyTitle>Aucune extension</EmptyTitle>
+                  <EmptyTitle>{t("store.catalog.empty.title")}</EmptyTitle>
                   <EmptyDescription>
-                    Le catalogue livré avec Spark est vide.
+                    {t("store.catalog.empty.description")}
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -846,11 +887,7 @@ export function StorePage({
       return (
         <main className="store-main" ref={mainRef} tabIndex={-1}>
           <div className="store-content">
-            <button
-              type="button"
-              className="store-back"
-              onClick={back}
-            >
+            <button type="button" className="store-back" onClick={back}>
               <ChevronLeft /> {originLabel}
             </button>
             <Empty className="store-empty">
@@ -858,9 +895,9 @@ export function StorePage({
                 <PackageCheck />
               </EmptyMedia>
               <EmptyHeader>
-                <EmptyTitle>Extension introuvable</EmptyTitle>
+                <EmptyTitle>{t("store.detail.notFound.title")}</EmptyTitle>
                 <EmptyDescription>
-                  Cette extension ne fait plus partie du catalogue.
+                  {t("store.detail.notFound.description")}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -887,11 +924,25 @@ export function StorePage({
     const busy = pending.has(manifest.id);
     const pinned = selected.has(manifest.id);
     const certified = isCertified(manifest);
+    const name = text(manifest.name);
+    const subtitle = text(manifest.subtitle);
+    const tier = t(TIER_LABEL_KEY[tierOf(manifest)]);
+    const categoryName = manifest.category
+      ? categoryLabel(manifest.category, t)
+      : remote
+        ? t("store.detail.remoteCategory")
+        : tier;
+    const publisher = remote
+      ? (remote.extension.publisher ?? remote.source.name)
+      : "Spark";
+    const description =
+      text(manifest.description) ||
+      text(manifest.summary) ||
+      t("store.detail.noDescription");
     const command = runtime.registry
       .getCommands()
       .find(
-        (candidate) =>
-          candidate.tileType && candidate.owner.id === manifest.id,
+        (candidate) => candidate.tileType && candidate.owner.id === manifest.id,
       );
     const style = {
       "--ext-color": extensionColor(manifest),
@@ -900,11 +951,7 @@ export function StorePage({
     return (
       <main className="store-main" ref={mainRef} tabIndex={-1}>
         <div className="store-content">
-          <button
-            type="button"
-            className="store-back"
-            onClick={back}
-          >
+          <button type="button" className="store-back" onClick={back}>
             <ChevronLeft /> {originLabel}
           </button>
           <header className="store-detail-head" style={style}>
@@ -918,16 +965,16 @@ export function StorePage({
             </span>
             <div className="store-detail-heading">
               <h1 className="store-detail-title">
-                {manifest.name}
+                {name}
                 {certified && <CertifiedBadge size={17} />}
               </h1>
-              <p className="store-detail-subtitle">
-                {manifest.subtitle ?? TIER_LABEL[tierOf(manifest)]}
-              </p>
+              <p className="store-detail-subtitle">{subtitle || tier}</p>
               <p className="store-detail-meta">
-                {remote
-                  ? `${remote.extension.publisher ?? remote.source.name} · ${manifest.version} · ${manifest.category ?? "Communautaire"}`
-                  : `Spark · ${manifest.version} · ${manifest.category ?? TIER_LABEL[tierOf(manifest)]}`}
+                {t("store.detail.meta", {
+                  publisher,
+                  version: manifest.version,
+                  category: categoryName,
+                })}
               </p>
             </div>
             <div className="store-detail-actions">
@@ -937,13 +984,13 @@ export function StorePage({
                   onClick={() => void installRemote(remote)}
                 >
                   {remoteBusy === manifest.id
-                    ? "Installation…"
-                    : "Installer"}
+                    ? t("store.detail.installing")
+                    : t("store.detail.install")}
                 </Button>
               )}
               {!remote && active && command && (
                 <Button onClick={() => openExtension(manifest.id)}>
-                  Ouvrir
+                  {t("store.detail.open")}
                 </Button>
               )}
               {!remote && !active && (
@@ -952,10 +999,10 @@ export function StorePage({
                   onClick={() => void setEnabled(manifest.id, true)}
                 >
                   {busy
-                    ? "Activation…"
+                    ? t("store.detail.enabling")
                     : isInstalled || bundled
-                      ? "Activer"
-                      : "Installer"}
+                      ? t("store.detail.enable")
+                      : t("store.detail.install")}
                 </Button>
               )}
               {!remote && active && (
@@ -964,7 +1011,9 @@ export function StorePage({
                   disabled={busy}
                   onClick={() => void setEnabled(manifest.id, false)}
                 >
-                  {busy ? "Désactivation…" : "Désactiver"}
+                  {busy
+                    ? t("store.detail.disabling")
+                    : t("store.detail.disable")}
                 </Button>
               )}
               {!remote && active && command && (
@@ -972,8 +1021,11 @@ export function StorePage({
                   variant="ghost"
                   size="icon"
                   aria-pressed={pinned}
-                  aria-label={`${pinned ? "Désépingler" : "Épingler"} ${manifest.name}`}
-                  title={pinned ? "Désépingler" : "Épingler"}
+                  aria-label={t(
+                    pinned ? "store.row.unpinAria" : "store.row.pinAria",
+                    { name },
+                  )}
+                  title={t(pinned ? "store.row.unpin" : "store.row.pin")}
                   onClick={() => togglePin(manifest.id)}
                 >
                   <Pin fill={pinned ? "currentColor" : "none"} />
@@ -983,8 +1035,8 @@ export function StorePage({
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={`Désinstaller ${manifest.name}`}
-                  title="Désinstaller"
+                  aria-label={t("store.detail.uninstallAria", { name })}
+                  title={t("store.detail.uninstall")}
                   onClick={() => setRemoveTarget(manifest)}
                 >
                   <Trash2 />
@@ -995,58 +1047,53 @@ export function StorePage({
           <ScreenshotGallery manifest={manifest} />
           <div className="store-detail-body">
             <section className="store-detail-section">
-              <h2>À propos</h2>
-              <p>
-                {manifest.description ??
-                  manifest.summary ??
-                  "Aucune description fournie."}
-              </p>
+              <h2>{t("store.detail.about")}</h2>
+              <p>{description}</p>
             </section>
             <section className="store-detail-section">
-              <h2>Informations</h2>
+              <h2>{t("store.detail.info")}</h2>
               <dl className="store-meta-list">
                 <div className="store-meta-row">
-                  <dt>Éditeur</dt>
+                  <dt>{t("store.detail.publisher")}</dt>
                   <dd>
                     {remote
-                      ? (remote.extension.publisher ??
-                        remote.source.name)
+                      ? publisher
                       : certified
                         ? "Spark"
-                        : "Tiers"}
+                        : t("store.detail.thirdParty")}
                   </dd>
                 </div>
                 {remote && (
                   <div className="store-meta-row">
-                    <dt>Dépôt</dt>
-                    <dd title={remote.source.url}>
-                      {remote.source.name}
-                    </dd>
+                    <dt>{t("store.detail.repository")}</dt>
+                    <dd title={remote.source.url}>{remote.source.name}</dd>
                   </div>
                 )}
                 <div className="store-meta-row">
-                  <dt>Version</dt>
+                  <dt>{t("store.detail.version")}</dt>
                   <dd>{manifest.version}</dd>
                 </div>
                 <div className="store-meta-row">
-                  <dt>Catégorie</dt>
-                  <dd>{manifest.category ?? "—"}</dd>
+                  <dt>{t("store.detail.category")}</dt>
+                  <dd>{categoryName}</dd>
                 </div>
                 <div className="store-meta-row">
-                  <dt>Type</dt>
-                  <dd>{TIER_LABEL[tierOf(manifest)]}</dd>
+                  <dt>{t("store.detail.type")}</dt>
+                  <dd>{tier}</dd>
                 </div>
                 <div className="store-meta-row">
-                  <dt>État</dt>
-                  <dd>{stateLabel(manifest, active, isInstalled)}</dd>
+                  <dt>{t("store.detail.state")}</dt>
+                  <dd>
+                    {t(STATE_KEY[stateOf(manifest, active, isInstalled)])}
+                  </dd>
                 </div>
                 <div className="store-meta-row">
-                  <dt>Identifiant</dt>
+                  <dt>{t("store.detail.id")}</dt>
                   <dd className="store-mono">{manifest.id}</dd>
                 </div>
                 {manifest.tileTypes?.length ? (
                   <div className="store-meta-row">
-                    <dt>Tuiles</dt>
+                    <dt>{t("store.detail.tiles")}</dt>
                     <dd className="store-mono">
                       {manifest.tileTypes.join(", ")}
                     </dd>
@@ -1065,13 +1112,11 @@ export function StorePage({
       <div className="store-content">
         <header className="store-header">
           <div>
-            <h1 className="store-title">Installées</h1>
+            <h1 className="store-title">{t("store.installed.title")}</h1>
             <p className="store-subtitle">
-              {installedCount}{" "}
-              {installedCount > 1
-                ? "extensions installées"
-                : "extension installée"}
-              .
+              {tp("store.count.installed", installedCount, {
+                count: installedCount,
+              })}
             </p>
           </div>
         </header>
@@ -1086,10 +1131,7 @@ export function StorePage({
                 busy={pending.has(manifest.id)}
                 onOpen={() => openDetail(manifest.id)}
                 onToggle={() =>
-                  void setEnabled(
-                    manifest.id,
-                    !activeIds.has(manifest.id),
-                  )
+                  void setEnabled(manifest.id, !activeIds.has(manifest.id))
                 }
                 onPin={() => togglePin(manifest.id)}
               />
@@ -1101,9 +1143,9 @@ export function StorePage({
               <PackageCheck />
             </EmptyMedia>
             <EmptyHeader>
-              <EmptyTitle>Aucune extension installée</EmptyTitle>
+              <EmptyTitle>{t("store.installed.empty.title")}</EmptyTitle>
               <EmptyDescription>
-                Activez une extension depuis Découvrir pour la retrouver ici.
+                {t("store.installed.empty.description")}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
@@ -1111,7 +1153,7 @@ export function StorePage({
                 variant="outline"
                 onClick={() => setRoute({ view: "home" })}
               >
-                Découvrir
+                {t("store.nav.discover")}
               </Button>
             </EmptyContent>
           </Empty>
@@ -1125,11 +1167,13 @@ export function StorePage({
       <div className="store-content">
         <header className="store-header">
           <div>
-            <h1 className="store-title">Mises à jour</h1>
+            <h1 className="store-title">{t("store.updates.title")}</h1>
             <p className="store-subtitle">
               {updates.length
-                ? `${updates.length} ${updates.length > 1 ? "extensions à mettre à jour" : "extension à mettre à jour"}.`
-                : "Les versions publiées par les dépôts apparaissent ici."}
+                ? tp("store.count.toUpdate", updates.length, {
+                    count: updates.length,
+                  })
+                : t("store.updates.hint")}
             </p>
           </div>
           <Button
@@ -1137,7 +1181,7 @@ export function StorePage({
             size="sm"
             onClick={() => void refreshMarket()}
           >
-            <RefreshCw data-icon="inline-start" /> Vérifier
+            <RefreshCw data-icon="inline-start" /> {t("store.updates.check")}
           </Button>
         </header>
         {updates.length ? (
@@ -1170,7 +1214,9 @@ export function StorePage({
                     disabled={busy}
                     onClick={() => void installRemote(remote)}
                   >
-                    {busy ? "Mise à jour…" : "Mettre à jour"}
+                    {busy
+                      ? t("store.updates.updating")
+                      : t("store.updates.update")}
                   </Button>
                 </div>
               );
@@ -1182,7 +1228,7 @@ export function StorePage({
               <CheckCircle2 />
             </EmptyMedia>
             <EmptyHeader>
-              <EmptyTitle>Aucune mise à jour</EmptyTitle>
+              <EmptyTitle>{t("store.updates.empty.title")}</EmptyTitle>
             </EmptyHeader>
           </Empty>
         )}
@@ -1195,7 +1241,7 @@ export function StorePage({
       <div className="store-content">
         <header className="store-header">
           <div>
-            <h1 className="store-title">Sources</h1>
+            <h1 className="store-title">{t("store.sources.title")}</h1>
           </div>
         </header>
         <div className="store-source-card">
@@ -1203,30 +1249,35 @@ export function StorePage({
             <Blocks />
           </span>
           <span className="store-source-info">
-            <span className="store-source-name">Catalogue Spark</span>
+            <span className="store-source-name">
+              {t("store.sources.catalog")}
+            </span>
             <span className="store-source-meta">
-              Intégré à l’application · {catalog.length}{" "}
-              {catalog.length > 1 ? "extensions" : "extension"}
+              {t("store.sources.builtin")} ·{" "}
+              {tp("store.count.extension", catalog.length, {
+                count: catalog.length,
+              })}
             </span>
           </span>
-          <span className="store-source-badge">Officiel</span>
+          <span className="store-source-badge">
+            {t("store.sources.official")}
+          </span>
         </div>
         {dev && (
           <form className="store-install" onSubmit={installExtension}>
             <div className="store-install-text">
               <span className="store-install-title">
-                Importer une extension
+                {t("store.sources.import.title")}
               </span>
               <span className="store-install-hint">
-                Dossier contenant extension.json, index.js et éventuellement
-                style.css.
+                {t("store.sources.import.hint")}
               </span>
             </div>
             <Input
               value={source}
               onChange={(event) => setSource(event.target.value)}
-              placeholder="/chemin/vers/extension"
-              aria-label="Dossier de l’extension à importer"
+              placeholder={t("store.sources.import.placeholder")}
+              aria-label={t("store.sources.import.label")}
               className="store-install-input"
             />
             <Button
@@ -1236,60 +1287,63 @@ export function StorePage({
               disabled={picking || installing}
             >
               <FolderSearch data-icon="inline-start" />
-              {picking ? "Sélection…" : "Parcourir"}
+              {picking
+                ? t("store.sources.import.browsing")
+                : t("store.sources.import.browse")}
             </Button>
             <Button
               type="submit"
               variant="outline"
               disabled={installing || !source.trim()}
             >
-              {installing ? "Installation…" : "Installer"}
+              {installing
+                ? t("store.detail.installing")
+                : t("store.detail.install")}
             </Button>
           </form>
         )}
         <section className="store-sources">
           <div className="store-section-head">
-            <h2 className="store-section-title">Dépôts</h2>
+            <h2 className="store-section-title">
+              {t("store.sources.repositories")}
+            </h2>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => void refreshMarket()}
             >
-              <RefreshCw data-icon="inline-start" /> Vérifier
+              <RefreshCw data-icon="inline-start" /> {t("store.updates.check")}
             </Button>
           </div>
           <form className="store-source-add" onSubmit={addRepository}>
             <Input
               value={sourceName}
               onChange={(event) => setSourceName(event.target.value)}
-              placeholder="Nom (optionnel)"
-              aria-label="Nom du dépôt"
+              placeholder={t("store.sources.add.namePlaceholder")}
+              aria-label={t("store.sources.add.nameLabel")}
             />
             <Input
               value={sourceUrl}
               onChange={(event) => setSourceUrl(event.target.value)}
               placeholder="https://…/registry.json"
-              aria-label="URL du dépôt"
+              aria-label={t("store.sources.add.urlLabel")}
             />
             <Button
               type="submit"
               variant="outline"
               disabled={addingSource || !sourceUrl.trim()}
             >
-              {addingSource ? "Ajout…" : "Ajouter"}
+              {addingSource
+                ? t("store.sources.add.adding")
+                : t("store.sources.add.submit")}
             </Button>
           </form>
           {runtime.marketplace.sourceList.length === 0 ? (
-            <p className="store-source-empty">
-              Aucun dépôt ajouté. Ajoutez l’URL d’un index JSON pour
-              découvrir ses extensions.
-            </p>
+            <p className="store-source-empty">{t("store.sources.empty")}</p>
           ) : (
             <div className="store-source-list">
               {runtime.marketplace.sourceList.map((repository) => {
-                const failure = runtime.marketplace.errorFor(
-                  repository.url,
-                );
+                const failure = runtime.marketplace.errorFor(repository.url);
                 const count = remoteEntries.filter(
                   (remote) => remote.source.url === repository.url,
                 ).length;
@@ -1299,7 +1353,9 @@ export function StorePage({
                       <button
                         type="button"
                         className="store-source-open"
-                        aria-label={`Ouvrir le dépôt ${repository.name}`}
+                        aria-label={t("store.sources.open", {
+                          name: repository.name,
+                        })}
                         onClick={() => openRepository(repository.url)}
                       >
                         <span className="store-source-icon">
@@ -1314,8 +1370,7 @@ export function StorePage({
                           </span>
                         </span>
                         <span className="store-source-count">
-                          {count}{" "}
-                          {count > 1 ? "extensions" : "extension"}
+                          {tp("store.count.repository", count, { count })}
                         </span>
                         <ChevronRight
                           className="store-source-chevron"
@@ -1325,18 +1380,16 @@ export function StorePage({
                       <Button
                         variant="ghost"
                         size="icon"
-                        aria-label={`Retirer ${repository.name}`}
-                        title="Retirer le dépôt"
-                        onClick={() =>
-                          void removeRepository(repository.url)
-                        }
+                        aria-label={t("store.sources.remove", {
+                          name: repository.name,
+                        })}
+                        title={t("store.sources.removeTitle")}
+                        onClick={() => void removeRepository(repository.url)}
                       >
                         <Trash2 />
                       </Button>
                     </div>
-                    {failure && (
-                      <p className="store-source-error">{failure}</p>
-                    )}
+                    {failure && <p className="store-source-error">{failure}</p>}
                   </div>
                 );
               })}
@@ -1360,12 +1413,12 @@ export function StorePage({
       <main className="store-main" ref={mainRef} tabIndex={-1}>
         <div className="store-content">
           <button type="button" className="store-back" onClick={back}>
-            <ChevronLeft /> Sources
+            <ChevronLeft /> {t("store.nav.sources")}
           </button>
           <header className="store-header">
             <div>
               <h1 className="store-title">
-                {repository?.name ?? "Dépôt"}
+                {repository?.name ?? t("store.sources.repositoryFallback")}
               </h1>
               <p className="store-subtitle">{route.url}</p>
             </div>
@@ -1374,7 +1427,7 @@ export function StorePage({
               size="sm"
               onClick={() => void refreshMarket()}
             >
-              <RefreshCw data-icon="inline-start" /> Vérifier
+              <RefreshCw data-icon="inline-start" /> {t("store.updates.check")}
             </Button>
           </header>
           {failure && <p className="store-source-error">{failure}</p>}
@@ -1397,9 +1450,11 @@ export function StorePage({
                   <Library />
                 </EmptyMedia>
                 <EmptyHeader>
-                  <EmptyTitle>Aucune extension</EmptyTitle>
+                  <EmptyTitle>
+                    {t("store.sources.repositoryEmpty.title")}
+                  </EmptyTitle>
                   <EmptyDescription>
-                    Ce dépôt ne publie aucune extension pour le moment.
+                    {t("store.sources.repositoryEmpty.description")}
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -1411,35 +1466,35 @@ export function StorePage({
   };
 
   return (
-    <section className="spark-store" aria-label="Store des extensions">
+    <section className="spark-store" aria-label={t("store.a11y")}>
       <aside className="store-sidebar">
         <div className="store-brand">
           <Blocks />
           <span className="store-brand-label">Store</span>
         </div>
-        <nav className="store-nav" aria-label="Sections du Store">
+        <nav className="store-nav" aria-label={t("store.nav.sections")}>
           <SidebarItem
             icon={<Compass />}
-            label="Découvrir"
+            label={t("store.nav.discover")}
             active={origin === "home"}
             onClick={() => setRoute({ view: "home" })}
           />
           <SidebarItem
             icon={<RefreshCw />}
-            label="Mises à jour"
+            label={t("store.nav.updates")}
             active={origin === "updates"}
             onClick={() => setRoute({ view: "updates" })}
           />
           <SidebarItem
             icon={<PackageCheck />}
-            label="Installées"
+            label={t("store.nav.installed")}
             count={installedCount}
             active={origin === "installed"}
             onClick={() => setRoute({ view: "installed" })}
           />
           <SidebarItem
             icon={<Library />}
-            label="Sources"
+            label={t("store.nav.sources")}
             active={origin === "sources"}
             onClick={() => setRoute({ view: "sources" })}
           />
@@ -1448,12 +1503,12 @@ export function StorePage({
           <button
             type="button"
             className="store-nav-item"
-            aria-label="Retour à l’espace"
-            title="Retour à l’espace"
+            aria-label={t("store.nav.back")}
+            title={t("store.nav.back")}
             onClick={() => onClose()}
           >
             <ArrowLeft />
-            <span className="store-nav-label">Retour à l’espace</span>
+            <span className="store-nav-label">{t("store.nav.back")}</span>
           </button>
         </div>
       </aside>
@@ -1472,11 +1527,14 @@ export function StorePage({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Désinstaller {removeTarget?.name ?? "cette extension"} ?
+              {t("store.uninstall.title", {
+                name: removeTarget
+                  ? text(removeTarget.name)
+                  : t("store.uninstall.this"),
+              })}
             </DialogTitle>
             <DialogDescription>
-              Le paquet sera supprimé. Les tuiles ouvertes deviendront
-              indisponibles.
+              {t("store.uninstall.description")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1485,14 +1543,16 @@ export function StorePage({
               disabled={removing}
               onClick={() => setRemoveTarget(null)}
             >
-              Annuler
+              {t("store.uninstall.cancel")}
             </Button>
             <Button
               variant="destructive"
               disabled={removing}
               onClick={() => void uninstallExtension()}
             >
-              {removing ? "Désinstallation…" : "Désinstaller"}
+              {removing
+                ? t("store.uninstall.running")
+                : t("store.uninstall.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

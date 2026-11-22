@@ -2,6 +2,7 @@ import { Table2 } from "lucide-react";
 import tableShot from "./media/data-table.webp";
 import chartShot from "./media/data-chart.webp";
 import type { Manifest } from "../../sdk/index.ts";
+import { localized } from "../../core/i18n.ts";
 import { SPECTRUM } from "../../shared/brand/index.tsx";
 
 export const tableType = "data.table";
@@ -9,18 +10,16 @@ export const chartType = "data.chart";
 
 export default {
   id: "spark.data",
-  name: "Données",
+  name: localized("manifest.data.name"),
   version: "0.1.0",
   icon: Table2,
   color: SPECTRUM.cyan,
   tier: "core",
   tileTypes: [tableType, chartType],
   certification: "spark",
-  subtitle: "Tableaux, CSV et graphiques",
-  summary:
-    "Crée des tableaux, importe des CSV et affiche des graphiques.",
-  description:
-    "Les tableaux acceptent le copier-coller TSV et les fichiers CSV. Les graphiques se lient à un tableau. Les données restent dans l’espace et sont exposées aux agents par des actions bornées.",
+  subtitle: localized("manifest.data.subtitle"),
+  summary: localized("manifest.data.summary"),
+  description: localized("manifest.data.description"),
   screenshots: [tableShot, chartShot],
-  category: "Données",
+  category: "data",
 } satisfies Manifest;

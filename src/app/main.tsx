@@ -1,6 +1,8 @@
 import { createRoot } from "react-dom/client";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Toaster } from "sonner";
+import { detectLocale } from "../core/i18n.ts";
+import { setLocale } from "../i18n/index.ts";
 import { SparkShell } from "../ui/shell.tsx";
 import { SparkSplash } from "../ui/splash.tsx";
 import { attachMcp } from "./mcp.ts";
@@ -10,6 +12,7 @@ import "dockview-react/dist/styles/dockview.css";
 import "./theme.css";
 
 document.documentElement.classList.add("dark");
+setLocale(detectLocale(navigator.languages ?? [navigator.language]));
 
 const root = createRoot(document.getElementById("root")!);
 const splashSlot = document.createElement("div");

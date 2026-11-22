@@ -3,19 +3,27 @@
  * elles survivent au changement d'onglet et ne font pas partie du document.
  */
 
+import { isLocale, type Locale } from "./i18n.ts";
+
 export interface AppSettings {
   dev: boolean;
+  locale: Locale;
 }
 
-const defaults: AppSettings = { dev: false };
-
-export function restoreSettings(value: unknown): AppSettings {
+export function restoreSettings(
+  value: unknown,
+  fallback: Locale = "en",
+): AppSettings {
+  const empty: AppSettings = { dev: false, locale: fallback };
   if (typeof value !== "object" || value === null || Array.isArray(value))
-    return { ...defaults };
+    return empty;
   const settings = value as Record<string, unknown>;
   if (settings.dev !== undefined && typeof settings.dev !== "boolean")
-    return { ...defaults };
-  return { dev: settings.dev === true };
+    return empty;
+  return {
+    dev: settings.dev === true,
+    locale: isLocale(settings.locale) ? settings.locale : fallback,
+  };
 }
 
 export class Settings {

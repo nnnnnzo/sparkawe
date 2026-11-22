@@ -22,6 +22,9 @@ import type {
   TileViewProps,
 } from "../../sdk/react.ts";
 import type { Tile } from "../../sdk/index.ts";
+import { localized } from "../../core/i18n.ts";
+import { t as translateNow } from "../../i18n/index.ts";
+import { useI18n } from "../../i18n/react.ts";
 import { markdownOpener } from "../markdown/api.ts";
 import { terminalLauncher } from "../terminal/api.ts";
 import {
@@ -45,7 +48,7 @@ export default function createExplorer(): ExtensionModule {
       function selectionOf(tile: Tile): Selection {
         return (
           selections.get(tile.id) ?? {
-            name: tile.data.name ?? "dossier",
+            name: tile.data.name ?? translateNow("explorer.default.folder"),
             kind: "folder",
             segments: [],
           }
@@ -53,7 +56,7 @@ export default function createExplorer(): ExtensionModule {
       }
       function rootToken(tile: Tile) {
         const token = tile.data.token;
-        if (!token) throw new Error("Aucun dossier ouvert dans cette tuile.");
+        if (!token) throw new Error(translateNow("explorer.error.noFolder"));
         return token;
       }
       /**
@@ -67,14 +70,14 @@ export default function createExplorer(): ExtensionModule {
         let relative = wanted;
         if (wanted.startsWith("/")) {
           if (!root || (wanted !== root && !wanted.startsWith(`${root}/`)))
-            throw new Error(
-              "Le chemin sort du dossier ouvert dans cette tuile.",
-            );
+            throw new Error(translateNow("explorer.error.outsideFolder"));
           relative = wanted.slice(root.length).replace(/^\//, "");
         }
         const segments = relative.split("/").filter(Boolean);
         if (!segments.length || segments.includes(".."))
-          throw new Error(`Chemin invalide : ${wanted}`);
+          throw new Error(
+            translateNow("explorer.error.invalidPath", { path: wanted }),
+          );
         return {
           name: segments.at(-1) ?? "",
           kind: "file",
@@ -86,21 +89,20 @@ export default function createExplorer(): ExtensionModule {
         type: explorerType,
         title: manifest.name,
         icon: manifest.icon,
-        guide:
-          "Arborescence d’un dossier. La surface indique la sélection (root, name, kind, selection). open-in-markdown { path } ouvre un fichier Markdown, open-in-terminal { path } ouvre un shell dans un dossier ; path est relatif à la racine ou absolu dans cette racine. Sans path, l’action utilise la sélection de l’interface.",
+        guide: localized("explorer.guide"),
         view: (props) => <ExplorerView {...props} api={api} />,
         dataKeys: ["token", "name", "path"],
         actions: {
           "open-in-markdown": {
-            title: "Ouvrir dans Markdown",
-            description:
-              "Ouvre un fichier Markdown dans un éditeur : le chemin fourni, sinon la sélection de l’interface.",
+            title: localized("explorer.action.openInMarkdown"),
+            description: localized(
+              "explorer.action.openInMarkdown.description",
+            ),
             input: {
               path: {
                 type: "string",
                 required: false,
-                description:
-                  "Chemin relatif au dossier ouvert, ou absolu dans ce dossier.",
+                description: translateNow("explorer.input.path"),
               },
             },
             requires: [markdownOpener],
@@ -108,25 +110,30 @@ export default function createExplorer(): ExtensionModule {
               const entry = targetOf(tile, input);
               if (entry.kind === "folder" || !isMarkdown(entry))
                 throw new Error(
-                  `« ${entry.name} » n’est pas un fichier Markdown.`,
+                  translateNow("explorer.error.notMarkdown", {
+                    name: entry.name,
+                  }),
                 );
               const file = await readMarkdown(rootToken(tile), entry.segments);
               const markdown = api.services.get(markdownOpener);
-              if (!markdown) throw new Error("Markdown indisponible.");
+              if (!markdown)
+                throw new Error(
+                  translateNow("explorer.error.markdownUnavailable"),
+                );
               const created = markdown.open(file, tile.id);
               return { ref: created.id, name: entry.name };
             },
           },
           "open-in-terminal": {
-            title: "Ouvrir un terminal",
-            description:
-              "Ouvre un terminal dans un dossier : le chemin fourni, sinon la sélection de l’interface.",
+            title: localized("explorer.action.openInTerminal"),
+            description: localized(
+              "explorer.action.openInTerminal.description",
+            ),
             input: {
               path: {
                 type: "string",
                 required: false,
-                description:
-                  "Chemin relatif au dossier ouvert, ou absolu dans ce dossier.",
+                description: translateNow("explorer.input.path"),
               },
             },
             requires: [terminalLauncher],
@@ -135,13 +142,20 @@ export default function createExplorer(): ExtensionModule {
                 typeof input.path === "string" && input.path.trim() !== "";
               const entry = targetOf(tile, input);
               if (!wanted && entry.kind !== "folder")
-                throw new Error(`« ${entry.name} » n’est pas un dossier.`);
+                throw new Error(
+                  translateNow("explorer.error.notFolder", {
+                    name: entry.name,
+                  }),
+                );
               const directory = await resolveFolder(
                 rootToken(tile),
                 entry.segments,
               );
               const terminal = api.services.get(terminalLauncher);
-              if (!terminal) throw new Error("Terminal indisponible.");
+              if (!terminal)
+                throw new Error(
+                  translateNow("explorer.error.terminalUnavailable"),
+                );
               const created = terminal.open(directory, tile.id);
               return { ref: created.id, name: entry.name };
             },
@@ -150,18 +164,18 @@ export default function createExplorer(): ExtensionModule {
         describe: (tile, surface) => {
           if (!surface.selection)
             return tile.data.path
-              ? `${tile.data.name ?? "dossier"} · ${tile.data.path}`
-              : "aucun dossier";
+              ? `${tile.data.name ?? translateNow("explorer.default.folder")} · ${tile.data.path}`
+              : translateNow("explorer.describe.none");
           const path =
             surface.selection === "."
               ? (surface.root ?? tile.data.path)
               : `${surface.root ?? tile.data.path}/${surface.selection}`;
-          return `${path} (${surface.kind ?? "élément"})`;
+          return `${path} (${surface.kind ?? translateNow("explorer.default.element")})`;
         },
       });
       api.commands.register({
         id: "explorer.open",
-        title: "Ouvrir l’explorateur",
+        title: localized("explorer.command.open"),
         icon: manifest.icon,
         tileType: explorerType,
         keywords: ["dossier", "fichiers", "projet"],
@@ -178,6 +192,7 @@ export default function createExplorer(): ExtensionModule {
 }
 
 function ExplorerView({ api, tile }: TileViewProps & { api: ExtensionAPI }) {
+  const { t, text } = useI18n();
   const { token, name, path } = tile.data;
   const root = token && name && path ? { token, name, path } : undefined;
   const [picking, setPicking] = useState(false);
@@ -188,7 +203,7 @@ function ExplorerView({ api, tile }: TileViewProps & { api: ExtensionAPI }) {
       const folder = await pickFolder();
       if (folder) api.tabs.updateTileData(tile.id, { ...folder });
     } catch (error) {
-      toast.error("Impossible d’ouvrir le sélecteur de dossier.", {
+      toast.error(t("explorer.error.picker"), {
         description: String(error),
       });
     } finally {
@@ -197,7 +212,7 @@ function ExplorerView({ api, tile }: TileViewProps & { api: ExtensionAPI }) {
   }
 
   return (
-    <section className="explorer" aria-label={manifest.name}>
+    <section className="explorer" aria-label={text(manifest.name)}>
       {root ? (
         <ProjectTree
           key={root.token}
@@ -214,10 +229,10 @@ function ExplorerView({ api, tile }: TileViewProps & { api: ExtensionAPI }) {
               <FolderOpen aria-hidden />
             </EmptyMedia>
             <EmptyTitle role="heading" aria-level={2}>
-              Ouvrir un dossier
+              {t("explorer.empty.title")}
             </EmptyTitle>
             <EmptyDescription>
-              Parcourez les fichiers du projet dans cet onglet.
+              {t("explorer.empty.description")}
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
@@ -227,7 +242,7 @@ function ExplorerView({ api, tile }: TileViewProps & { api: ExtensionAPI }) {
               onClick={() => void chooseFolder()}
             >
               <FolderSearch data-icon="inline-start" />
-              {picking ? "Sélection en cours…" : "Choisir un dossier"}
+              {picking ? t("explorer.picking") : t("explorer.chooseFolder")}
             </Button>
           </EmptyContent>
         </Empty>
@@ -249,6 +264,7 @@ function ProjectTree({
   picking: boolean;
   chooseFolder: () => void;
 }) {
+  const { t } = useI18n();
   const rootSelection: Selection = {
     name: root.name,
     kind: "folder",
@@ -272,7 +288,9 @@ function ProjectTree({
   const markdown = api.services.get(markdownOpener);
   const terminal = api.services.get(terminalLauncher);
   const folderSelected = selected.kind === "folder";
-  const action = folderSelected ? "Ouvrir un terminal" : "Ouvrir dans Markdown";
+  const action = folderSelected
+    ? t("explorer.action.openInTerminal")
+    : t("explorer.action.openInMarkdown");
   const ActionIcon = folderSelected ? Terminal : FileText;
   const available = folderSelected ? !!terminal : !!markdown;
   const canOpen = folderSelected || isMarkdown(selected);
@@ -291,9 +309,12 @@ function ProjectTree({
         api.services.get(markdownOpener)?.open(file, tileId);
       }
     } catch (error) {
-      toast.error(`Impossible d’ouvrir « ${entry.name} ».`, {
-        description: String(error),
-      });
+      toast.error(
+        translateNow("explorer.error.openEntry", { name: entry.name }),
+        {
+          description: String(error),
+        },
+      );
     } finally {
       setPending(false);
     }
@@ -306,7 +327,7 @@ function ProjectTree({
           type="button"
           className="explorer-project"
           title={root.path}
-          aria-label={`Sélectionner le dossier racine ${root.name}`}
+          aria-label={t("explorer.selectRoot", { name: root.name })}
           aria-pressed={!selected.segments.length}
           onClick={() => select(rootSelection)}
         >
@@ -322,8 +343,8 @@ function ProjectTree({
           <Button
             variant="ghost"
             size="icon-sm"
-            title="Actualiser l’arborescence"
-            aria-label="Actualiser l’arborescence"
+            title={t("explorer.refresh")}
+            aria-label={t("explorer.refresh")}
             onClick={() => setRevision((value) => value + 1)}
           >
             <RefreshCw />
@@ -331,8 +352,8 @@ function ProjectTree({
           <Button
             variant="ghost"
             size="icon-sm"
-            title="Changer de dossier"
-            aria-label="Changer de dossier"
+            title={t("explorer.changeFolder")}
+            aria-label={t("explorer.changeFolder")}
             onClick={chooseFolder}
             disabled={picking || pending}
           >

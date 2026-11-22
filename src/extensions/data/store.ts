@@ -1,3 +1,4 @@
+import { t as translateNow } from "../../i18n/index.ts";
 import type { TablesService, TableSummary, Table } from "./api.ts";
 import {
   MAX_COLUMNS,
@@ -10,23 +11,37 @@ import {
   type DataState,
 } from "./model.ts";
 
+/** Noms par défaut résolus au moment de la création, dans la langue active. */
+export interface TableStoreLabels {
+  name: () => string;
+  column: (index: number) => string;
+}
+
+const fallbackLabels: TableStoreLabels = {
+  name: () => "Table",
+  column: (index) => `Column ${index + 1}`,
+};
+
 export class TableStore implements TablesService {
   private state: DataState;
   private readonly save: (value: unknown) => void;
   private readonly onChange: (id: string) => void;
   private readonly onTruncated: (message: string) => void;
   private readonly listeners = new Set<() => void>();
+  private readonly labels: TableStoreLabels;
 
   constructor(
     initial: unknown,
     save: (value: unknown) => void,
     onChange: (id: string) => void,
     onTruncated: (message: string) => void,
+    labels: Partial<TableStoreLabels> = {},
   ) {
     this.state = restoreDataState(initial);
     this.save = save;
     this.onChange = onChange;
     this.onTruncated = onTruncated;
+    this.labels = { ...fallbackLabels, ...labels };
   }
 
   list = (): TableSummary[] =>
@@ -49,14 +64,19 @@ export class TableStore implements TablesService {
 
   create = (name?: string, columns?: string[]): Table => {
     if (this.state.tables.length >= MAX_TABLES)
-      throw new Error(`Limite de ${MAX_TABLES} tableaux atteinte.`);
+      throw new Error(translateNow("data.limit.tables", { count: MAX_TABLES }));
     const names = columns?.length
       ? columns
           .map((column) => column.trim())
           .filter(Boolean)
           .slice(0, MAX_COLUMNS)
-      : ["Colonne 1", "Colonne 2", "Colonne 3"];
-    const table = createTable(name, names.length, 8);
+      : [1, 2, 3].map((index) => this.labels.column(index));
+    const table = createTable(
+      name ?? this.labels.name(),
+      names.length,
+      8,
+      this.labels.column,
+    );
     table.columns = table.columns.map((column, index) => ({
       ...column,
       name: names[index] ?? column.name,
@@ -84,7 +104,10 @@ export class TableStore implements TablesService {
     this.commit(id);
     if (clamped.truncated)
       this.onTruncated(
-        `Tableau limité à ${MAX_ROWS} lignes, ${MAX_COLUMNS} colonnes ou 1 Mo.`,
+        translateNow("data.limit.table", {
+          rows: MAX_ROWS,
+          columns: MAX_COLUMNS,
+        }),
       );
   };
 
@@ -127,7 +150,9 @@ export class TableStore implements TablesService {
   private commit(id: string) {
     if (this.fit(id))
       this.onTruncated(
-        `Espace Données limité à ${Math.round(MAX_TOTAL_BYTES / 1_000_000)} Mo : lignes retirées.`,
+        translateNow("data.limit.workspace", {
+          size: Math.round(MAX_TOTAL_BYTES / 1_000_000),
+        }),
       );
     this.save(this.state);
     this.onChange(id);

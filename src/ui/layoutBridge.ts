@@ -4,6 +4,8 @@
  * disposition. Un seul onglet est monté à la fois, donc un seul gestionnaire.
  */
 
+import { t as translateNow } from "../i18n/index.ts";
+
 export type LayoutSide = "left" | "right" | "top" | "bottom" | "center";
 
 export type LayoutCommand =
@@ -24,9 +26,6 @@ export function registerLayoutHandler(next: Handler) {
 }
 
 export function runLayoutCommand(command: LayoutCommand) {
-  if (!handler)
-    throw new Error(
-      "Aucun onglet actif n’est prêt pour la disposition. Activez l’onglet de la tuile.",
-    );
+  if (!handler) throw new Error(translateNow("errors.layoutUnavailable"));
   handler(command);
 }

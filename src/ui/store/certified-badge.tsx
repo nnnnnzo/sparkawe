@@ -3,6 +3,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@spark/ui/components/tooltip";
+import { useI18n } from "../../i18n/react.ts";
 
 /**
  * Sceau de certification façon BadgeCheck : un trait plein, un check blanc.
@@ -44,13 +45,14 @@ export function CertifiedBadge({
   /** Pour un badge décoratif, le parent porte déjà l'information accessible. */
   decorative?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <Tooltip delayDuration={300}>
       <TooltipTrigger asChild>
         <span
           className="certified-badge"
           role={decorative ? undefined : "img"}
-          aria-label={decorative ? undefined : "Certifiée par Spark"}
+          aria-label={decorative ? undefined : t("store.certified.label")}
           aria-hidden={decorative || undefined}
           tabIndex={!decorative && focusable ? 0 : undefined}
         >
@@ -58,9 +60,9 @@ export function CertifiedBadge({
         </span>
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={6} className="max-w-56">
-        <span className="font-medium">Certifiée par Spark</span>
+        <span className="font-medium">{t("store.certified.label")}</span>
         <span className="mt-0.5 block text-[11px] opacity-70">
-          Publiée et signée par Spark.
+          {t("store.certified.description")}
         </span>
       </TooltipContent>
     </Tooltip>

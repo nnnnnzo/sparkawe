@@ -4,6 +4,8 @@
  * l'index inversé — c'est là que se joue le coût en tokens.
  */
 
+import { t as translateNow } from "../../i18n/index.ts";
+
 export interface Work {
   id: string;
   title: string;
@@ -176,7 +178,7 @@ export function toWork(raw: RawWork): Work {
   ]).slice(0, 8);
   return {
     id: (raw.id ?? "").split("/").pop() ?? "",
-    title: raw.title ?? "Sans titre",
+    title: raw.title ?? translateNow("openalex.work.untitled"),
     year: raw.publication_year,
     doi: raw.doi?.replace(/^https:\/\/doi\.org\//, ""),
     citedBy: raw.cited_by_count ?? 0,
@@ -214,7 +216,7 @@ export function searchUrl(options: SearchOptions): string {
   if (options.openAccess) filters.push("is_oa:true");
   if (options.type) filters.push(`type:${options.type}`);
   if (by === "doi") {
-    if (!doi) throw new Error("DOI invalide.");
+    if (!doi) throw new Error(translateNow("openalex.error.invalidDoi"));
     filters.unshift(`doi:${doi}`);
   } else if (by === "author") {
     filters.unshift(
@@ -252,9 +254,10 @@ async function resolveAuthorId(query: string): Promise<string | undefined> {
 export async function searchWorks(
   options: SearchOptions,
 ): Promise<{ total: number; results: Work[] }> {
-  if (!options.query.trim()) throw new Error("Recherche vide.");
+  if (!options.query.trim())
+    throw new Error(translateNow("openalex.error.emptyQuery"));
   if (options.by === "doi" && !normalizeDoi(options.query))
-    throw new Error("DOI invalide.");
+    throw new Error(translateNow("openalex.error.invalidDoi"));
   const by = options.by ?? (normalizeDoi(options.query) ? "doi" : "topic");
   const authorId =
     by === "author" ? await resolveAuthorId(options.query) : undefined;
@@ -263,7 +266,7 @@ export async function searchWorks(
   });
   if (!response.ok)
     throw new Error(
-      `OpenAlex a répondu ${response.status}. Réessayez plus tard.`,
+      translateNow("openalex.error.http", { status: response.status }),
     );
   const payload = (await response.json()) as {
     meta?: { count?: number };
@@ -284,7 +287,12 @@ export async function fetchWork(id: string): Promise<Work> {
     },
   );
   if (!response.ok)
-    throw new Error(`OpenAlex a répondu ${response.status} pour ${clean}.`);
+    throw new Error(
+      translateNow("openalex.error.httpWork", {
+        status: response.status,
+        id: clean,
+      }),
+    );
   return toWork((await response.json()) as RawWork);
 }
 
@@ -293,8 +301,10 @@ export function cite(work: Work, format: "bibtex" | "apa"): string {
   if (format === "apa") {
     const authors = work.authors.length
       ? work.authors.join(", ")
-      : "Auteur inconnu";
-    const year = work.year ? `(${work.year}).` : "(s. d.).";
+      : translateNow("openalex.cite.unknownAuthor");
+    const year = work.year
+      ? `(${work.year}).`
+      : `${translateNow("openalex.cite.noDate")}.`;
     const doi = work.doi ? ` https://doi.org/${work.doi}` : ` ${url}`;
     return `${authors} ${year} ${work.title}.${doi}`;
   }

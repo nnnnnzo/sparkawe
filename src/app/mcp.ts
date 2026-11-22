@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { Data, Tile } from "../sdk/index.ts";
+import type { Data, LocalizedText, Tile } from "../sdk/index.ts";
+import { text as translateText } from "../i18n/index.ts";
 import { report } from "../ui/errors.ts";
 import type { Runtime } from "./runtime.ts";
 import { runLayoutCommand } from "../ui/layoutBridge.ts";
@@ -80,11 +81,11 @@ export function createMcpServer(runtime: Runtime) {
   // Un guide est un mode d'emploi stable : on le livre une fois par session
   // d'agent, au premier catalogue ou à la première lecture de ce type de tuile.
   const deliveredGuides = new Set<string>();
-  function guideFor(definition: { type: string; guide?: string }) {
+  function guideFor(definition: { type: string; guide?: LocalizedText }) {
     if (!definition.guide || deliveredGuides.has(definition.type))
       return undefined;
     deliveredGuides.add(definition.type);
-    return definition.guide;
+    return translateText(definition.guide);
   }
 
   interface Tool {
@@ -323,7 +324,7 @@ export function createMcpServer(runtime: Runtime) {
     return {
       ref: tile.id,
       type,
-      title: definition.title,
+      title: translateText(definition.title),
       tab: tab.id,
       summary: definition.describe?.(tile, surface) ?? "",
     };
@@ -336,7 +337,7 @@ export function createMcpServer(runtime: Runtime) {
     return {
       ref: tile.id,
       type: tile.type,
-      title: definition?.title ?? tile.type,
+      title: definition ? translateText(definition.title) : tile.type,
       summary: definition?.describe?.(tile, surface) ?? "",
       guide: definition ? guideFor(definition) : undefined,
       data: tile.data,
@@ -344,8 +345,10 @@ export function createMcpServer(runtime: Runtime) {
       actions: Object.entries(definition?.actions ?? {}).map(
         ([name, action]) => ({
           name,
-          title: action.title,
-          description: action.description,
+          title: translateText(action.title),
+          description: action.description
+            ? translateText(action.description)
+            : undefined,
           input: action.input,
           mutates: runtime.registry.mutates(tile, action),
           available: runtime.registry.available(action),
@@ -427,7 +430,7 @@ export function createMcpServer(runtime: Runtime) {
           .getTileDefinitions()
           .map((definition) => ({
             type: definition.type,
-            title: definition.title,
+            title: translateText(definition.title),
             extension: definition.owner.id,
             tier: definition.owner.tier ?? "core",
             guide: guideFor(definition),
@@ -441,8 +444,10 @@ export function createMcpServer(runtime: Runtime) {
                 requires: action.requires?.map((key) => key.id) ?? [],
                 ...(detail === "full"
                   ? {
-                      title: action.title,
-                      description: action.description,
+                      title: translateText(action.title),
+                      description: action.description
+                        ? translateText(action.description)
+                        : undefined,
                       input: action.input,
                     }
                   : {}),

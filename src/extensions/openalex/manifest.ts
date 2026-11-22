@@ -2,6 +2,7 @@ import { BookOpen } from "lucide-react";
 import searchShot from "./media/openalex-search.webp";
 import workShot from "./media/openalex-work.webp";
 import type { Manifest } from "../../sdk/index.ts";
+import { localized } from "../../core/i18n.ts";
 import { SPECTRUM } from "../../shared/brand/index.tsx";
 
 export const searchType = "openalex.search";
@@ -9,18 +10,16 @@ export const workType = "openalex.work";
 
 export default {
   id: "spark.openalex",
-  name: "OpenAlex",
+  name: localized("manifest.openalex.name"),
   version: "0.1.0",
   icon: BookOpen,
   color: SPECTRUM.blue,
   tier: "official",
   tileTypes: [searchType, workType],
   certification: "spark",
-  subtitle: "Recherche scientifique",
-  summary:
-    "Cherche des travaux OpenAlex et ouvre les PDF libres dans l’aperçu.",
-  description:
-    "La recherche interroge l’API OpenAlex. Les résultats affichent les auteurs, l’année et le DOI. Quand un PDF libre est disponible, il s’ouvre dans l’aperçu.",
+  subtitle: localized("manifest.openalex.subtitle"),
+  summary: localized("manifest.openalex.summary"),
+  description: localized("manifest.openalex.description"),
   screenshots: [searchShot, workShot],
-  category: "Recherche",
+  category: "research",
 } satisfies Manifest;

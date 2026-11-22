@@ -11,6 +11,9 @@ import {
   agentFor,
   type AgentBrand,
 } from "../../shared/agents/index.tsx";
+import { localized } from "../../core/i18n.ts";
+import { t as translateNow } from "../../i18n/index.ts";
+import { useI18n } from "../../i18n/react.ts";
 import manifest, { sessionType } from "./manifest.ts";
 import "@xterm/xterm/css/xterm.css";
 import "./style.css";
@@ -50,11 +53,11 @@ function terminalTheme(): ITheme {
   };
 }
 
-const terminalUnavailable =
-  "Le terminal intégré est indisponible sous Windows. Utilisez une application de terminal externe.";
+const terminalUnavailableKey = "terminal.unavailable";
 
 function UnavailableTerminalTile() {
-  return <p className="tile-message">{terminalUnavailable}</p>;
+  const { t } = useI18n();
+  return <p className="tile-message">{t(terminalUnavailableKey)}</p>;
 }
 
 export default function createTerminal(): ExtensionModule {
@@ -86,18 +89,24 @@ export default function createTerminal(): ExtensionModule {
     try {
       const message = await invoke<string>("agent_setup", { agent: agent.id });
       toast.success(message, {
-        description: "Relancez la session de l’agent pour qu’il voie Spark.",
+        description: translateNow("terminal.agent.restart"),
       });
     } catch (error) {
       toast.error(String(error));
     }
   }
   function showOffer(agent: AgentBrand) {
-    toast(`${agent.name} est lancé`, {
+    toast(translateNow("terminal.agent.launched", { name: agent.name }), {
       icon: <AgentMark agent={agent} width={18} height={18} />,
-      description: "Connectez Spark pour ouvrir cet espace à l’agent.",
-      action: { label: "Connecter", onClick: () => void connectAgent(agent) },
-      cancel: { label: "Plus tard", onClick: () => {} },
+      description: translateNow("terminal.agent.connect.description"),
+      action: {
+        label: translateNow("terminal.agent.connect.action"),
+        onClick: () => void connectAgent(agent),
+      },
+      cancel: {
+        label: translateNow("terminal.agent.later"),
+        onClick: () => {},
+      },
       duration: 9000,
     });
   }
@@ -122,6 +131,7 @@ export default function createTerminal(): ExtensionModule {
   }
 
   function TerminalTile({ tile, active }: TileViewProps) {
+    const { t } = useI18n();
     const host = useRef<HTMLDivElement>(null);
     const fitCurrent = useRef<() => void>(() => {});
     const retryButton = useRef<HTMLButtonElement>(null);
@@ -229,7 +239,7 @@ export default function createTerminal(): ExtensionModule {
               terminal.write(Uint8Array.from(event.bytes));
             else {
               if (session) session.running = false;
-              terminal.writeln("\r\nSession terminée.");
+              terminal.writeln(`\r\n${translateNow("terminal.session.ended")}`);
               notifyClosed(tile.id);
             }
           });
@@ -352,14 +362,13 @@ export default function createTerminal(): ExtensionModule {
         {failure && (
           <div className="absolute inset-0 flex flex-col items-start gap-3 overflow-auto p-3">
             <div role="alert">
-              <p className="font-medium">Impossible de démarrer le terminal.</p>
+              <p className="font-medium">{t("terminal.failure.title")}</p>
               <p className="wrap-anywhere text-muted-foreground">
                 {failure.message}
               </p>
               {tile.data.directory && (
                 <p className="text-muted-foreground">
-                  Si le dossier est indisponible, ouvrez un nouveau terminal
-                  depuis la palette.
+                  {t("terminal.failure.directory")}
                 </p>
               )}
             </div>
@@ -372,7 +381,7 @@ export default function createTerminal(): ExtensionModule {
                 if (!retrying) setAttempt(attempt + 1);
               }}
             >
-              {retrying ? "Démarrage…" : "Réessayer"}
+              {retrying ? t("terminal.starting") : t("terminal.retry")}
             </Button>
           </div>
         )}
@@ -385,25 +394,25 @@ export default function createTerminal(): ExtensionModule {
       notifyClosed = (id) => api.events.emit(terminalClosed, id);
       api.tiles.register({
         type: sessionType,
-        title: "Terminal",
+        title: localized("terminal.tile.session"),
         icon: manifest.icon,
-        guide:
-          "Terminal interactif : la personne y tape ses commandes. Aucune action MCP ne lit ni n’écrit son contenu. Pour ouvrir un shell dans un dossier, ouvrez une tuile terminal.session avec data.directory.",
+        guide: localized("terminal.guide.session"),
         view: terminalSupported ? TerminalTile : UnavailableTerminalTile,
         dataKeys: ["directory"],
         describe: (tile) => {
           const session = sessions.get(tile.id);
           const state = !session
-            ? "session non démarrée"
+            ? translateNow("terminal.describe.idle")
             : session.running
-              ? "session active"
-              : "session terminée";
+              ? translateNow("terminal.describe.running")
+              : translateNow("terminal.describe.ended");
           return tile.data.directory
             ? `${tile.data.directory} · ${state}`
             : state;
         },
         prepare: (data) => {
-          if (!terminalSupported) throw new Error(terminalUnavailable);
+          if (!terminalSupported)
+            throw new Error(translateNow(terminalUnavailableKey));
           return data;
         },
         close: (tile) => close(tile.id),
@@ -411,8 +420,8 @@ export default function createTerminal(): ExtensionModule {
       api.commands.register({
         id: "terminal.new",
         title: terminalSupported
-          ? "Nouveau terminal"
-          : "Disponibilité du terminal",
+          ? localized("terminal.command.new")
+          : localized("terminal.command.availability"),
         icon: manifest.icon,
         tileType: sessionType,
         run: () => api.tabs.openTile(sessionType),

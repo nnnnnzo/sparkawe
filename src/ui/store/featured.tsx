@@ -1,20 +1,12 @@
-import {
-  ArrowUpRight,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
+import { ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useI18n } from "../../i18n/react.ts";
 import type { Manifest } from "../../sdk/index.ts";
 import { SPECTRUM } from "../../shared/brand/index.tsx";
 import { Icon } from "../icons.tsx";
 import { CertifiedBadge } from "./certified-badge.tsx";
 import { StoreCard } from "./card.tsx";
-import { isCertified, TIER_LABEL, tierOf } from "./data.ts";
+import { categoryLabel, isCertified, TIER_LABEL_KEY, tierOf } from "./data.ts";
 
 export function FeaturedHero({
   manifest,
@@ -23,7 +15,13 @@ export function FeaturedHero({
   manifest: Manifest;
   onOpen: (id: string) => void;
 }) {
+  const { t, text } = useI18n();
   const certified = isCertified(manifest);
+  const name = text(manifest.name);
+  const subtitle = text(manifest.subtitle);
+  const summary = text(manifest.summary);
+  const category = categoryLabel(manifest.category, t);
+  const tier = t(TIER_LABEL_KEY[tierOf(manifest)]);
   return (
     <button
       type="button"
@@ -33,23 +31,25 @@ export function FeaturedHero({
           "--ext-color": manifest.color ?? SPECTRUM.blue,
         } as CSSProperties
       }
-      aria-label={`Voir ${manifest.name}${certified ? ", certifiée par Spark" : ""}`}
+      aria-label={`${t("store.featured.open", { name })}${certified ? t("store.certified.suffix") : ""}`}
       onClick={() => onOpen(manifest.id)}
     >
       <span className="store-hero-copy">
-        <span className="store-hero-kicker">À la une</span>
+        <span className="store-hero-kicker">{t("store.featured.kicker")}</span>
         <span className="store-hero-title">
-          {manifest.name}
-          {certified && <CertifiedBadge size={16} focusable={false} decorative />}
+          {name}
+          {certified && (
+            <CertifiedBadge size={16} focusable={false} decorative />
+          )}
         </span>
         <span className="store-hero-subtitle">
-          {manifest.subtitle ?? manifest.category ?? TIER_LABEL[tierOf(manifest)]}
+          {subtitle || category || tier}
         </span>
         <span className="store-hero-summary">
-          {manifest.summary ?? "Aucune description fournie."}
+          {summary || t("store.detail.noDescription")}
         </span>
         <span className="store-hero-foot">
-          <span>{manifest.category ?? TIER_LABEL[tierOf(manifest)]}</span>
+          <span>{category || tier}</span>
           <span className="store-hero-arrow">
             <ArrowUpRight aria-hidden />
           </span>
@@ -78,6 +78,7 @@ export function Shelf({
   entries: Manifest[];
   onOpen: (id: string) => void;
 }) {
+  const { t } = useI18n();
   const ref = useRef<HTMLDivElement>(null);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(entries.length <= 1);
@@ -123,7 +124,7 @@ export function Shelf({
           <div className="store-shelf-arrows">
             <button
               type="button"
-              aria-label="Précédent"
+              aria-label={t("store.shelf.previous")}
               disabled={atStart}
               onClick={() => move(-1)}
             >
@@ -131,7 +132,7 @@ export function Shelf({
             </button>
             <button
               type="button"
-              aria-label="Suivant"
+              aria-label={t("store.shelf.next")}
               disabled={atEnd}
               onClick={() => move(1)}
             >
@@ -144,7 +145,7 @@ export function Shelf({
         ref={ref}
         className="store-shelf"
         role="region"
-        aria-roledescription="carrousel"
+        aria-roledescription={t("store.shelf.carousel")}
         aria-label={title}
         tabIndex={0}
         onKeyDown={(event) => {

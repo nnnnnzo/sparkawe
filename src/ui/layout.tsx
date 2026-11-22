@@ -21,6 +21,9 @@ import {
 import { createPortal } from "react-dom";
 import type { Runtime } from "../app/runtime.ts";
 import type { Tile } from "../sdk/index.ts";
+import type { Locale } from "../core/i18n.ts";
+import { text as resolveLocalized, t as translateNow } from "../i18n/index.ts";
+import { useI18n } from "../i18n/react.ts";
 import { report } from "./errors.ts";
 import type { Tab, WorkspaceState } from "../core/workspace.ts";
 import { registerLayoutHandler } from "./layoutBridge.ts";
@@ -73,7 +76,7 @@ function Panel({ api }: IDockviewPanelProps) {
 }
 
 class TileBoundary extends Component<
-  { runtime: Runtime; tile: Tile; children: ReactNode },
+  { runtime: Runtime; tile: Tile; children: ReactNode; locale: Locale },
   { error?: Error }
 > {
   state: { error?: Error } = {};
@@ -96,14 +99,14 @@ class TileBoundary extends Component<
     return (
       <div className="tile-error" role="alert">
         <p className="tile-error-title">
-          Cette tuile a rencontré une erreur.
+          {translateNow("layout.tile.error.title")}
         </p>
         <p className="tile-error-detail">
           {this.state.error.message || String(this.state.error)}
         </p>
         <div className="tile-error-actions">
           <Button size="sm" variant="outline" onClick={this.retry}>
-            Réessayer
+            {translateNow("layout.tile.error.retry")}
           </Button>
           {owner && (
             <Button
@@ -115,7 +118,9 @@ class TileBoundary extends Component<
                   .catch(report)
               }
             >
-              Désactiver {owner.name}
+              {translateNow("layout.tile.error.disable", {
+                name: resolveLocalized(owner.name),
+              })}
             </Button>
           )}
         </div>
@@ -124,19 +129,22 @@ class TileBoundary extends Component<
   }
 }
 
-const directions = {
-  left: "À gauche",
-  right: "À droite",
-  top: "Au-dessus",
-  bottom: "En dessous",
-  center: "Dans le même groupe",
+const directionKeys = {
+  left: "layout.direction.left",
+  right: "layout.direction.right",
+  top: "layout.direction.top",
+  bottom: "layout.direction.bottom",
+  center: "layout.direction.center",
 } as const;
 
 function PanelTab({ api, containerApi }: IDockviewPanelHeaderProps) {
   const { tab, runtime } = useContext(context)!;
+  const { t, text } = useI18n();
   const tile = tab.tiles.find((tile) => tile.id === api.id);
   const definition = tile && runtime.registry.getTile(tile.type);
-  const title = definition?.title ?? api.title ?? "Tuile indisponible";
+  const title = definition
+    ? text(definition.title)
+    : (api.title ?? t("layout.tile.unavailable"));
   const close = () =>
     void runtime
       .closeTiles([api.id], () => runtime.workspace.removeTile(tab.id, api.id))
@@ -154,8 +162,8 @@ function PanelTab({ api, containerApi }: IDockviewPanelHeaderProps) {
             <Button
               variant="ghost"
               size="icon"
-              title="Déplacer la tuile"
-              aria-label={`Déplacer ${title}`}
+              title={t("layout.tile.move")}
+              aria-label={t("layout.tile.move.aria", { name: title })}
               onClick={(event) => event.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}
             >
@@ -164,7 +172,7 @@ function PanelTab({ api, containerApi }: IDockviewPanelHeaderProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuGroup>
-              {Object.entries(directions).map(([position, label]) => (
+              {Object.entries(directionKeys).map(([position, key]) => (
                 <DropdownMenuItem
                   key={position}
                   onSelect={() => {
@@ -173,11 +181,11 @@ function PanelTab({ api, containerApi }: IDockviewPanelHeaderProps) {
                         ?.group ?? targets[0].group;
                     api.moveTo({
                       group,
-                      position: position as keyof typeof directions,
+                      position: position as keyof typeof directionKeys,
                     });
                   }}
                 >
-                  {label}
+                  {t(key)}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>
@@ -187,8 +195,8 @@ function PanelTab({ api, containerApi }: IDockviewPanelHeaderProps) {
       <Button
         variant="ghost"
         size="icon"
-        title="Fermer la tuile"
-        aria-label={`Fermer ${title}`}
+        title={t("layout.tile.close")}
+        aria-label={t("layout.tile.close.aria", { name: title })}
         onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
@@ -276,8 +284,9 @@ function syncPanels(
         id: tile.id,
         component: "tile",
         tabComponent: "tile",
-        title:
-          runtime.registry.getTile(tile.type)?.title ?? "Tuile indisponible",
+        title: runtime.registry.getTile(tile.type)
+          ? resolveLocalized(runtime.registry.getTile(tile.type)!.title)
+          : translateNow("layout.tile.unavailable"),
         position,
         minimumWidth: tab.mode === "side" ? sideMinimum : 120,
         minimumHeight: 84,
@@ -437,6 +446,7 @@ function Engine({
   const updating = useRef(false);
   const skipAnimation = useRef(false);
   const host = useRef<HTMLDivElement>(null);
+  const { t, text, locale } = useI18n();
   live.current = tab;
   function ready(event: DockviewReadyEvent) {
     const saved = tab.layouts[tab.mode];
@@ -450,6 +460,16 @@ function Engine({
     syncPanels(event.api, tab, runtime);
     setApi(event.api);
   }
+  useEffect(() => {
+    if (!api) return;
+    for (const panel of api.panels) {
+      const tile = live.current.tiles.find((item) => item.id === panel.id);
+      const definition = tile && runtime.registry.getTile(tile.type);
+      panel.api.setTitle(
+        definition ? text(definition.title) : t("layout.tile.unavailable"),
+      );
+    }
+  }, [api, locale, runtime, t, text, tab.tiles]);
   useEffect(() => {
     if (!api) return;
     const persist = () => {
@@ -491,7 +511,7 @@ function Engine({
     return registerLayoutHandler((command) => {
       if (command.type === "undo" || command.type === "redo") {
         if (!historyControls.current)
-          throw new Error("Historique de disposition indisponible.");
+          throw new Error(translateNow("layout.error.history"));
         if (command.type === "undo") historyControls.current.undo();
         else historyControls.current.redo();
         return;
@@ -500,10 +520,15 @@ function Engine({
         const moving = api.getPanel(command.tile);
         const target = api.getPanel(command.target);
         if (!moving)
-          throw new Error(`Tuile absente de l’onglet actif : ${command.tile}`);
-        if (!target) throw new Error(`Tuile cible absente : ${command.target}`);
+          throw new Error(
+            translateNow("layout.error.missing", { id: command.tile }),
+          );
+        if (!target)
+          throw new Error(
+            translateNow("layout.error.targetMissing", { id: command.target }),
+          );
         if (moving === target)
-          throw new Error("Une tuile ne peut pas être déplacée sur elle-même.");
+          throw new Error(translateNow("layout.error.selfMove"));
         moving.api.moveTo({
           group: target.group,
           position: command.side,
@@ -513,9 +538,12 @@ function Engine({
       }
       const panel = api.getPanel(command.tile);
       if (!panel)
-        throw new Error(`Tuile absente de l’onglet actif : ${command.tile}`);
+        throw new Error(
+          translateNow("layout.error.missing", { id: command.tile }),
+        );
       const element = host.current;
-      if (!element) throw new Error("Onglet indisponible.");
+      if (!element)
+        throw new Error(translateNow("layout.error.tabUnavailable"));
       const size: { width?: number; height?: number } = {};
       if (command.width !== undefined)
         size.width = Math.max(
@@ -528,7 +556,7 @@ function Engine({
           Math.round(element.clientHeight * command.height),
         );
       if (size.width === undefined && size.height === undefined)
-        throw new Error("Indiquez une largeur ou une hauteur.");
+        throw new Error(translateNow("layout.error.size"));
       panel.group.api.setSize(size);
     });
   }, [api, active]);
@@ -727,6 +755,7 @@ export function WorkspaceLayout({
   hasTileCommands: boolean;
 }) {
   const [mounts] = useState(() => new Map<string, HTMLDivElement>());
+  const { t, locale } = useI18n();
   const tab = state.tabs.find((tab) => tab.id === state.active)!;
   const tiles = state.tabs.flatMap((item) => item.tiles);
   for (const tile of tiles) {
@@ -756,11 +785,13 @@ export function WorkspaceLayout({
         const View = runtime.views.get(tile.type);
         return createPortal(
           View ? (
-            <TileBoundary runtime={runtime} tile={tile}>
+            <TileBoundary runtime={runtime} tile={tile} locale={locale}>
               <View tile={tile} active={tab.tiles.includes(tile)} />
             </TileBoundary>
           ) : (
-            <p className="tile-message">Tuile indisponible.</p>
+            <p className="tile-message">
+              {t("layout.tile.unavailable.message")}
+            </p>
           ),
           mounts.get(tile.id)!,
           tile.id,
@@ -794,25 +825,25 @@ export function WorkspaceLayout({
               <LayoutGrid strokeWidth={1.5} />
             </EmptyMedia>
             <EmptyTitle role="heading" aria-level={2}>
-              Onglet vide
+              {t("layout.empty.title")}
             </EmptyTitle>
             <EmptyDescription>
               {hasTileCommands
-                ? "Choisissez les tuiles à afficher dans cet onglet."
-                : "Activez une extension pour ajouter des tuiles."}
+                ? t("layout.empty.tiles")
+                : t("layout.empty.extensions")}
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             {hasTileCommands ? (
               <Button variant="secondary" size="sm" onClick={palette}>
-                <Plus data-icon="inline-start" /> Ajouter une tuile
+                <Plus data-icon="inline-start" /> {t("layout.empty.add")}
                 <kbd className="shortcut-key" aria-hidden>
                   {shortcut}
                 </kbd>
               </Button>
             ) : (
               <Button variant="secondary" size="sm" onClick={manageExtensions}>
-                <Blocks data-icon="inline-start" /> Gérer les extensions
+                <Blocks data-icon="inline-start" /> {t("layout.empty.manage")}
               </Button>
             )}
           </EmptyContent>

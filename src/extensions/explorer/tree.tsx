@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Button } from "@spark/ui/components/button";
+import { useI18n } from "../../i18n/react.ts";
 import { isMarkdown, listFolder, type Entry, type Selection } from "./files.ts";
 
 const rootSegments: string[] = [];
@@ -21,11 +22,12 @@ interface TreeProps {
 }
 
 export function FileTree(props: TreeProps) {
+  const { t } = useI18n();
   return (
     <div
       className="explorer-tree"
       role="region"
-      aria-label="Fichiers du projet"
+      aria-label={t("explorer.tree.label")}
     >
       <FolderContents {...props} segments={rootSegments} />
     </div>
@@ -36,6 +38,7 @@ function FolderContents({
   segments,
   ...props
 }: TreeProps & { segments: string[] }) {
+  const { t } = useI18n();
   const { token, revision } = props;
   const [entries, setEntries] = useState<Entry[]>();
   const [error, setError] = useState<string>();
@@ -71,14 +74,14 @@ function FolderContents({
           size="xs"
           onClick={() => setRetry((value) => value + 1)}
         >
-          Réessayer
+          {t("explorer.retry")}
         </Button>
       </div>
     );
   if (!entries?.length)
     return (
       <p className="explorer-tree-message" style={indent} role="status">
-        {entries ? "Dossier vide" : "Chargement…"}
+        {entries ? t("explorer.emptyFolder") : t("explorer.loading")}
       </p>
     );
   return (

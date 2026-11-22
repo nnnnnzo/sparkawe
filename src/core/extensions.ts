@@ -1,4 +1,5 @@
 import type { SparkExtension, Manifest, Tile } from "../sdk/index.ts";
+import { t as translateNow } from "../i18n/index.ts";
 import type { Registry } from "./registry.ts";
 
 export interface CatalogEntry {
@@ -54,16 +55,17 @@ export function createExtensionManager(
   saveInstalled: (ids: string[]) => void,
   onError: (error: unknown) => void,
   installEntry: (source: string) => Promise<CatalogEntry> = async () => {
-    throw new Error("Installation indisponible.");
+    throw new Error(translateNow("errors.installUnavailable"));
   },
   removeEntry: (id: string) => Promise<void> = async () => {
-    throw new Error("Désinstallation indisponible.");
+    throw new Error(translateNow("errors.uninstallUnavailable"));
   },
 ) {
   const entries = new Map<string, CatalogEntry>();
   for (const entry of catalog) {
     const { id } = entry.manifest;
-    if (entries.has(id)) throw new Error(`Extension en double : ${id}`);
+    if (entries.has(id))
+      throw new Error(translateNow("errors.duplicateExtension", { id }));
     entries.set(id, entry);
   }
   const pending = new Set<string>();

@@ -1,4 +1,9 @@
 import { toast } from "sonner";
+import { localized } from "../../core/i18n.ts";
+import {
+  t as translateNow,
+  tp as translatePluralNow,
+} from "../../i18n/index.ts";
 import type { ActionValue, Tile } from "../../sdk/index.ts";
 import type { ExtensionModule } from "../../sdk/react.ts";
 import {
@@ -34,6 +39,10 @@ export default function createData(): ExtensionModule {
         (value) => api.state.save(value),
         (id) => api.events.emit(tableChanged, { id }),
         (message) => toast.warning(message),
+        {
+          name: () => translateNow("data.default.table"),
+          column: (index) => translateNow("data.default.column", { index }),
+        },
       );
 
       function tableOf(tile: Tile, input: Record<string, ActionValue>) {
@@ -42,10 +51,7 @@ export default function createData(): ExtensionModule {
             ? input.table
             : tile.data.table;
         const table = id ? tables.get(id) : undefined;
-        if (!table)
-          throw new Error(
-            "Aucun tableau lié à cette tuile. Utilisez create_table.",
-          );
+        if (!table) throw new Error(translateNow("data.error.noTable"));
         return table;
       }
 
@@ -82,33 +88,39 @@ export default function createData(): ExtensionModule {
 
       api.tiles.register({
         type: tableType,
-        title: "Tableau",
+        title: localized("data.tile.table.title"),
         icon: manifest.icon,
         view: (props) => <TableView {...props} api={api} tables={tables} />,
         dataKeys: ["table"],
-        guide:
-          "Tableau de données typées (pas un tableur : aucune formule, aucune adresse A1). Colonnes texte, nombre ou date ; chaque ligne a un id stable. Actions : create_table { name?, columns? } lie un nouveau tableau à la tuile ; read_table renvoie les colonnes et 10 lignes ; read_rows { from?, limit? } renvoie des lignes par id ; append_rows { rows } ajoute du TSV ; set_cell { row, column, value } ; add_column { name, type? } ; create_chart { x?, y?, type? } ouvre un graphique à côté. Les écritures sont mutates. Plafonds : 2 000 lignes, 32 colonnes.",
+        guide: localized("data.tile.table.guide"),
         describe: (tile, surface) => {
           const table = tables.get(tile.data.table);
-          if (!table) return "aucun tableau";
-          return `${table.name} · ${table.rows.length} lignes × ${table.columns.length} colonnes${surface.sort ? ` · ${surface.sort}` : ""}`;
+          if (!table) return translateNow("data.describe.noTable");
+          const rows = translatePluralNow(
+            "data.describe.rows",
+            table.rows.length,
+          );
+          const columns = translatePluralNow(
+            "data.describe.columns",
+            table.columns.length,
+          );
+          return `${table.name} · ${rows} × ${columns}${surface.sort ? ` · ${surface.sort}` : ""}`;
         },
         actions: {
           create_table: {
-            title: "Créer un tableau",
-            description:
-              "Crée un tableau et le lie à cette tuile. Renvoie sa référence.",
+            title: localized("data.action.createTable.title"),
+            description: localized("data.action.createTable.description"),
             mutates: true,
             input: {
               name: {
                 type: "string",
                 required: false,
-                description: "Nom du tableau.",
+                description: translateNow("data.action.createTable.name"),
               },
               columns: {
                 type: "string",
                 required: false,
-                description: "Noms de colonnes séparés par des virgules.",
+                description: translateNow("data.action.createTable.columns"),
               },
             },
             run: (tile, input) => {
@@ -128,15 +140,13 @@ export default function createData(): ExtensionModule {
             },
           },
           read_table: {
-            title: "Lire le tableau",
-            description:
-              "Renvoie les colonnes, le nombre de lignes et les 10 premières lignes.",
+            title: localized("data.action.readTable.title"),
+            description: localized("data.action.readTable.description"),
             input: {
               table: {
                 type: "string",
                 required: false,
-                description:
-                  "Identifiant du tableau. Par défaut, celui de la tuile.",
+                description: translateNow("data.action.readTable.table"),
               },
             },
             run: (tile, input) => {
@@ -159,9 +169,8 @@ export default function createData(): ExtensionModule {
             },
           },
           read_rows: {
-            title: "Lire des lignes",
-            description:
-              "Renvoie des lignes par id, dans l’ordre du tableau. Limité à 50 lignes.",
+            title: localized("data.action.readRows.title"),
+            description: localized("data.action.readRows.description"),
             input: {
               table: { type: "string", required: false },
               from: { type: "number", required: false },
@@ -185,25 +194,31 @@ export default function createData(): ExtensionModule {
             },
           },
           append_rows: {
-            title: "Ajouter des lignes",
-            description:
-              "Ajoute des lignes depuis du TSV (copié d’Excel ou Sheets).",
+            title: localized("data.action.appendRows.title"),
+            description: localized("data.action.appendRows.description"),
             mutates: true,
             input: {
               table: { type: "string", required: false },
               rows: {
                 type: "string",
-                description: "Lignes TSV, une ligne par ligne.",
+                description: translateNow("data.action.appendRows.rows"),
               },
             },
             run: (tile, input) => {
               const table = tableOf(tile, input);
               const matrix = parseTsv(String(input.rows ?? ""));
-              if (!matrix.length) throw new Error("Aucune ligne à ajouter.");
+              if (!matrix.length)
+                throw new Error(translateNow("data.error.noRows"));
               const width = Math.max(...matrix.map((row) => row.length));
               const columns = [...table.columns];
               while (columns.length < width && columns.length < MAX_COLUMNS)
-                columns.push(newColumn(`Colonne ${columns.length + 1}`));
+                columns.push(
+                  newColumn(
+                    translateNow("data.default.column", {
+                      index: columns.length + 1,
+                    }),
+                  ),
+                );
               const rows = table.rows.map((row) => ({
                 ...row,
                 cells: [
@@ -246,18 +261,23 @@ export default function createData(): ExtensionModule {
             },
           },
           set_cell: {
-            title: "Écrire une cellule",
-            description:
-              "Écrit une valeur dans une cellule identifiée par l’id de ligne et de colonne.",
+            title: localized("data.action.setCell.title"),
+            description: localized("data.action.setCell.description"),
             mutates: true,
             input: {
               table: { type: "string", required: false },
-              row: { type: "string", description: "Identifiant de ligne." },
+              row: {
+                type: "string",
+                description: translateNow("data.action.setCell.row"),
+              },
               column: {
                 type: "string",
-                description: "Identifiant de colonne.",
+                description: translateNow("data.action.setCell.column"),
               },
-              value: { type: "string", description: "Valeur à écrire." },
+              value: {
+                type: "string",
+                description: translateNow("data.action.setCell.value"),
+              },
             },
             run: (tile, input) => {
               const table = tableOf(tile, input);
@@ -266,9 +286,10 @@ export default function createData(): ExtensionModule {
               const index = table.columns.findIndex(
                 (column) => column.id === columnId,
               );
-              if (index < 0) throw new Error("Colonne inconnue.");
+              if (index < 0)
+                throw new Error(translateNow("data.error.unknownColumn"));
               if (!table.rows.some((row) => row.id === rowId))
-                throw new Error("Ligne inconnue.");
+                throw new Error(translateNow("data.error.unknownRow"));
               tables.update(table.id, {
                 ...table,
                 rows: table.rows.map((row) =>
@@ -286,12 +307,15 @@ export default function createData(): ExtensionModule {
             },
           },
           add_column: {
-            title: "Ajouter une colonne",
-            description: "Ajoute une colonne typée à la fin du tableau.",
+            title: localized("data.action.addColumn.title"),
+            description: localized("data.action.addColumn.description"),
             mutates: true,
             input: {
               table: { type: "string", required: false },
-              name: { type: "string", description: "Nom de la colonne." },
+              name: {
+                type: "string",
+                description: translateNow("data.action.addColumn.name"),
+              },
               type: {
                 type: "string",
                 required: false,
@@ -301,10 +325,14 @@ export default function createData(): ExtensionModule {
             run: (tile, input) => {
               const table = tableOf(tile, input);
               if (table.columns.length >= MAX_COLUMNS)
-                throw new Error(`Limite de ${MAX_COLUMNS} colonnes atteinte.`);
+                throw new Error(
+                  translateNow("data.limit.columns", { count: MAX_COLUMNS }),
+                );
               const name =
                 String(input.name ?? "").trim() ||
-                `Colonne ${table.columns.length + 1}`;
+                translateNow("data.default.column", {
+                  index: table.columns.length + 1,
+                });
               const column = newColumn(name, typeOf(input.type));
               tables.update(table.id, {
                 ...table,
@@ -318,17 +346,15 @@ export default function createData(): ExtensionModule {
             },
           },
           create_chart: {
-            title: "Créer un graphique",
-            description:
-              "Ouvre un graphique lié à ce tableau. X par défaut : la première colonne ; Y par défaut : la première colonne numérique.",
+            title: localized("data.action.createChart.title"),
+            description: localized("data.action.createChart.description"),
             input: {
               table: { type: "string", required: false },
               x: { type: "string", required: false },
               y: {
                 type: "string",
                 required: false,
-                description:
-                  "Un ou plusieurs ids de colonnes, séparés par des virgules.",
+                description: translateNow("data.action.createChart.y"),
               },
               type: {
                 type: "string",
@@ -344,7 +370,7 @@ export default function createData(): ExtensionModule {
                 (table.columns.some((column) => column.id === requested)
                   ? requested
                   : table.columns[0]?.id) ?? "";
-              if (!x) throw new Error("Le tableau n’a aucune colonne.");
+              if (!x) throw new Error(translateNow("data.error.noColumns"));
               let y = String(input.y ?? "")
                 .split(",")
                 .map((id) => id.trim())
@@ -381,28 +407,30 @@ export default function createData(): ExtensionModule {
 
       api.tiles.register({
         type: chartType,
-        title: "Graphique",
+        title: localized("data.tile.chart.title"),
         icon: manifest.icon,
         view: (props) => <ChartView {...props} api={api} tables={tables} />,
         dataKeys: ["table", "x", "y", "type"],
-        guide:
-          "Graphique lié à un tableau Données. dataKeys : table, x (id de colonne), y (ids séparés par des virgules), type (bar, line, area, scatter). set_chart { x?, y?, type? } met à jour la configuration. La source reste le tableau ; aucune donnée n’est dupliquée.",
+        guide: localized("data.tile.chart.guide"),
         describe: (tile) => {
           const table = tables.get(tile.data.table);
-          if (!table) return "aucun tableau source";
+          if (!table) return translateNow("data.describe.noSource");
           const x = table.columns.find((column) => column.id === tile.data.x);
           const y = (tile.data.y ?? "")
             .split(",")
             .map((id) => table.columns.find((column) => column.id === id))
             .filter(Boolean)
             .map((column) => column!.name);
-          return `${chartTypeOf(tile.data.type)} · ${y.join(", ") || "aucune série"}${x ? ` par ${x.name}` : ""}`;
+          const type = translateNow(
+            `data.chart.type.${chartTypeOf(tile.data.type)}`,
+          );
+          const series = y.join(", ") || translateNow("data.describe.noSeries");
+          return `${type} · ${series}${x ? ` · ${translateNow("data.describe.byX", { x: x.name })}` : ""}`;
         },
         actions: {
           set_chart: {
-            title: "Configurer le graphique",
-            description:
-              "Change la colonne X, les colonnes Y ou le type du graphique.",
+            title: localized("data.action.setChart.title"),
+            description: localized("data.action.setChart.description"),
             input: {
               x: { type: "string", required: false },
               y: { type: "string", required: false },
@@ -431,12 +459,11 @@ export default function createData(): ExtensionModule {
             },
           },
           open_source: {
-            title: "Ouvrir le tableau",
-            description:
-              "Ouvre le tableau source à côté du graphique. Renvoie sa référence.",
+            title: localized("data.action.openSource.title"),
+            description: localized("data.action.openSource.description"),
             run: (tile) => {
               const table = tables.get(tile.data.table);
-              if (!table) throw new Error("Aucun tableau source.");
+              if (!table) throw new Error(translateNow("data.error.noSource"));
               const created = api.tabs.openTile(
                 tableType,
                 { table: table.id },
@@ -450,10 +477,11 @@ export default function createData(): ExtensionModule {
 
       api.commands.register({
         id: "data.table.open",
-        title: "Nouveau tableau",
+        title: localized("data.command.table.title"),
+        category: localized("data.category"),
         icon: manifest.icon,
         tileType: tableType,
-        keywords: ["tableau", "données", "table", "csv", "tsv"],
+        keywords: ["tableau", "données", "table", "data", "csv", "tsv"],
         run: () => {
           const table = tables.create();
           return api.tabs.openTile(tableType, { table: table.id });
@@ -461,10 +489,11 @@ export default function createData(): ExtensionModule {
       });
       api.commands.register({
         id: "data.chart.open",
-        title: "Nouveau graphique",
+        title: localized("data.command.chart.title"),
+        category: localized("data.category"),
         icon: manifest.icon,
         tileType: chartType,
-        keywords: ["graphique", "courbe", "barres", "données", "chart"],
+        keywords: ["graphique", "courbe", "barres", "données", "chart", "data"],
         run: () => api.tabs.openTile(chartType),
       });
     },
