@@ -5,24 +5,26 @@ Contrats : `src/sdk/index.ts` (noyau) et `src/sdk/react.ts` (vues React).
 ## Manifeste
 
 ```ts
+type LocalizedText = string | { readonly key: string };
+
 interface Manifest {
   id: string;
-  name: string;
+  name: LocalizedText;
   version: string;
   icon?: IconComponent;      // composant Lucide pour les intégrées
   color?: string;            // teinte spectrale
   tier?: "core" | "official" | "community";
   tileTypes?: readonly string[];
-  summary?: string;
-  description?: string;
-  category?: string;
-  subtitle?: string;
+  summary?: LocalizedText;
+  description?: LocalizedText;
+  category?: string;         // identifiant stable, traduit par le Store
+  subtitle?: LocalizedText;
   screenshots?: readonly string[];
   certification?: "spark";
 }
 ```
 
-Les paquets importés utilisent un `extension.json` sérialisable, converti en `Manifest` côté front. `color` est repris tel quel et `icon` devient un composant rendu en masque, teinté par `currentColor` ; l’icône du manifeste sert aussi de repli à la barre d’onglet.
+Les paquets importés utilisent un `extension.json` sérialisable, converti en `Manifest` côté front. Leurs champs restent des chaînes : l’hôte ne traduit pas les métadonnées d’un paquet tiers. `color` est repris tel quel et `icon` devient un composant rendu en masque, teinté par `currentColor` ; l’icône du manifeste sert aussi de repli à la barre d’onglet. `category` est un identifiant stable (`development`, `data`, `files`, `writing`, `research`, `reading` pour les intégrées), jamais un libellé traduit.
 
 ## `SparkAPI`
 
@@ -66,10 +68,10 @@ interface SparkAPI {
 ```ts
 interface TileDefinition {
   type: string;
-  title: string;
+  title: LocalizedText;
   icon?: IconComponent;
   dataKeys?: readonly string[];
-  guide?: string;
+  guide?: LocalizedText;
   prepare?(data: Data): Data;
   describe?(tile: Tile, surface: TileSurface): string;
   actions?: Record<string, TileAction>;
@@ -79,7 +81,7 @@ interface TileDefinition {
 ```
 
 - `dataKeys` limite les clés acceptées à l’ouverture.
-- `guide` : mode d’emploi court pour un agent, **1 200 caractères maximum**, livré une fois par session.
+- `guide` : mode d’emploi court pour un agent, **1 200 caractères maximum**, livré une fois par session. Une référence `localized(...)` est résolue dans la langue courante.
 - `describe` : résumé d’une ligne pour le brief ; il ne doit pas lever.
 - `canClose` : refuse une fermeture (document non enregistré).
 - `close` : libère les ressources de la tuile (session, fichier, écouteur).
@@ -88,8 +90,8 @@ interface TileDefinition {
 
 ```ts
 interface TileAction {
-  title: string;
-  description?: string;
+  title: LocalizedText;
+  description?: LocalizedText;
   input?: Record<string, ActionField>;
   requires?: readonly ServiceKey<unknown>[];
   mutates?: boolean | ((tile: Tile) => boolean);
@@ -113,9 +115,9 @@ Règles appliquées par le registre :
 ```ts
 interface Command {
   id: string;
-  title: string;
+  title: LocalizedText;
   icon?: IconComponent;
-  category?: string;
+  category?: LocalizedText;
   tileType?: string;
   keywords?: string[];
   dev?: boolean;

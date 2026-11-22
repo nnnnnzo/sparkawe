@@ -10,6 +10,7 @@ Le code fait foi. Quand un contrat change (SDK, manifeste, index de dépôt, com
 
 - [Vue d’ensemble](architecture/overview.md) — couches, démarrage, flux de données.
 - [Frontend](architecture/frontend.md) — SDK, core, app, UI, état et rendu.
+- [Interface multilingue](architecture/i18n.md) — langues, dictionnaires, formats, ajout d’une langue.
 - [Backend](architecture/backend.md) — modules Rust, commandes, stockage, MCP.
 - [Espace de travail](architecture/workspace.md) — onglets, tuiles, journal, brief, persistance.
 - [Pont MCP](architecture/mcp.md) — outils, actions, guides, surfaces, agents.
@@ -39,6 +40,7 @@ Le code fait foi. Quand un contrat change (SDK, manifeste, index de dépôt, com
 - [0001 — Modèle de confiance](decisions/0001-trust-model.md)
 - [0002 — Page Store et navigation](decisions/0002-store-navigation.md)
 - [0003 — Captures d’extensions](decisions/0003-extension-captures.md)
+- [0004 — Langues de l’interface](decisions/0004-interface-languages.md)
 
 ## Règles de lecture
 

@@ -15,7 +15,8 @@ Le Store est une **page**, pas un dialog. Il est monté en overlay au-dessus du 
 - Hero « À la une » avec texte et tuile d’icône, sans capture.
 - Étagères horizontales « Intégrées » et « Officielles ».
 - Section « Communautaires » : les paquets connus localement et les extensions d’un dépôt non installées. Ajouter un dépôt remplit donc cette section même sans installation.
-- Chips de catégories et recherche sans accents.
+- Chips de catégories et recherche sans accents. Les catégories des intégrées sont des identifiants stables (`development`, `data`, `files`, `writing`, `research`, `reading`) traduits à l’affichage ; une catégorie de paquet tiers est affichée telle quelle.
+- Compteurs et états suivent la langue de l’interface.
 - Cartes textuelles : icône, nom, sceau éventuel, sous-titre factuel. **Aucune capture dans les cartes.** Toutes les cartes partagent la même apparence, quel que soit le niveau.
 - Toute la carte ouvre la fiche. Une fiche distante affiche **Installer** ; l’installation ne se fait pas depuis la carte.
 - Les cartes d’étagère prennent une fraction entière de la largeur : 4 au-dessus de 1 600 px, 3 de 1 200 à 1 600, 2 de 700 à 1 200, 1 en dessous. Pas de carte coupée ; les flèches défilent d’une page.

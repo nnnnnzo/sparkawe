@@ -23,6 +23,9 @@ Spark is a desktop workspace built around tabs. Terminals, files, PDFs, tables a
 side by side in one window, and share the same objects. Drag a tab to an edge to split, to the
 centre to group, drag a separator to resize.
 
+The interface is available in English, French, Spanish, German, Italian, Portuguese, Japanese
+and Simplified Chinese. The language is chosen from Settings → Language and applies live.
+
 Most agent tools put the conversation in the middle and the work at the edges. Spark does the
 opposite: the workspace is the surface, and the agent plugs into it.
 

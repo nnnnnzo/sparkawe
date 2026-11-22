@@ -12,7 +12,7 @@
 |---|---|---|
 | `workspace-v1.json` | front | Onglets, tuiles, disposition, état par extension, thème. |
 | `workspace-recovery.json` | front/Rust | Copie de secours lors d’une reprise. |
-| `settings-v1.json` | Rust | `{ "dev": boolean }`. |
+| `settings-v1.json` | Rust | `{ "dev": boolean, "locale": "fr" }`. |
 | `extensions.json` | Rust | Paquets installés, versions, sources. |
 | `extensions/<id>/<version>/` | Rust | Paquet extrait (`extension.json`, bundle, styles, icône, médias). |
 | `markdown-access.json` | Rust | Tokens de fichiers Markdown autorisés. |
@@ -45,6 +45,16 @@
 - `pinned: null` signifie « toutes les extensions ».
 - `extensions` contient l’état sauvegardé par chaque extension.
 - Les surfaces de tuiles et le journal ne sont pas persistés.
+
+## `settings-v1.json`
+
+```json
+{ "dev": false, "locale": "fr" }
+```
+
+- `dev` active les commandes et surfaces de développement.
+- `locale` vaut `fr`, `en`, `es`, `de`, `it`, `pt`, `ja` ou `zh` ; une valeur inconnue retombe sur la langue détectée du système, puis sur l’anglais.
+- Le fichier est écrit par `settings_save` à partir du snapshot du front, avec le même debounce que le workspace.
 
 ## `extensions.json`
 

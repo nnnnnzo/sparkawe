@@ -17,8 +17,11 @@
 | Catalogue | Store, rail | `extensions.catalog` + `extensions.subscribeCatalog` |
 | Dépôts | Store | `marketplace.subscribe` / `marketplace.version` |
 | Réglages | Shell, Store | `useSyncExternalStore(settings.subscribe, settings.get)` |
+| Langue | Tous les composants | `useI18n()` + `src/i18n/index.ts` |
 
 Le Store écoute à la fois le catalogue et la marketplace. Après une installation, une désinstallation ou une mise à jour, il est donc rafraîchi sans redémarrage.
+
+La langue vit dans les réglages (`locale`), pas dans le workspace. Un changement de langue réabonne les composants via `useI18n()` et met à jour `document.documentElement.lang` ; il ne remonte pas les vues et ne coupe pas les sessions terminal. Voir [l’interface multilingue](i18n.md).
 
 ## Rendu
 

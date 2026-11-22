@@ -51,6 +51,8 @@ Contraintes :
 - `screenshots` : 0 à 8 fichiers `.webp`, `.png`, `.jpg` ou `.jpeg` existants.
 - `certification` interdit dans un paquet importé.
 - `summary` ≤ 400 caractères, `description` ≤ 4 000.
+- `category` est une chaîne libre, affichée telle quelle pour un paquet importé. Les intégrées utilisent des identifiants stables (`development`, `data`, etc.).
+- `name`, `subtitle`, `summary` et `description` sont **monolingues** dans un paquet importé : l’hôte ne les traduit pas. Une localisation déclarative des paquets pourra être ajoutée plus tard sans casser le schéma actuel.
 
 Le backend refuse les chemins absolus, `..`, les séparateurs `\` et les liens symboliques. `.git` et `node_modules` sont ignorés lors de la copie et de l’extraction.
 
