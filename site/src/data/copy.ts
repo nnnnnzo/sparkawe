@@ -34,8 +34,6 @@ export interface Copy {
     secondary: string;
     meta: string[];
     shotAlt: string;
-    shotCaption: string;
-    shotNote: string;
   };
   awe: {
     eyebrow: string;
@@ -139,9 +137,6 @@ export const EN: Copy = {
     meta: ["macOS", "Tauri 2 · Rust", "MIT", "v0.1.0"],
     shotAlt:
       "Spark window with three tiles: a Codex terminal, a data table of WMT 2014 BLEU scores for Attention Is All You Need, its bar chart, and the paper itself.",
-    shotCaption:
-      "A real session. Codex in the terminal, Table 2 of Attention Is All You Need in a typed table, its chart, the paper open beside them.",
-    shotNote: "No mockup, no retouching.",
   },
   awe: {
     eyebrow: "AWE",
@@ -415,9 +410,6 @@ export const FR: Copy = {
     meta: ["macOS", "Tauri 2 · Rust", "MIT", "v0.1.0"],
     shotAlt:
       "Fenêtre Spark avec trois tuiles : un terminal Codex, un tableau des scores BLEU WMT 2014 d’Attention Is All You Need, son graphique en barres, et le papier lui-même.",
-    shotCaption:
-      "Une vraie session. Codex dans le terminal, la Table 2 d’Attention Is All You Need dans un tableau typé, son graphique, le papier ouvert à côté.",
-    shotNote: "Aucune maquette, aucune retouche.",
   },
   awe: {
     eyebrow: "AWE",

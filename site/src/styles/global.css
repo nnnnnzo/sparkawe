@@ -368,7 +368,7 @@ kbd {
 }
 
 .shot {
-  margin-top: clamp(36px, 5vw, 60px);
+  margin: clamp(36px, 5vw, 60px) 0 0;
 }
 
 .shot__frame {
@@ -384,34 +384,7 @@ kbd {
   width: 100%;
 }
 
-.shot figcaption {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 12px;
-  font-family: var(--mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.06em;
-  color: var(--dim);
-}
 
-/* annotation markers on the screenshot */
-
-.mark {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  color: var(--fg);
-  font-family: var(--mono);
-  font-size: 0.68rem;
-  letter-spacing: 0;
-  transform: translate(-50%, -50%);
-}
 
 /* ---------- cards & grids ---------- */
 
@@ -674,7 +647,7 @@ kbd {
   margin-top: 14px;
 }
 
-.footer h4 {
+.footer__title {
   font-family: var(--mono);
   font-size: 0.68rem;
   font-weight: 400;
@@ -835,10 +808,6 @@ kbd {
     gap: 6px;
   }
 
-  .shot figcaption {
-    flex-direction: column;
-    gap: 4px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
