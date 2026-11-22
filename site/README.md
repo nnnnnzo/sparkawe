@@ -52,9 +52,20 @@ compilation, espace de travail, pont MCP, SDK d'extension, paquets et dépôts, 
 
 ## Déploiement
 
-Projet Vercel `sparkawe`, importé depuis `nnnnnzo/sparkawe` avec **Root
-Directory** réglé sur `site`. Astro est détecté automatiquement ; aucune
-configuration Vercel n'est nécessaire. `@vercel/analytics` est monté dans
+Projet Vercel `sparkawe`, importé depuis `nnnnnzo/sparkawe` à la racine du
+dépôt. Le fichier `vercel.json` à la racine décrit le build du site :
+
+```json
+{
+  "installCommand": "npm --prefix site ci",
+  "buildCommand": "npm --prefix site run build",
+  "outputDirectory": "site/dist"
+}
+```
+
+`trailingSlash` est activé pour coller aux URL du site (`/docs/`), et `/_astro`
+et `/fonts` sont servis en cache immuable. Inutile de régler un Root Directory :
+la racine fonctionne telle quelle. `@vercel/analytics` est monté dans
 `Base.astro` : mesure sans cookie, uniquement des pages vues.
 
 ## Règles de fond
