@@ -1,0 +1,72 @@
+---
+import Legal from "../../layouts/Legal.astro";
+import { FR } from "../../data/copy";
+---
+
+<Legal
+  copy={FR}
+  title="Licence"
+  description="Spark est publié sous licence MIT. Le nom et le logo relèvent d’une politique de marque séparée."
+  path="/fr/licence/"
+  altPath="/license/"
+  altLang="en"
+>
+  <p>
+    Le code de Spark — l’application, le pont MCP, le SDK d’extensions et ce site — est publié
+    sous licence MIT. C’est une licence permissive : vous pouvez l’utiliser, le modifier, le
+    fusionner, le publier, le distribuer, le sous-licencier et le vendre, à condition que la
+    mention de copyright et l’autorisation accompagnent le logiciel.
+  </p>
+
+  <pre><code>MIT License
+
+Copyright (c) 2026 nnnnnzo
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.</code></pre>
+
+  <h2>Ce que la licence ne couvre pas</h2>
+  <p>
+    La licence MIT porte sur le code. Elle ne donne aucun droit sur le nom Spark, le logotype
+    ou le symbole. Ceux-ci relèvent d’une <a href="/fr/marque/">politique de marque</a> séparée,
+    volontairement proche de ce dont un fork a besoin : renommer, remplacer la marque, et dire
+    sur quoi il se base.
+  </p>
+
+  <h2>Documentation et textes du site</h2>
+  <p>
+    La documentation écrite du dépôt et les textes de ce site sont publiés sous
+    <a href="https://creativecommons.org/licenses/by/4.0/deed.fr" rel="noreferrer">CC BY 4.0</a>.
+    Vous pouvez les citer et les adapter, y compris commercialement, tant que vous créditez Spark
+    et renvoyez vers la source.
+  </p>
+
+  <h2>Composants tiers</h2>
+  <p>
+    Spark embarque des bibliothèques et des polices open source soumises à leurs propres
+    licences, listées dans les <a href="/fr/mentions/">mentions des composants tiers</a>. La
+    licence MIT ne modifie en rien leurs conditions.
+  </p>
+
+  <h2>Contributions</h2>
+  <p>
+    Il n’y a pas de CLA. Les contributions sont acceptées sous licence MIT avec un sign-off
+    Developer Certificate of Origin — une ligne <code>Signed-off-by</code> dans le commit, qui
+    certifie que vous avez écrit le patch ou que vous avez le droit de le soumettre.
+  </p>
+</Legal>

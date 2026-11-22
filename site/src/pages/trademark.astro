@@ -1,0 +1,57 @@
+---
+import Legal from "../layouts/Legal.astro";
+import { EN } from "../data/copy";
+---
+
+<Legal
+  copy={EN}
+  title="Trademark policy"
+  description="How you may use the Spark name and logo, and what a fork must change."
+  path="/trademark/"
+  altPath="/fr/marque/"
+  altLang="fr"
+>
+  <p>
+    The MIT licence covers the code. The Spark name, the wordmark and the symbol are not part of
+    that grant. This page is the short version of the rule: keep the mark pointing at this
+    project, and a fork keeps its own identity.
+  </p>
+
+  <h2>You may, without asking</h2>
+  <ul>
+    <li>Refer to Spark by name, link to this site or the repository, and write about it.</li>
+    <li>Say that your project is “built on Spark”, “works with Spark” or “compatible with Spark”, as long as it is true.</li>
+    <li>Use screenshots of the app in articles, reviews, documentation and talks.</li>
+    <li>Fork the code, modify it and run or share it privately.</li>
+    <li>Keep the logo inside an unmodified copy of the app, exactly as distributed here.</li>
+  </ul>
+
+  <h2>You may not</h2>
+  <ul>
+    <li>Present a fork, a build or a service as the official Spark, or imply that it is endorsed by this project.</li>
+    <li>Use the Spark name or logo as the icon, name or branding of your own application.</li>
+    <li>Use the mark in a way that suggests a certification, an audit or a guarantee that does not exist.</li>
+    <li>Register the name or a confusingly similar mark as a trademark, a domain or a package name.</li>
+  </ul>
+
+  <h2>If you distribute a fork</h2>
+  <p>
+    Pick another name and another icon, and say clearly what it is based on — for example
+    “Acme, a fork of Spark”. The MIT licence already requires you to keep the copyright notice;
+    this is the same idea applied to the name.
+  </p>
+
+  <h2>No certified seal</h2>
+  <p>
+    Spark checks the SHA-256 of a package archive before extracting it. It does not verify a
+    signature, and it does not audit the code of a community extension. Nothing on this site, and
+    no badge in the app, should be read as “certified”. A community package is code you chose to
+    trust.
+  </p>
+
+  <h2>Questions</h2>
+  <p>
+    Open an issue on the <a href="https://github.com/nnnnnzo/sparkawe/issues" rel="noreferrer">repository</a>
+    and describe the use. Small, non-commercial references are almost always fine.
+  </p>
+</Legal>

@@ -1,0 +1,58 @@
+---
+import Legal from "../../layouts/Legal.astro";
+import { FR } from "../../data/copy";
+---
+
+<Legal
+  copy={FR}
+  title="Politique de marque"
+  description="Ce que vous pouvez faire du nom et du logo Spark, et ce qu’un fork doit changer."
+  path="/fr/marque/"
+  altPath="/trademark/"
+  altLang="en"
+>
+  <p>
+    La licence MIT couvre le code. Le nom Spark, le logotype et le symbole n’en font pas partie.
+    Cette page est la version courte de la règle : la marque désigne ce projet, et un fork garde
+    sa propre identité.
+  </p>
+
+  <h2>Vous pouvez, sans demander</h2>
+  <ul>
+    <li>Citer Spark par son nom, renvoyer vers ce site ou le dépôt, et écrire à son sujet.</li>
+    <li>Dire que votre projet est « basé sur Spark », « fonctionne avec Spark » ou « compatible Spark », si c’est vrai.</li>
+    <li>Utiliser des captures de l’application dans des articles, des tests, de la documentation et des conférences.</li>
+    <li>Forker le code, le modifier, l’exécuter ou le partager en privé.</li>
+    <li>Garder le logo dans une copie non modifiée de l’application, telle qu’elle est distribuée ici.</li>
+  </ul>
+
+  <h2>Vous ne pouvez pas</h2>
+  <ul>
+    <li>Présenter un fork, une compilation ou un service comme le Spark officiel, ou laisser croire qu’il est approuvé par ce projet.</li>
+    <li>Utiliser le nom ou le logo Spark comme icône, nom ou identité de votre propre application.</li>
+    <li>Employer la marque d’une façon qui suggère une certification, un audit ou une garantie qui n’existent pas.</li>
+    <li>Déposer le nom ou une marque proche comme marque, nom de domaine ou nom de paquet.</li>
+  </ul>
+
+  <h2>Si vous distribuez un fork</h2>
+  <p>
+    Choisissez un autre nom et une autre icône, et dites clairement sur quoi il se base — par
+    exemple « Acme, un fork de Spark ». La licence MIT exige déjà de conserver la mention de
+    copyright ; c’est la même idée appliquée au nom.
+  </p>
+
+  <h2>Aucun sceau « certifié »</h2>
+  <p>
+    Spark vérifie le SHA-256 d’une archive avant de l’extraire. Il ne vérifie pas de signature et
+    n’audite pas le code d’une extension communautaire. Rien sur ce site, et aucun badge dans
+    l’application, ne doit se lire comme une certification. Un paquet communautaire est du code
+    auquel vous avez choisi de faire confiance.
+  </p>
+
+  <h2>Questions</h2>
+  <p>
+    Ouvrez un ticket sur le <a href="https://github.com/nnnnnzo/sparkawe/issues" rel="noreferrer">dépôt</a>
+    en décrivant l’usage. Les références petites et non commerciales sont presque toujours
+    acceptées.
+  </p>
+</Legal>

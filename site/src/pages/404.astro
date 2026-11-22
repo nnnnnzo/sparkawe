@@ -1,0 +1,50 @@
+---
+import Base from "../layouts/Base.astro";
+import { EN } from "../data/copy";
+---
+
+<Base
+  copy={EN}
+  title="Page not found — Spark"
+  description="This page does not exist."
+  path="/404/"
+  altPath="/fr/404/"
+  altLang="fr"
+>
+  <section class="wrap missing">
+    <p class="eyebrow">404</p>
+    <h1>This tile was closed.</h1>
+    <p class="lede">
+      The page you asked for is not here. It may have moved, or never existed.
+    </p>
+    <div class="missing__actions">
+      <a class="btn btn--primary" href="/">Back to Spark</a>
+      <a class="btn btn--ghost" href="/fr/">En français</a>
+    </div>
+    <div class="spectrum" aria-hidden="true" style="max-width: 220px; margin-top: 56px">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .missing {
+    padding-block: clamp(96px, 16vw, 200px);
+  }
+
+  .missing h1 {
+    max-width: 14ch;
+  }
+
+  .missing .lede {
+    margin-top: 20px;
+    max-width: 46ch;
+  }
+
+  .missing__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 30px;
+  }
+</style>

@@ -32,6 +32,20 @@ Les couleurs, la typographie et le lockup suivent les guidelines Spark AWE dans 
 npx tauri icon app-icon.svg
 ```
 
+Le code est sous licence MIT (`LICENSE`). Le nom et le logo relèvent d’une politique de marque séparée (`TRADEMARK.md`) ; les composants tiers sont listés dans `THIRD-PARTY-NOTICES.md`.
+
+## Site
+
+Le site public vit dans `site/`, avec son propre `package.json`. Il est déployé sur Vercel depuis ce dépôt, avec un Root Directory réglé sur `site` ; aucune configuration Vercel supplémentaire n’est nécessaire.
+
+```sh
+cd site
+npm install
+npm run dev
+```
+
+Anglais à la racine, français sous `/fr/`. Les textes sont centralisés dans `site/src/data/copy.ts` ; les instructions détaillées, la capture utilisée et les règles de fond sont dans [`site/README.md`](site/README.md).
+
 ## Extensions
 
 Une nouvelle installation active les cinq extensions **intégrées** : Explorateur, Terminal, Markdown, Aperçu et Données. Les extensions **officielles**, comme OpenAlex, restent désactivées par défaut. Ouvrez le **Store** depuis le rail ou la palette pour découvrir, activer, désactiver ou épingler une extension. Une fois active, l’extension ajoute ses commandes à la palette ; ses commandes d’ouverture de tuiles sont aussi accessibles depuis le rail si elle est épinglée.

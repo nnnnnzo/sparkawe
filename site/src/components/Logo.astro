@@ -1,0 +1,51 @@
+---
+interface Props {
+  href?: string;
+  label?: string;
+}
+
+const { href = "/", label = "Spark" } = Astro.props;
+---
+
+<a class="logo" href={href} aria-label={label}>
+  <svg viewBox="0 0 240 160" aria-hidden="true" focusable="false">
+    <g fill="none" stroke-width="3.2" stroke-linecap="butt" stroke-linejoin="miter">
+      <path d="M103 80L198 24" stroke="#A69BC8"></path>
+      <path d="M103 80L205 51" stroke="#769AC8"></path>
+      <path d="M103 80H211" stroke="#7AB8C1"></path>
+      <path d="M103 80L203 109" stroke="#B4BC82"></path>
+      <path d="M103 80L196 136" stroke="#CE9E8D"></path>
+    </g>
+    <g fill="none" stroke="#F2F1EC" stroke-width="4.2" stroke-linecap="square" stroke-linejoin="miter">
+      <path d="M18 80H103"></path>
+      <path d="M103 18V142"></path>
+      <path d="M61 50L103 80"></path>
+      <path d="M67 108L103 80"></path>
+    </g>
+  </svg>
+  <span class="logo__word">spark</span>
+</a>
+
+<style>
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--fg);
+  }
+
+  .logo svg {
+    width: 33px;
+    height: 22px;
+    flex: none;
+    overflow: visible;
+  }
+
+  .logo__word {
+    font-size: 1.32rem;
+    font-weight: 300;
+    letter-spacing: -0.055em;
+    line-height: 1;
+    padding-top: 1px;
+  }
+</style>

@@ -1,0 +1,67 @@
+---
+import Legal from "../../layouts/Legal.astro";
+import { FR } from "../../data/copy";
+---
+
+<Legal
+  copy={FR}
+  title="Mentions des composants tiers"
+  description="Les bibliothèques, polices et marques open source utilisées par Spark et ce site."
+  path="/fr/mentions/"
+  altPath="/notices/"
+  altLang="en"
+>
+  <p>
+    Spark et ce site reposent sur du travail open source. Chaque composant garde sa licence ; la
+    licence MIT de Spark ne s’y substitue pas. Cette page liste les principaux, avec la licence
+    sous laquelle ils sont distribués.
+  </p>
+
+  <h2>Application</h2>
+  <ul>
+    <li><a href="https://tauri.app" rel="noreferrer">Tauri 2</a> — MIT ou Apache-2.0</li>
+    <li><a href="https://react.dev" rel="noreferrer">React et React DOM</a> — MIT</li>
+    <li><a href="https://dockview.dev" rel="noreferrer">Dockview</a> — MIT</li>
+    <li><a href="https://xtermjs.org" rel="noreferrer">xterm.js</a> — MIT</li>
+    <li><a href="https://codemirror.net" rel="noreferrer">CodeMirror 6</a> — MIT</li>
+    <li><a href="https://mozilla.github.io/pdf.js/" rel="noreferrer">PDF.js</a> — Apache-2.0</li>
+    <li><a href="https://www.radix-ui.com" rel="noreferrer">Radix UI</a> — MIT</li>
+    <li><a href="https://github.com/pacocoursey/cmdk" rel="noreferrer">cmdk</a> — MIT</li>
+    <li><a href="https://sonner.emilkowal.ski" rel="noreferrer">Sonner</a> — MIT</li>
+    <li><a href="https://lucide.dev" rel="noreferrer">Lucide</a> — ISC</li>
+    <li><a href="https://github.com/remarkjs/react-markdown" rel="noreferrer">react-markdown</a> — MIT</li>
+    <li><a href="https://tailwindcss.com" rel="noreferrer">Tailwind CSS</a> et <a href="https://vite.dev" rel="noreferrer">Vite</a> — MIT</li>
+  </ul>
+
+  <h2>Polices et tracés</h2>
+  <ul>
+    <li>Montserrat, de Julieta Ulanovsky — SIL Open Font License 1.1, auto-hébergée en sous-ensemble.</li>
+    <li>Tracés des icônes d’agents issus de <a href="https://simpleicons.org" rel="noreferrer">Simple Icons</a> — CC0 1.0.</li>
+  </ul>
+
+  <h2>Noms et logos d’agents</h2>
+  <p>
+    Claude et Anthropic, OpenAI et Codex, Cursor, Google et Gemini, GitHub Copilot, Mistral,
+    OpenCode, Pi, Amp, Crush, Goose et Qwen sont des marques de leurs propriétaires respectifs.
+    Elles apparaissent ici pour décrire les clients auxquels Spark peut se connecter. Aucune
+    affiliation ni approbation n’est sous-entendue.
+  </p>
+
+  <h2>Site</h2>
+  <ul>
+    <li><a href="https://astro.build" rel="noreferrer">Astro</a> — MIT</li>
+    <li><a href="https://vercel.com/docs/analytics" rel="noreferrer">Vercel Web Analytics</a> — MIT, sans cookies</li>
+  </ul>
+
+  <h2>Le papier dans la capture</h2>
+  <p>
+    La capture montre <em>Attention Is All You Need</em> (Vaswani et al., NeurIPS 2017), ouvert
+    depuis sa prépublication arXiv, et un tableau de ses résultats publiés sur WMT 2014. Le
+    papier reste la propriété de ses auteurs.
+  </p>
+
+  <p>
+    Un inventaire généré de toutes les dépendances transitives est disponible dans le dépôt, à
+    côté des fichiers de verrouillage.
+  </p>
+</Legal>

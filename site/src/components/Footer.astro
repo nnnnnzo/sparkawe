@@ -1,0 +1,72 @@
+---
+import Logo from "./Logo.astro";
+import type { Copy } from "../data/copy";
+
+interface Props {
+  copy: Copy;
+}
+
+const { copy } = Astro.props;
+const home = copy.lang === "fr" ? "/fr/" : "/";
+---
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer__top">
+      <div class="footer__brand">
+        <Logo href={home} />
+        <p>{copy.footer.tagline}</p>
+        <div class="spectrum" aria-hidden="true" style="max-width: 120px; margin-top: 22px">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+
+      <div>
+        <h4>{copy.footer.product}</h4>
+        <ul>
+          {
+            copy.footer.productLinks.map((link) => (
+              <li>
+                <a href={link.href.startsWith("#") ? `${home}${link.href}` : link.href}>{link.label}</a>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+
+      <div>
+        <h4>{copy.footer.project}</h4>
+        <ul>
+          {
+            copy.footer.projectLinks.map((link) => (
+              <li>
+                <a href={link.href} rel="noreferrer">{link.label}</a>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+
+      <div>
+        <h4>{copy.footer.legal}</h4>
+        <ul>
+          {
+            copy.footer.legalLinks.map((link) => (
+              <li>
+                <a href={link.href}>{link.label}</a>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer__base">
+      <span>{copy.footer.copyright}</span>
+      <div>
+        <span>{copy.footer.analytics}</span>
+        <a href={copy.switchHref} hreflang={copy.lang === "fr" ? "en" : "fr"}>{copy.switchLabel}</a>
+      </div>
+    </div>
+  </div>
+</footer>
