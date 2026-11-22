@@ -155,22 +155,20 @@ const config = `{
       <p class="lede">{copy.agents.lede}</p>
     </div>
 
-    <div class="agents" style="margin-bottom: 18px">
+    <div class="agents">
       {
-        AGENTS.map((agent) => (
+        AGENTS.filter((agent) => agent.setup).map((agent) => (
           <div class="agent">
             <AgentMark agent={agent} />
-            <div>
-              <span class="agent__name">{agent.name}</span>
-              <span class:list={["agent__tag", { "agent__tag--auto": agent.setup }]}>
-                {agent.setup ? copy.agents.auto : copy.agents.manual}
-              </span>
-            </div>
+            <span class="agent__name">{agent.name}</span>
           </div>
         ))
       }
     </div>
-    <p class="foot-note">{copy.agents.note}</p>
+    <div class="agents__any">
+      <strong>{copy.agents.anyTitle}</strong>
+      <span>{copy.agents.anyBody}</span>
+    </div>
 
     <div class="agents__how">
       <div>
@@ -349,6 +347,26 @@ const config = `{
 
   h1 .accent {
     color: var(--cyan);
+  }
+
+  .agents__any {
+    display: grid;
+    gap: 5px;
+    margin-top: 16px;
+    padding: 16px 20px;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--radius);
+  }
+
+  .agents__any strong {
+    font-weight: 300;
+    font-size: 0.95rem;
+    color: var(--fg);
+  }
+
+  .agents__any span {
+    font-size: 0.86rem;
+    color: var(--muted);
   }
 
   .card__head {

@@ -1,10 +1,5 @@
 export type Lang = "en" | "fr";
 
-export interface AgentCardText {
-  auto: string;
-  manual: string;
-}
-
 export interface Copy {
   lang: Lang;
   htmlLang: string;
@@ -52,9 +47,8 @@ export interface Copy {
     eyebrow: string;
     title: string;
     lede: string;
-    auto: string;
-    manual: string;
-    note: string;
+    anyTitle: string;
+    anyBody: string;
     howTitle: string;
     howLede: string;
     steps: { title: string; body: string }[];
@@ -197,10 +191,9 @@ export const EN: Copy = {
     title: "The agents you already use, in the workspace you already have.",
     lede:
       "Spark speaks the Model Context Protocol over a local socket. Fifteen tools, one server, and a bridge that is already in the bundle.",
-    auto: "Configured by Spark",
-    manual: "Connect by hand",
-    note:
-      "Spark recognises these commands in a terminal and offers to connect the client in one click. Six clients are configured automatically; the others work as soon as they point at the same bridge.",
+    anyTitle: "Any MCP client works.",
+    anyBody:
+      "These six are configured by Spark in one click. Any other client only needs the bridge path shown below — no plugin, no port to open.",
     howTitle: "How an agent actually works here",
     howLede:
       "No screenshot parsing, no computer-use heuristics. The agent calls the app, and the app answers with references and summaries.",
@@ -471,10 +464,9 @@ export const FR: Copy = {
     title: "Les agents que vous utilisez déjà, dans l’espace que vous avez déjà.",
     lede:
       "Spark parle le Model Context Protocol sur une socket locale. Quinze outils, un serveur, et un pont déjà présent dans le bundle.",
-    auto: "Configuré par Spark",
-    manual: "Connexion manuelle",
-    note:
-      "Spark reconnaît ces commandes dans un terminal et propose de connecter le client en un clic. Six clients sont configurés automatiquement ; les autres fonctionnent dès qu’ils pointent vers le même pont.",
+    anyTitle: "N’importe quel client MCP fonctionne.",
+    anyBody:
+      "Ces six clients sont configurés par Spark en un clic. Les autres ont seulement besoin du chemin du pont ci-dessous — aucun plugin, aucun port à ouvrir.",
     howTitle: "Comment un agent travaille vraiment ici",
     howLede:
       "Pas d’analyse d’écran, pas d’heuristique de computer-use. L’agent appelle l’application, qui répond par des références et des résumés.",

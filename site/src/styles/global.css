@@ -436,7 +436,7 @@ kbd {
 
 .agents {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1px;
   background: var(--line-soft);
   border: 1px solid var(--line-soft);
@@ -462,19 +462,6 @@ kbd {
 .agent__name {
   font-size: 0.9rem;
   line-height: 1.25;
-}
-
-.agent__tag {
-  display: block;
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  color: var(--dim);
-  margin-top: 3px;
-}
-
-.agent__tag--auto {
-  color: var(--cyan);
 }
 
 /* ---------- steps ---------- */
@@ -1021,7 +1008,7 @@ kbd {
 
   .grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .agents { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .agents { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .footer__top { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
