@@ -267,21 +267,21 @@ export const EN: Copy = {
   },
   extensions: {
     eyebrow: "Extensions",
-    title: "New tiles, without closing your tabs.",
+    title: "Extensions add tiles.",
     lede:
-      "Extensions live in a Store that opens over the workspace. Your terminals, PDFs and tables stay mounted behind it, so browsing never costs you a session.",
+      "The app is built from tiles: terminal, Markdown, PDF, data, OpenAlex. The Store adds the rest.",
     cards: [
       {
-        title: "A Store over the workspace",
-        body: "A full-width page with a floating sidebar: Discover, Installed, Sources. It never unmounts the workspace while you look around.",
+        title: "Browse",
+        body: "The Store lists what is available, what is installed, and which registry each one comes from.",
       },
       {
-        title: "Install in one click",
-        body: "Open an extension sheet, look at its screenshots, install. The zip is checked before extraction, and a failed install leaves the previous version intact.",
+        title: "Install",
+        body: "One click. The zip is checked before extraction; a failure leaves the previous version in place.",
       },
       {
-        title: "Bring your own",
-        body: "Import a local folder in developer mode. Nothing installs or updates on its own — an update is a button you press.",
+        title: "Import",
+        body: "A local folder, in developer mode. Nothing updates on its own.",
       },
     ],
     noticeTitle: "Unsigned and unsandboxed",
@@ -540,21 +540,21 @@ export const FR: Copy = {
   },
   extensions: {
     eyebrow: "Extensions",
-    title: "De nouvelles tuiles, sans fermer vos onglets.",
+    title: "Les extensions ajoutent des tuiles.",
     lede:
-      "Les extensions vivent dans un Store qui s’ouvre par-dessus l’espace. Vos terminaux, PDF et tableaux restent montés derrière : naviguer ne coûte jamais une session.",
+      "L’application est faite de tuiles : terminal, Markdown, PDF, données, OpenAlex. Le Store ajoute les autres.",
     cards: [
       {
-        title: "Un Store par-dessus l’espace",
-        body: "Une page pleine largeur avec une sidebar flottante : Découvrir, Installées, Sources. Elle ne démonte jamais l’espace pendant que vous regardez.",
+        title: "Parcourir",
+        body: "Le Store liste ce qui est disponible, ce qui est installé, et de quel dépôt chaque extension vient.",
       },
       {
-        title: "Installer en un clic",
-        body: "Ouvrez une fiche, regardez ses captures, installez. Le zip est vérifié avant extraction, et un échec laisse la version précédente intacte.",
+        title: "Installer",
+        body: "Un clic. Le zip est vérifié avant extraction ; un échec laisse la version précédente en place.",
       },
       {
-        title: "Amener les vôtres",
-        body: "Importez un dossier local en mode développeur. Rien ne s’installe ni ne se met à jour tout seul — une mise à jour, c’est un bouton.",
+        title: "Importer",
+        body: "Un dossier local, en mode développeur. Rien ne se met à jour tout seul.",
       },
     ],
     noticeTitle: "Non signé, non isolé",
