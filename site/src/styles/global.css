@@ -152,6 +152,12 @@ kbd {
   text-wrap: pretty;
 }
 
+@media (min-width: 981px) {
+  .section__head > .lede {
+    margin-top: 2.3rem;
+  }
+}
+
 .eyebrow {
   display: flex;
   align-items: center;
@@ -322,8 +328,8 @@ kbd {
 
 .hero__foot {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.86fr);
-  gap: clamp(28px, 5vw, 88px);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.85fr);
+  gap: clamp(24px, 5vw, 72px);
   align-items: end;
   margin-top: clamp(30px, 4vw, 46px);
 }
@@ -600,8 +606,8 @@ kbd {
 
 .status__row {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr);
-  gap: 24px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.85fr);
+  gap: clamp(24px, 5vw, 72px);
   padding: 15px 0;
   border-bottom: 1px solid var(--line-soft);
   font-size: 0.92rem;

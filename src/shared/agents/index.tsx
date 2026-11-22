@@ -5,7 +5,7 @@ export interface AgentBrand {
   id: string;
   name: string;
   commands: readonly string[];
-  /** Tracé simple-icons, rendu en `currentColor`. */
+  /** Tracé monochrome 24 × 24, rendu en `currentColor`. */
   icon?: string;
   /** Initiale affichée quand l'agent n'a pas de tracé embarqué. */
   glyph?: string;
@@ -47,7 +47,7 @@ export const AGENTS: readonly AgentBrand[] = [
     name: "OpenCode",
     commands: ["opencode"],
     setup: true,
-    glyph: "O",
+    icon: "M16.8 4.8H7.2V19.2H16.8V4.8ZM21.6 24H2.4V0H21.6V24ZM16.8 19.2H7.2V9.6H16.8V19.2Z",
   },
   {
     id: "copilot",

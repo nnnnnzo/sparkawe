@@ -1,8 +1,8 @@
 /**
  * Miroir de `src/shared/agents/index.tsx` dans l'application.
  * Le site ne doit jamais annoncer un agent que Spark ne reconnaît pas.
- * Tracés simple-icons, rendus en `currentColor` ; les agents sans tracé
- * embarquent un monogramme, comme dans l'application.
+ * Tracés monochromes 24 × 24, rendus en `currentColor` ; les agents sans
+ * tracé embarquent un monogramme, comme dans l'application.
  */
 
 export interface SiteAgent {
@@ -49,7 +49,7 @@ export const AGENTS: readonly SiteAgent[] = [
     name: "OpenCode",
     command: "opencode",
     setup: true,
-    glyph: "O",
+    icon: "M16.8 4.8H7.2V19.2H16.8V4.8ZM21.6 24H2.4V0H21.6V24ZM16.8 19.2H7.2V9.6H16.8V19.2Z",
   },
   {
     id: "vibe",

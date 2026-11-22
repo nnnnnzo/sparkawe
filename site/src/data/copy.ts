@@ -162,7 +162,7 @@ export const EN: Copy = {
     eyebrow: "Product",
     title: "What is already in the box.",
     lede:
-      "Six core tiles, one workspace. Everything below ships in the app today, not in a roadmap.",
+      "Six tiles, one workspace. Everything below ships in the app today, not in a roadmap.",
     cards: [
       {
         title: "Terminal",
@@ -185,8 +185,8 @@ export const EN: Copy = {
         body: "Typed tables — text, number, date — up to 2,000 rows and 32 columns, with charts bound to the table itself.",
       },
       {
-        title: "Extensions",
-        body: "A tile is a React component plus a manifest. Declare your actions and data keys, and agents get them for free.",
+        title: "OpenAlex",
+        body: "Search by topic, author or DOI, read a work's fields, and open its free PDF beside your notes.",
       },
     ],
   },
@@ -434,7 +434,7 @@ export const FR: Copy = {
     eyebrow: "Produit",
     title: "Ce qui est déjà dans la boîte.",
     lede:
-      "Six tuiles noyau, un seul espace. Tout ce qui suit est livré dans l’application aujourd’hui, pas dans une feuille de route.",
+      "Six tuiles, un seul espace. Tout ce qui suit est livré dans l’application aujourd’hui, pas dans une feuille de route.",
     cards: [
       {
         title: "Terminal",
@@ -457,8 +457,8 @@ export const FR: Copy = {
         body: "Des tableaux typés — texte, nombre, date — jusqu’à 2 000 lignes et 32 colonnes, avec des graphiques liés au tableau.",
       },
       {
-        title: "Extensions",
-        body: "Une tuile, c’est un composant React et un manifeste. Déclarez vos actions et vos dataKeys, les agents en héritent.",
+        title: "OpenAlex",
+        body: "Chercher par sujet, auteur ou DOI, lire les champs d’un travail et ouvrir son PDF libre à côté de vos notes.",
       },
     ],
   },
