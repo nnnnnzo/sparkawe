@@ -140,9 +140,9 @@ kbd {
 
 .section__head {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.85fr);
   gap: clamp(24px, 5vw, 72px);
-  align-items: end;
+  align-items: start;
   margin-bottom: clamp(36px, 5vw, 64px);
 }
 
