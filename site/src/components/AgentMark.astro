@@ -12,6 +12,7 @@ const { agent } = Astro.props;
   agent.icon ? (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor">
       <path d={agent.icon} />
+      {agent.iconDetail ? <path d={agent.iconDetail} opacity="0.32" /> : null}
     </svg>
   ) : (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">

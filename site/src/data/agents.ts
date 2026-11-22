@@ -12,6 +12,8 @@ export interface SiteAgent {
   /** Configuration du client MCP écrite sans intervention. */
   setup: boolean;
   icon?: string;
+  /** Second tracé atténué, pour un logo en deux tons. */
+  iconDetail?: string;
   glyph?: string;
 }
 
@@ -49,7 +51,8 @@ export const AGENTS: readonly SiteAgent[] = [
     name: "OpenCode",
     command: "opencode",
     setup: true,
-    icon: "M16.8 4.8H7.2V19.2H16.8V4.8ZM21.6 24H2.4V0H21.6V24ZM16.8 19.2H7.2V9.6H16.8V19.2Z",
+    icon: "M16.8 4.8H7.2V19.2H16.8V4.8ZM21.6 24H2.4V0H21.6V24Z",
+    iconDetail: "M16.8 19.2H7.2V9.6H16.8V19.2Z",
   },
   {
     id: "vibe",

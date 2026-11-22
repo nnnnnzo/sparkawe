@@ -7,6 +7,8 @@ export interface AgentBrand {
   commands: readonly string[];
   /** Tracé monochrome 24 × 24, rendu en `currentColor`. */
   icon?: string;
+  /** Second tracé atténué, pour un logo en deux tons (OpenCode). */
+  iconDetail?: string;
   /** Initiale affichée quand l'agent n'a pas de tracé embarqué. */
   glyph?: string;
   /** La configuration du client peut être écrite sans intervention. */
@@ -47,7 +49,8 @@ export const AGENTS: readonly AgentBrand[] = [
     name: "OpenCode",
     commands: ["opencode"],
     setup: true,
-    icon: "M16.8 4.8H7.2V19.2H16.8V4.8ZM21.6 24H2.4V0H21.6V24ZM16.8 19.2H7.2V9.6H16.8V19.2Z",
+    icon: "M16.8 4.8H7.2V19.2H16.8V4.8ZM21.6 24H2.4V0H21.6V24Z",
+    iconDetail: "M16.8 19.2H7.2V9.6H16.8V19.2Z",
   },
   {
     id: "copilot",
@@ -120,6 +123,7 @@ export function AgentMark({
         {...props}
       >
         <path d={agent.icon} />
+        {agent.iconDetail ? <path d={agent.iconDetail} opacity={0.32} /> : null}
       </svg>
     );
   }
