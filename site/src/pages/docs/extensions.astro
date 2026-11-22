@@ -1,0 +1,200 @@
+---
+import Docs from "../../layouts/Docs.astro";
+import { EN } from "../../data/copy";
+
+const manifest = `interface Manifest {
+  id: string;              // stable, prefixed: "demo.hello"
+  name: string;
+  version: string;         // x.y.z
+  icon?: IconComponent;    // Lucide component for built-ins
+  color?: string;          // spectral tint
+  tier?: "core" | "official" | "community";
+  tileTypes?: readonly string[];
+  summary?: string;
+  description?: string;
+  category?: string;
+  subtitle?: string;
+  screenshots?: readonly string[];
+  certification?: "spark";
+}`;
+
+const api = `interface SparkAPI {
+  state: {
+    read(): unknown;
+    save(value: unknown): void;          // JSON, scoped to the extension id
+  };
+  tiles: {
+    register(definition: TileDefinition): Dispose;
+    publish(tileId: string, surface: TileSurface): void; // ≤ 2,000 chars, not persisted
+  };
+  commands: { register(command: Command): Dispose };
+  services: {
+    provide<T>(key: ServiceKey<T>, service: T): Dispose;
+    get<T>(key: ServiceKey<T>): T | undefined;
+  };
+  events: {
+    on<T>(key: EventKey<T>, listener: (value: T) => void): Dispose;
+    emit<T>(key: EventKey<T>, value: T): void;
+  };
+  tabs: {
+    openTile(type: string, data?: Data, alongside?: string): Tile;
+    focusTile(id: string): void;
+    updateTileData(id: string, data: Data): void;
+    getTiles(): Tile[];
+    getAllTiles(): Tile[];
+    getFocusedTile(): Tile | undefined;
+  };
+}`;
+
+const tile = `interface TileDefinition {
+  type: string;                 // "demo.hello.tile"
+  title: string;
+  icon?: IconComponent;
+  dataKeys?: readonly string[];
+  guide?: string;               // ≤ 1,200 chars, delivered once per session
+  prepare?(data: Data): Data;
+  describe?(tile: Tile, surface: TileSurface): string;
+  actions?: Record<string, TileAction>;
+  canClose?(tile: Tile, closing: ReadonlySet<string>): boolean | Promise<boolean>;
+  close?(tile: Tile): void | Promise<void>;
+}`;
+
+const action = `interface TileAction {
+  title: string;
+  description?: string;
+  input?: Record<string, ActionField>;   // string | number | boolean
+  requires?: readonly ServiceKey<unknown>[];
+  mutates?: boolean | ((tile: Tile) => boolean);
+  run(tile: Tile, input: Record<string, ActionValue>): unknown | Promise<unknown>;
+}`;
+
+const command = `interface Command {
+  id: string;
+  title: string;
+  icon?: IconComponent;
+  category?: string;
+  tileType?: string;        // also appears in the rail when pinned
+  keywords?: string[];
+  dev?: boolean;            // developer mode only
+  run(): unknown | Promise<unknown>;
+}`;
+
+const view = `type TileView = React.ComponentType<{ tile: Tile; active: boolean }>;
+
+interface ExtensionModule {
+  activate(api: ExtensionAPI): void | Promise<void>;
+  deactivate?(): void | Promise<void>;
+}`;
+
+const minimal = `import type { ExtensionModule } from "../../sdk";
+
+export default function createHello(): ExtensionModule {
+  return {
+    activate(api) {
+      api.tiles.register({
+        type: "demo.hello.tile",
+        title: "Hello",
+        dataKeys: ["name"],
+        guide: "Demo tile. No actions.",
+        view: ({ tile }) => <p>Hello {tile.data.name ?? "world"}</p>,
+      });
+    },
+  };
+}`;
+---
+
+<Docs
+  copy={EN}
+  title="Extension SDK"
+  description="Manifest, tile definition, typed actions, commands, services and a minimal React tile."
+  slug="extensions"
+>
+  <p class="docs__lead">
+    A tile is a React component plus a contract. The contract is what an agent sees: a title, a
+    short guide, a one-line description, and typed actions it can call.
+  </p>
+
+  <h2>Manifest</h2>
+  <pre><code>{manifest}</code></pre>
+  <p>
+    Built-in extensions export this object from <code>manifest.ts</code>. Imported packages use a
+    serialisable <code>extension.json</code> that is converted to the same shape; see
+    <a href="/docs/packages/">Packages and registries</a>.
+  </p>
+
+  <h2>API</h2>
+  <pre><code>{api}</code></pre>
+  <ul>
+    <li><code>state</code> is isolated per extension id and serialised as JSON.</li>
+    <li><code>publish</code> feeds the brief and targeted reads. It is a summary, never content.</li>
+    <li><code>services</code> and <code>events</code> are registry-global; every contribution is removed on <code>deactivate</code>.</li>
+    <li><code>tabs.openTile</code> applies the tile type's <code>prepare</code> and adds the tile to the requested tab.</li>
+  </ul>
+
+  <h2>Tile</h2>
+  <pre><code>{tile}</code></pre>
+  <p>
+    <code>guide</code> is a working manual for an agent, not marketing. It is capped at 1,200
+    characters and delivered once per session.
+  </p>
+
+  <h2>Action</h2>
+  <pre><code>{action}</code></pre>
+  <p>The registry enforces, at call time:</p>
+  <ul>
+    <li>action names match <code>^[a-z][a-z0-9_.-]*$</code>; fields match <code>^[a-z][a-zA-Z0-9_]*$</code>;</li>
+    <li>only <code>string</code>, <code>number</code> and <code>boolean</code> inputs; unknown, missing or mistyped arguments are refused;</li>
+    <li>numbers must be finite, enums must match;</li>
+    <li>the JSON result is capped at 16,000 characters;</li>
+    <li>an action with <code>requires</code> is hidden when a service is missing;</li>
+    <li><code>mutates</code> is reported to the MCP client, which decides whether to ask for confirmation.</li>
+  </ul>
+
+  <h2>Command</h2>
+  <pre><code>{command}</code></pre>
+  <p>
+    A command with a <code>tileType</code> appears in the rail when pinned, and in <kbd>⌘K</kbd>.
+    A <code>dev</code> command only appears in developer mode.
+  </p>
+
+  <h2>View</h2>
+  <pre><code>{view}</code></pre>
+  <p>
+    <code>ExtensionAPI</code> is <code>SparkAPI</code> with <code>tiles.register</code> extended by
+    <code>view</code>. The host mounts your component inside dockview.
+  </p>
+
+  <h2>A minimal tile</h2>
+  <pre><code>{minimal}</code></pre>
+
+  <h2>Services and events</h2>
+  <table>
+    <thead>
+      <tr><th>Identifier</th><th>Kind</th><th>Provided by</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>terminal.open@1</code></td><td>service</td><td>Terminal</td></tr>
+      <tr><td><code>terminal.sessions@1</code></td><td>service</td><td>Terminal</td></tr>
+      <tr><td><code>terminal.session.closed</code></td><td>event</td><td>Terminal</td></tr>
+      <tr><td><code>markdown.open@1</code></td><td>service</td><td>Markdown</td></tr>
+      <tr><td><code>markdown.documents@1</code></td><td>service</td><td>Markdown</td></tr>
+      <tr><td><code>markdown.document.saved</code></td><td>event</td><td>Markdown</td></tr>
+      <tr><td><code>data.tables@1</code></td><td>service</td><td>Data</td></tr>
+      <tr><td><code>data.charts@1</code></td><td>service</td><td>Data</td></tr>
+      <tr><td><code>data.table.changed</code></td><td>event</td><td>Data</td></tr>
+      <tr><td><code>preview.pdf@1</code></td><td>service</td><td>Preview</td></tr>
+      <tr><td><code>spark.notifications@1</code></td><td>service</td><td>Core</td></tr>
+    </tbody>
+  </table>
+  <p>
+    <code>get</code> returns <code>undefined</code> for a missing service: you may consume one that
+    is not there. An action that declares it in <code>requires</code> is simply not offered.
+  </p>
+
+  <h2>Conventions</h2>
+  <ul>
+    <li>Prefix tile types, command ids and keys with your extension id.</li>
+    <li>Never put heavy content in a surface, a brief or an action result.</li>
+    <li>A view must survive its own errors: the tile error boundary is a safety net, not control flow.</li>
+  </ul>
+</Docs>

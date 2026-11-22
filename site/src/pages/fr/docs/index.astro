@@ -1,0 +1,104 @@
+---
+import Docs from "../../../layouts/Docs.astro";
+import { FR } from "../../../data/copy";
+
+const startup = `main.tsx
+  └─ createRuntime()
+       ├─ workspace_load / settings_load
+       ├─ new TileViews()
+       ├─ discoverExtensions(views)
+       │    ├─ manifestes et modules intégrés (import.meta.glob)
+       │    └─ extension_list → paquets importés
+       ├─ seedCoreExtensions()
+       ├─ Workspace + persistance
+       ├─ Registry
+       ├─ ExtensionManager.restore()
+       ├─ Marketplace.restore() (en arrière-plan)
+       └─ attachMcp()
+  └─ SparkShell`;
+
+const flow = `Interface ──► Runtime ──► Workspace / Registry / ExtensionManager
+                   │                    │
+                   │                    ├─ contributions (tuiles, actions, commandes)
+                   │                    └─ état par extension
+                   ▼
+              invoke Tauri ──► Rust ──► fichiers, sockets, PTY, réseau
+                   ▲
+Agent MCP ──► attachMcp ──► Runtime ──► mêmes primitives, source « agent »`;
+---
+
+<Docs
+  copy={FR}
+  title="Comment Spark fonctionne"
+  description="Les trois objets que Spark sépare — espace de travail, registre, gestionnaire d’extensions — et le chemin d’un clic jusqu’au disque."
+  slug=""
+>
+  <p class="docs__lead">
+    Spark est une application Tauri 2 : un rendu React, un backend Rust et un pont MCP local. Cette
+    page est la carte. Les suivantes détaillent une partie à la fois.
+  </p>
+
+  <h2>Trois objets, trois rôles</h2>
+  <ul>
+    <li>
+      <strong>L’espace de travail</strong> est le document : onglets, tuiles, une disposition par
+      onglet et par mode, l’onglet actif, le thème. C’est la seule vérité de ce que la fenêtre
+      affiche, et la seule chose persistée.
+    </li>
+    <li>
+      <strong>Le registre</strong> est ce que le code sait faire à cet instant : types de tuiles,
+      actions, commandes, services et événements apportés par les extensions actives. Il est
+      reconstruit à chaque activation, désactivation ou import.
+    </li>
+    <li>
+      <strong>Le gestionnaire d’extensions</strong> décide de ce qui est installé et activé. Les
+      paquets installés vivent hors du dépôt, dans le dossier de configuration de l’application.
+    </li>
+  </ul>
+
+  <h2>Couches</h2>
+  <table>
+    <thead>
+      <tr><th>Couche</th><th>Dossier</th><th>Rôle</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Contrats</td><td><code>src/sdk</code></td><td>Manifeste, SparkAPI, définitions de tuiles, actions, services, événements, contrat React.</td></tr>
+      <tr><td>Domaine</td><td><code>src/core</code></td><td>Espace de travail, journal, brief, registre des contributions, cycle de vie des extensions, persistance, réglages.</td></tr>
+      <tr><td>Application</td><td><code>src/app</code></td><td>Démarrage, découverte, chargement des paquets, marketplace, pont MCP, thème global.</td></tr>
+      <tr><td>Interface</td><td><code>src/ui</code></td><td>Fenêtre, onglets, dockview, rail, Store, splash, barrières d’erreur.</td></tr>
+      <tr><td>Extensions</td><td><code>src/extensions</code></td><td>Extensions intégrées : manifeste, module React, styles, API de coopération, médias.</td></tr>
+      <tr><td>Natif</td><td><code>src-tauri</code></td><td>Stockage disque, paquets importés, fichiers, PTY, PDF, MCP, configuration des agents.</td></tr>
+      <tr><td>Partagé</td><td><code>src/shared</code></td><td>Design system, marque, liste d’agents, utilitaires.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Démarrage</h2>
+  <pre><code>{startup}</code></pre>
+  <p>
+    Le splash reste visible au moins 1,2&nbsp;seconde. Le pont MCP est branché avant le rendu de la
+    fenêtre principale, pour qu’un agent ne voie jamais un espace à moitié construit.
+  </p>
+
+  <h2>Flux de données</h2>
+  <pre><code>{flow}</code></pre>
+  <p>
+    L’interface et les agents passent par les mêmes primitives. Seule la source du journal change :
+    <code>human</code>, <code>agent</code> ou <code>system</code>.
+  </p>
+
+  <h2>Invariants</h2>
+  <ul>
+    <li>Une session terminal meurt quand sa tuile est démontée. Le Store est donc un overlay, jamais un remplacement de l’espace.</li>
+    <li>Un onglet ouvert par un agent s’ouvre en arrière-plan et ne vole pas le focus.</li>
+    <li>Une tuile garde son identifiant et ses données quand une extension est désactivée ; seule sa vue devient indisponible.</li>
+    <li>Un résultat d’action, une surface et un brief sont bornés. Le contenu lourd reste dans la tuile.</li>
+    <li>Une extension importée s’exécute avec les privilèges de la fenêtre. Voir le <a href="/fr/docs/trust/">modèle de confiance</a>.</li>
+  </ul>
+
+  <h2>Ensuite</h2>
+  <p>
+    <a href="/fr/docs/build/">Compiler et lancer</a> pour obtenir une fenêtre, puis
+    <a href="/fr/docs/workspace/">Espace de travail</a> et <a href="/fr/docs/mcp/">Pont MCP</a>
+    pour les deux moitiés que touchent une extension ou un agent.
+  </p>
+</Docs>

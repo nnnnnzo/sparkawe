@@ -35,6 +35,21 @@ Le serveur écoute sur <http://localhost:4321>. `npm run build` exécute
 - `public/og.png` : image de partage 1200 × 630 ;
 - `public/fonts/montserrat-300.woff2` : sous-ensemble latin, servi localement.
 
+## Documentation
+
+`/docs/` (et `/fr/docs/`) est une documentation pour développeurs, en sept pages : fonctionnement,
+compilation, espace de travail, pont MCP, SDK d'extension, paquets et dépôts, modèle de confiance.
+
+- La navigation et les résumés sont dans `src/data/docs.ts` ; ajouter une page, c'est ajouter une
+  entrée dans les deux langues, puis le fichier dans `src/pages/docs/` et `src/pages/fr/docs/`.
+- Les pages utilisent `layouts/Docs.astro`, qui rend la colonne latérale, le sommaire précédent /
+  suivant et les liens `hreflang`.
+- Le contenu décrit le code réel. Quand un contrat change, mettre à jour la page ici **et** le
+  document correspondant dans `doc/` du dépôt.
+- Les blocs de code sont des constantes de frontmatter rendues dans `<pre><code>{...}</code></pre>`,
+  pour éviter d'avoir à échapper les accolades dans le template.
+- Pas de remplissage : une page dit ce que fait le code, ses limites et où regarder ensuite.
+
 ## Déploiement
 
 Projet Vercel `sparkawe`, importé depuis `nnnnnzo/sparkawe` avec **Root

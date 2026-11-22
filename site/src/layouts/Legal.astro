@@ -36,6 +36,10 @@ const home = copy.lang === "fr" ? "/fr/" : "/";
     max-width: 760px;
   }
 
+  .legal .prose {
+    margin-top: 30px;
+  }
+
   .legal__back {
     display: inline-block;
     font-family: var(--mono);
@@ -54,72 +58,4 @@ const home = copy.lang === "fr" ? "/fr/" : "/";
     margin-bottom: 14px;
   }
 
-  .prose {
-    color: var(--muted);
-    font-size: 0.95rem;
-    line-height: 1.7;
-    margin-top: 30px;
-  }
-
-  .prose :global(h2) {
-    font-size: 1.15rem;
-    letter-spacing: -0.015em;
-    color: var(--fg);
-    margin: 38px 0 12px;
-  }
-
-  .prose :global(h3) {
-    font-size: 0.98rem;
-    color: var(--fg);
-    margin: 26px 0 8px;
-  }
-
-  .prose :global(p) {
-    margin: 0 0 14px;
-  }
-
-  .prose :global(ul) {
-    margin: 0 0 16px;
-    padding-left: 18px;
-  }
-
-  .prose :global(li) {
-    margin-bottom: 8px;
-  }
-
-  .prose :global(a) {
-    color: var(--fg);
-    border-bottom: 1px solid rgba(242, 241, 236, 0.3);
-  }
-
-  .prose :global(code) {
-    color: var(--fg);
-    background: var(--tile);
-    border: 1px solid var(--line-soft);
-    border-radius: 4px;
-    padding: 1px 5px;
-  }
-
-  .prose :global(pre) {
-    background: var(--tile);
-    border: 1px solid var(--line-soft);
-    border-radius: 8px;
-    padding: 18px 20px;
-    overflow-x: auto;
-    color: var(--muted);
-    font-size: 0.8rem;
-    line-height: 1.75;
-  }
-
-  .prose :global(pre code) {
-    background: none;
-    border: 0;
-    padding: 0;
-  }
-
-  .prose :global(hr) {
-    border: 0;
-    border-top: 1px solid var(--line-soft);
-    margin: 34px 0;
-  }
 </style>

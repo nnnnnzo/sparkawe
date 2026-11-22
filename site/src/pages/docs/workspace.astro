@@ -1,0 +1,129 @@
+---
+import Docs from "../../layouts/Docs.astro";
+import { EN } from "../../data/copy";
+
+const model = `interface WorkspaceState {
+  version: 1;
+  active: string;                 // active tab id
+  tabs: Tab[];
+  pinned: string[] | null;        // null = every extension pinned
+  installedExtensions?: string[];
+  seededCore?: string[];
+  extensions?: Record<string, unknown>; // state saved by each extension
+  theme: "dark" | "light" | "transparent";
+}
+
+type Mode = "side" | "tiling" | "stack";
+
+interface Tab {
+  id: string;
+  name: string;
+  mode: Mode;
+  tiles: Tile[];
+  layouts: Partial<Record<Mode, unknown>>;
+  focused?: string;
+}
+
+interface Tile {
+  id: string;
+  type: string;
+  data: Record<string, string>;
+}`;
+
+const files = `~/Library/Application Support/fr.spark.desktop/
+  workspace-v1.json      tabs, tiles, layouts, extension state, theme
+  workspace-recovery.json backup written on an invalid-format recovery
+  settings-v1.json       { "dev": boolean }
+  extensions.json        installed packages, versions, registry sources
+  extensions/<id>/<version>/
+  markdown-access.json   tokens for allowed Markdown files
+  explorer-access.json   tokens for allowed folders
+  run/mcp.sock           MCP socket
+  run/tools.json         tool list cache for the bridge
+  ~/Library/Caches/fr.spark.desktop/pdf/<id>.pdf`;
+---
+
+<Docs
+  copy={EN}
+  title="Workspace"
+  description="Tabs, tiles, the three layout modes, the journal, the brief and the files persisted on disk."
+  slug="workspace"
+>
+  <p class="docs__lead">
+    The workspace is a plain serialisable document. Everything the window shows is derived from
+    it, and everything an agent reads is a bounded summary of it.
+  </p>
+
+  <h2>Model</h2>
+  <pre><code>{model}</code></pre>
+  <ul>
+    <li><code>Tile.data</code> holds strings only, so the whole document stays serialisable and bounded.</li>
+    <li><code>extensions</code> is keyed by extension id; it stores whatever the extension saved through <code>api.state.save()</code>.</li>
+    <li>Installed packages and registry sources are <em>not</em> in the workspace: they live in <code>extensions.json</code>.</li>
+  </ul>
+
+  <h2>Three layout modes</h2>
+  <ul>
+    <li><strong>Side</strong> — tiles next to each other.</li>
+    <li><strong>Tiling</strong> — free dockview layout: drag a tab to an edge to split, to the centre to group, drag a separator to resize.</li>
+    <li><strong>Stack</strong> — tiles stacked vertically.</li>
+  </ul>
+  <p>
+    Each tab keeps one layout per mode, so switching modes never recreates a tile — which matters,
+    because a terminal session dies with its tile.
+  </p>
+
+  <h2>Tile lifecycle</h2>
+  <ul>
+    <li><code>prepare(data)</code> normalises the initial data when a tile is opened.</li>
+    <li><code>dataKeys</code> restricts which keys the tile accepts.</li>
+    <li><code>describe(tile, surface)</code> returns a one-line summary for the brief; it must not throw.</li>
+    <li><code>canClose(tile, closing)</code> can refuse a close, for instance when a document is unsaved.</li>
+    <li><code>close(tile)</code> releases what the tile holds: a session, a file, a listener.</li>
+  </ul>
+  <p>
+    Disabling an extension removes it from <code>installedExtensions</code> but leaves its tiles in
+    the workspace; their view becomes unavailable. Re-enabling restores them with their data
+    intact.
+  </p>
+
+  <h2>Journal</h2>
+  <p>
+    <code>src/core/journal.ts</code> keeps 512 entries in memory. Each entry carries
+    <code>seq</code>, <code>at</code>, <code>source</code> (<code>human</code>,
+    <code>agent</code> or <code>system</code>), a <code>kind</code>, and optionally
+    <code>tabId</code>, <code>tileId</code> and <code>data</code>.
+  </p>
+  <p>
+    The journal does not replace the state: it recounts changes. It is bounded by
+    <code>summarize</code> — strings cut at 160 characters, depth 2 — so a log entry can never
+    carry a document or a terminal output.
+  </p>
+  <p>An agent resumes from a sequence number with <code>spark_events_since</code>.</p>
+
+  <h2>Brief</h2>
+  <p>
+    <code>src/core/brief.ts</code> builds a summary of a tab: its tiles, their titles, their
+    <code>describe</code> lines, recent events and the other tabs. The whole text is capped at
+    1,400 characters and each summary at 120. Noisy events such as
+    <code>tile.focus</code> and <code>tab.reorder</code> are filtered out.
+  </p>
+
+  <h2>Persistence</h2>
+  <pre><code>{files}</code></pre>
+  <ul>
+    <li><code>workspace-v1.json</code> is written after a 180&nbsp;ms debounce.</li>
+    <li>Writes are serialised: an older write can never overwrite a newer one.</li>
+    <li>On an invalid format, the runtime starts from a fresh workspace and marks <code>recovery</code>; the first save copies the old file to <code>workspace-recovery.json</code> instead of destroying it.</li>
+    <li>Closing the window waits for <code>persistence.flush()</code> before destroying it.</li>
+    <li>The pre-rename <code>fr.lab.desktop</code> folder is adopted on first launch without overwriting existing files.</li>
+  </ul>
+
+  <h2>Undo</h2>
+  <p>
+    <kbd>⌘Z</kbd> and <kbd>⇧⌘Z</kbd> undo and redo layout operations: moves and resizes, including
+    the ones an agent performed through <code>spark_tile_move</code> and
+    <code>spark_tile_resize</code>. History is per tab and per mode, and never touches tile
+    content.
+  </p>
+</Docs>

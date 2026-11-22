@@ -21,6 +21,7 @@ export interface Copy {
     interaction: string;
     extensions: string;
     status: string;
+    docs: string;
     github: string;
     download: string;
     menu: string;
@@ -122,6 +123,7 @@ export const EN: Copy = {
     interaction: "Interaction",
     extensions: "Extensions",
     status: "Status",
+    docs: "Docs",
     github: "GitHub",
     download: "Get Spark",
     menu: "Menu",
@@ -222,7 +224,7 @@ export const EN: Copy = {
     ],
     configTitle: "Point a client at Spark",
     configNote:
-      "Settings › Connect an agent… shows the absolute path and writes the client's config for you.",
+      "The gear menu at the bottom of the rail opens Connect an agent…: absolute path, configuration to paste, and a copy button.",
     limitsTitle: "What an agent cannot do",
     limits: [
       "Read or write the terminal: no MCP action touches a PTY's content.",
@@ -345,7 +347,7 @@ export const EN: Copy = {
       { label: "Run the app", command: "npm run tauri -- dev" },
     ],
     note:
-      "Then open Settings › Connect an agent… to wire Claude Code, Codex or another MCP client.",
+      "Spark's settings menu, at the bottom of the rail, shows the bridge path and the client configuration to paste. When an agent runs in a terminal, Spark also offers to configure it in one click.",
     git: "Remote",
     license: "Licence",
   },
@@ -364,6 +366,7 @@ export const EN: Copy = {
     projectLinks: [
       { label: "GitHub", href: "https://github.com/nnnnnzo/sparkawe" },
       { label: "Issues", href: "https://github.com/nnnnnzo/sparkawe/issues" },
+      { label: "Documentation", href: "/docs/" },
       { label: "Architecture", href: "https://github.com/nnnnnzo/sparkawe/tree/main/doc" },
       { label: "Brand", href: "https://github.com/nnnnnzo/sparkawe/tree/main/brand" },
     ],
@@ -394,6 +397,7 @@ export const FR: Copy = {
     interaction: "Interaction",
     extensions: "Extensions",
     status: "État",
+    docs: "Docs",
     github: "GitHub",
     download: "Obtenir Spark",
     menu: "Menu",
@@ -494,7 +498,7 @@ export const FR: Copy = {
     ],
     configTitle: "Brancher un client sur Spark",
     configNote:
-      "Réglages › Connecter un agent… affiche le chemin absolu et écrit la configuration du client.",
+      "L'engrenage en bas du rail ouvre Connecter un agent… : chemin absolu, configuration à coller et bouton pour copier.",
     limitsTitle: "Ce qu’un agent ne peut pas faire",
     limits: [
       "Lire ou écrire le terminal : aucune action MCP ne touche au contenu d’un PTY.",
@@ -618,7 +622,7 @@ export const FR: Copy = {
       { label: "Lancer l’application", command: "npm run tauri -- dev" },
     ],
     note:
-      "Ensuite, Réglages › Connecter un agent… pour brancher Claude Code, Codex ou un autre client MCP.",
+      "Le menu Paramètres, en bas du rail, affiche le chemin du pont et la configuration client à coller. Quand un agent tourne dans un terminal, Spark propose aussi de le configurer en un clic.",
     git: "Dépôt",
     license: "Licence",
   },
@@ -637,6 +641,7 @@ export const FR: Copy = {
     projectLinks: [
       { label: "GitHub", href: "https://github.com/nnnnnzo/sparkawe" },
       { label: "Tickets", href: "https://github.com/nnnnnzo/sparkawe/issues" },
+      { label: "Documentation", href: "/fr/docs/" },
       { label: "Architecture", href: "https://github.com/nnnnnzo/sparkawe/tree/main/doc" },
       { label: "Marque", href: "https://github.com/nnnnnzo/sparkawe/tree/main/brand" },
     ],

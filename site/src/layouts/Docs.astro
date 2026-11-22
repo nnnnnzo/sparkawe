@@ -1,0 +1,108 @@
+---
+import Base from "./Base.astro";
+import { DOC_GROUPS, docHref, docItems } from "../data/docs";
+import type { Copy } from "../data/copy";
+
+interface Props {
+  copy: Copy;
+  title: string;
+  description: string;
+  /** Segment d'URL, vide pour la page d'accueil de la doc. */
+  slug: string;
+}
+
+const { copy, title, description, slug } = Astro.props;
+const lang = copy.lang;
+const groups = DOC_GROUPS[lang];
+const items = docItems(lang);
+const index = items.findIndex((item) => item.slug === slug);
+const previous = index > 0 ? items[index - 1] : null;
+const next = index >= 0 && index < items.length - 1 ? items[index + 1] : null;
+const path = docHref(lang, slug);
+const altPath = docHref(lang === "fr" ? "en" : "fr", slug);
+const labels = {
+  previous: lang === "fr" ? "Précédent" : "Previous",
+  next: lang === "fr" ? "Suivant" : "Next",
+  back: lang === "fr" ? "Toute la documentation" : "All documentation",
+  repo: lang === "fr" ? "Documents du dépôt" : "Repository documents",
+  source: lang === "fr" ? "Source de vérité" : "Source of truth",
+};
+---
+
+<Base
+  copy={copy}
+  title={`${title} — Spark docs`}
+  description={description}
+  path={path}
+  altPath={altPath}
+  altLang={lang === "fr" ? "en" : "fr"}
+>
+  <div class="wrap docs">
+    <aside class="docs__side">
+      <p class="docs__label">Documentation</p>
+      {
+        groups.map((group) => (
+          <div class="docs__group">
+            <p class="docs__group-title">{group.title}</p>
+            <ul>
+              {group.items.map((item) => (
+                <li>
+                  <a
+                    href={docHref(lang, item.slug)}
+                    aria-current={item.slug === slug ? "page" : undefined}
+                  >
+                    {item.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+      <div class="docs__group">
+        <p class="docs__group-title">{labels.source}</p>
+        <ul>
+          <li>
+            <a href="https://github.com/nnnnnzo/sparkawe/tree/main/doc" rel="noreferrer">doc/</a>
+          </li>
+        </ul>
+      </div>
+    </aside>
+
+    <article class="docs__body">
+      <h1>{title}</h1>
+      <div class="prose">
+        <slot />
+      </div>
+
+      <nav class="docs__pager" aria-label="Documentation">
+        {
+          previous ? (
+            <a href={docHref(lang, previous.slug)}>
+              <span>{labels.previous}</span>
+              {previous.title}
+            </a>
+          ) : (
+            <a href={docHref(lang, "")}>
+              <span>{labels.back}</span>
+              {DOC_GROUPS[lang][0].items[0].title}
+            </a>
+          )
+        }
+        {
+          next ? (
+            <a class="next" href={docHref(lang, next.slug)}>
+              <span>{labels.next}</span>
+              {next.title}
+            </a>
+          ) : (
+            <a class="next" href={lang === "fr" ? "/fr/" : "/"}>
+              <span>{lang === "fr" ? "Retour" : "Back"}</span>
+              {lang === "fr" ? "Accueil" : "Home"}
+            </a>
+          )
+        }
+      </nav>
+    </article>
+  </div>
+</Base>

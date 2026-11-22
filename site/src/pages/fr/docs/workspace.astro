@@ -1,0 +1,128 @@
+---
+import Docs from "../../../layouts/Docs.astro";
+import { FR } from "../../../data/copy";
+
+const model = `interface WorkspaceState {
+  version: 1;
+  active: string;                 // id de l'onglet actif
+  tabs: Tab[];
+  pinned: string[] | null;        // null = toutes les extensions épinglées
+  installedExtensions?: string[];
+  seededCore?: string[];
+  extensions?: Record<string, unknown>; // état sauvegardé par chaque extension
+  theme: "dark" | "light" | "transparent";
+}
+
+type Mode = "side" | "tiling" | "stack";
+
+interface Tab {
+  id: string;
+  name: string;
+  mode: Mode;
+  tiles: Tile[];
+  layouts: Partial<Record<Mode, unknown>>;
+  focused?: string;
+}
+
+interface Tile {
+  id: string;
+  type: string;
+  data: Record<string, string>;
+}`;
+
+const files = `~/Library/Application Support/fr.spark.desktop/
+  workspace-v1.json      onglets, tuiles, dispositions, état, thème
+  workspace-recovery.json copie écrite lors d'une reprise de format invalide
+  settings-v1.json       { "dev": boolean }
+  extensions.json        paquets installés, versions, sources de dépôt
+  extensions/<id>/<version>/
+  markdown-access.json   jetons des fichiers Markdown autorisés
+  explorer-access.json   jetons des dossiers autorisés
+  run/mcp.sock           socket MCP
+  run/tools.json         cache de la liste d'outils pour le pont
+  ~/Library/Caches/fr.spark.desktop/pdf/<id>.pdf`;
+---
+
+<Docs
+  copy={FR}
+  title="Espace de travail"
+  description="Onglets, tuiles, les trois modes de disposition, le journal, le brief et les fichiers persistés."
+  slug="workspace"
+>
+  <p class="docs__lead">
+    L’espace de travail est un document sérialisable ordinaire. Tout ce que la fenêtre affiche en
+    dérive, et tout ce qu’un agent lit en est un résumé borné.
+  </p>
+
+  <h2>Modèle</h2>
+  <pre><code>{model}</code></pre>
+  <ul>
+    <li><code>Tile.data</code> ne contient que des chaînes : le document reste sérialisable et borné.</li>
+    <li><code>extensions</code> est indexé par identifiant d’extension et contient ce que l’extension a enregistré via <code>api.state.save()</code>.</li>
+    <li>Les paquets installés et les sources de dépôt ne sont <em>pas</em> dans l’espace : ils vivent dans <code>extensions.json</code>.</li>
+  </ul>
+
+  <h2>Trois modes</h2>
+  <ul>
+    <li><strong>Side</strong> — les tuiles côte à côte.</li>
+    <li><strong>Tiling</strong> — disposition libre dockview : glisser un onglet sur un bord divise, au centre regroupe, glisser un séparateur redimensionne.</li>
+    <li><strong>Stack</strong> — les tuiles empilées verticalement.</li>
+  </ul>
+  <p>
+    Chaque onglet garde une disposition par mode : changer de mode ne recrée jamais une tuile, ce
+    qui compte puisqu’une session terminal meurt avec sa tuile.
+  </p>
+
+  <h2>Cycle de vie d’une tuile</h2>
+  <ul>
+    <li><code>prepare(data)</code> normalise les données initiales à l’ouverture.</li>
+    <li><code>dataKeys</code> limite les clés acceptées.</li>
+    <li><code>describe(tile, surface)</code> renvoie un résumé d’une ligne pour le brief ; il ne doit pas lever.</li>
+    <li><code>canClose(tile, closing)</code> peut refuser une fermeture, par exemple pour un document non enregistré.</li>
+    <li><code>close(tile)</code> libère ce que la tuile détient : session, fichier, écouteur.</li>
+  </ul>
+  <p>
+    Désactiver une extension la retire de <code>installedExtensions</code> mais laisse ses tuiles
+    dans l’espace ; leur vue devient indisponible. La réactivation les restaure avec leurs données.
+  </p>
+
+  <h2>Journal</h2>
+  <p>
+    <code>src/core/journal.ts</code> garde 512 entrées en mémoire. Chaque entrée porte
+    <code>seq</code>, <code>at</code>, <code>source</code> (<code>human</code>,
+    <code>agent</code> ou <code>system</code>), un <code>kind</code> et éventuellement
+    <code>tabId</code>, <code>tileId</code> et <code>data</code>.
+  </p>
+  <p>
+    Le journal ne remplace pas l’état : il raconte les changements. Il est borné par
+    <code>summarize</code> — chaînes coupées à 160 caractères, profondeur 2 — pour qu’une entrée ne
+    transporte jamais un document ou une sortie de terminal.
+  </p>
+  <p>Un agent reprend depuis un numéro de séquence avec <code>spark_events_since</code>.</p>
+
+  <h2>Brief</h2>
+  <p>
+    <code>src/core/brief.ts</code> construit un résumé d’un onglet : ses tuiles, leurs titres,
+    leurs lignes <code>describe</code>, les événements récents et les autres onglets. Le texte est
+    plafonné à 1 400 caractères et chaque résumé à 120. Les événements bruyants comme
+    <code>tile.focus</code> et <code>tab.reorder</code> sont filtrés.
+  </p>
+
+  <h2>Persistance</h2>
+  <pre><code>{files}</code></pre>
+  <ul>
+    <li><code>workspace-v1.json</code> est écrit après un debounce de 180&nbsp;ms.</li>
+    <li>Les écritures sont sérialisées : une écriture plus ancienne ne peut jamais écraser une plus récente.</li>
+    <li>Sur un format invalide, le runtime repart d’un espace neuf et marque <code>recovery</code> ; la première sauvegarde copie l’ancien fichier dans <code>workspace-recovery.json</code> au lieu de le détruire.</li>
+    <li>La fermeture de la fenêtre attend <code>persistence.flush()</code> avant de la détruire.</li>
+    <li>Le dossier <code>fr.lab.desktop</code> d’avant le renommage est repris au premier lancement, sans écraser les fichiers existants.</li>
+  </ul>
+
+  <h2>Annuler</h2>
+  <p>
+    <kbd>⌘Z</kbd> et <kbd>⇧⌘Z</kbd> annulent et rétablissent les opérations de disposition :
+    déplacements et redimensionnements, y compris ceux qu’un agent a lancés via
+    <code>spark_tile_move</code> et <code>spark_tile_resize</code>. L’historique est propre à
+    l’onglet et au mode, et ne touche jamais au contenu des tuiles.
+  </p>
+</Docs>

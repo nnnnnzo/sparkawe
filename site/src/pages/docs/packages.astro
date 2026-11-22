@@ -1,0 +1,186 @@
+---
+import Docs from "../../layouts/Docs.astro";
+import { EN } from "../../data/copy";
+
+const layout = `extension.json
+index.js           # classic script, not an ES module
+style.css          # optional
+icon.svg           # optional, used as a tinted mask
+media/1.webp       # optional captures, 16:9, 1280×720`;
+
+const json = `{
+  "schema": 2,
+  "id": "demo.hello",
+  "name": "Hello",
+  "version": "0.1.0",
+  "subtitle": "Demo tile",
+  "summary": "Shows a message in a tile.",
+  "description": "Optional long description.",
+  "category": "Demo",
+  "icon": "icon.svg",
+  "color": "#769ac8",
+  "entry": "index.js",
+  "style": "style.css",
+  "tileTypes": ["demo.hello.tile"],
+  "screenshots": ["media/1.webp"],
+  "engine": { "spark": ">=0.1" }
+}`;
+
+const bundle = `(function () {
+  const extensions = (window.SparkExtensions = window.SparkExtensions || {});
+
+  extensions["demo.hello"] = function (runtime) {
+    const React = runtime.React;
+
+    function HelloTile() {
+      return React.createElement("div", null, "Hello");
+    }
+
+    return {
+      activate(api) {
+        api.tiles.register({
+          type: "demo.hello.tile",
+          title: "Hello",
+          view: HelloTile,
+        });
+        api.commands.register({
+          id: "demo.hello.open",
+          title: "Open Hello",
+          tileType: "demo.hello.tile",
+          run: () => api.tabs.openTile("demo.hello.tile"),
+        });
+      },
+    };
+  };
+})();`;
+
+const pipeline = `registry_fetch(url)
+  → download zip (30 MiB max)
+  → compare SHA-256
+  → bounded extraction
+  → validate extension.json
+  → staging → extensions/<id>/<version>/
+  → extensions.json (version, path, source)
+  → ExtensionManager.addEntry
+  → activation`;
+
+const index = `{
+  "schema": 1,
+  "name": "My registry",
+  "updatedAt": "2026-11-21T22:00:00Z",
+  "extensions": [{
+    "id": "demo.hello",
+    "name": "Hello",
+    "publisher": "Demo",
+    "summary": "One line about the extension.",
+    "category": "Demo",
+    "versions": [{
+      "version": "0.3.0",
+      "url": "https://…/hello-0.3.0.zip",
+      "sha256": "…",
+      "size": 1307,
+      "engine": ">=0.1",
+      "publishedAt": "2026-11-21T22:00:00Z"
+    }]
+  }]
+}`;
+---
+
+<Docs
+  copy={EN}
+  title="Packages and registries"
+  description="The extension.json contract, the classic-script bundle, size limits, the install pipeline and the registry index."
+  slug="packages"
+>
+  <p class="docs__lead">
+    A package is a folder or a zip with a manifest, a script and optional assets. A registry is a
+    static JSON index pointing at zipped versions. Nothing is installed automatically.
+  </p>
+
+  <h2>Package layout</h2>
+  <pre><code>{layout}</code></pre>
+
+  <h2>extension.json</h2>
+  <pre><code>{json}</code></pre>
+  <ul>
+    <li><code>schema</code> must be <code>2</code>.</li>
+    <li><code>id</code>: at least two segments, lowercase letters, digits and dashes; <code>spark.*</code> and <code>official.*</code> are reserved; 64 characters max.</li>
+    <li><code>version</code>: numeric <code>x.y.z</code>. <code>name</code>: 1 to 80 characters.</li>
+    <li><code>entry</code>: an existing relative <code>.js</code> or <code>.mjs</code> file. <code>style</code>: an existing relative <code>.css</code> file.</li>
+    <li><code>icon</code>: an existing relative <code>.svg</code> file, 32 KiB max. <code>color</code>: <code>#rrggbb</code> or <code>#rgb</code>; CSS names and <code>rgb()</code> are refused.</li>
+    <li><code>tileTypes</code>: 1 to 20 types, each prefixed by <code>&lt;id&gt;.</code>, unique.</li>
+    <li><code>screenshots</code>: 0 to 8 existing <code>.webp</code>, <code>.png</code>, <code>.jpg</code> or <code>.jpeg</code> files.</li>
+    <li><code>certification</code> is refused in an imported package. <code>summary</code> is capped at 400 characters, <code>description</code> at 4,000.</li>
+    <li>Absolute paths, <code>..</code>, backslashes and symbolic links are refused. <code>.git</code> and <code>node_modules</code> are skipped.</li>
+  </ul>
+
+  <h2>Icon and tint</h2>
+  <p>
+    The icon is a <strong>CSS mask</strong>, never interpreted markup: the SVG provides the alpha,
+    the colour comes from <code>currentColor</code>. No script in the file runs, and the icon takes
+    the extension's colour in the Store, the rail and the tab bar.
+  </p>
+  <p>
+    Consequence: Spark cannot re-apply a stroke width. Draw the SVG in a 24 viewBox with
+    <code>fill="none"</code>, <code>stroke="currentColor"</code>, <code>stroke-width="1.7"</code>,
+    and check it at 16&nbsp;px.
+  </p>
+
+  <h2>Bundle</h2>
+  <pre><code>{bundle}</code></pre>
+  <ul>
+    <li>The host exposes <code>window.SparkRuntime = &#123; React, jsxRuntime &#125;</code> and passes the same runtime to your factory.</li>
+    <li>Never import React as a bare module: use the host runtime.</li>
+    <li>The package has no dedicated Tauri API. It shares the main window and its global APIs.</li>
+  </ul>
+
+  <h2>Limits</h2>
+  <table>
+    <thead>
+      <tr><th>Limit</th><th>Value</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Manifest</td><td>256 KiB</td></tr>
+      <tr><td>Files</td><td>400</td></tr>
+      <tr><td>Uncompressed size</td><td>25 MiB</td></tr>
+      <tr><td>Directory depth</td><td>8</td></tr>
+      <tr><td>Tile types</td><td>20</td></tr>
+      <tr><td>Icon</td><td>32 KiB</td></tr>
+      <tr><td>Screenshots</td><td>8</td></tr>
+      <tr><td>Downloaded zip</td><td>30 MiB</td></tr>
+      <tr><td>Registry index</td><td>2 MiB</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Install</h2>
+  <pre><code>{pipeline}</code></pre>
+  <p>
+    A download, checksum, extraction or manifest error leaves the previous installation intact.
+    State is written to <code>extensions.json</code> with <code>version</code>,
+    <code>path</code> and <code>source</code> (absent for a local import). A new version goes into a
+    new folder; the old folder is not deleted automatically.
+  </p>
+
+  <h2>Registry index</h2>
+  <pre><code>{index}</code></pre>
+  <ul>
+    <li>A source is an HTTPS URL to a static JSON file. Up to 20 sources, saved in <code>extensions.json</code>.</li>
+    <li>In release, only HTTPS is accepted; in debug, <code>http://127.0.0.1</code> and <code>http://localhost</code> are allowed.</li>
+    <li>Indexes are not cached on disk: refresh reloads them, a restart asks again.</li>
+    <li>The latest version is chosen by numeric comparison of <code>x.y.z</code>. A version must provide <code>version</code>, <code>url</code> and <code>sha256</code>.</li>
+    <li>The backend only enforces <code>schema: 1</code> and an <code>extensions</code> array; the front normalises entries and drops invalid ones.</li>
+  </ul>
+
+  <h2>Update</h2>
+  <ol>
+    <li>The registry publishes a higher version.</li>
+    <li><strong>Check</strong> reloads the index.</li>
+    <li><strong>Update</strong> downloads the zip and verifies its checksum.</li>
+    <li>The active extension is disabled, the new version installed, then reactivated.</li>
+    <li>Tiles and extension state are preserved.</li>
+  </ol>
+  <p>
+    There is no automatic installation and no stable/beta channel yet. Built-in extensions are
+    never updated from a registry.
+  </p>
+</Docs>

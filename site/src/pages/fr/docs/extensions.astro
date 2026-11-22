@@ -1,0 +1,201 @@
+---
+import Docs from "../../../layouts/Docs.astro";
+import { FR } from "../../../data/copy";
+
+const manifest = `interface Manifest {
+  id: string;              // stable, préfixé : "demo.hello"
+  name: string;
+  version: string;         // x.y.z
+  icon?: IconComponent;    // composant Lucide pour les intégrées
+  color?: string;          // teinte spectrale
+  tier?: "core" | "official" | "community";
+  tileTypes?: readonly string[];
+  summary?: string;
+  description?: string;
+  category?: string;
+  subtitle?: string;
+  screenshots?: readonly string[];
+  certification?: "spark";
+}`;
+
+const api = `interface SparkAPI {
+  state: {
+    read(): unknown;
+    save(value: unknown): void;          // JSON, isolé par identifiant d'extension
+  };
+  tiles: {
+    register(definition: TileDefinition): Dispose;
+    publish(tileId: string, surface: TileSurface): void; // ≤ 2 000 caractères, non persisté
+  };
+  commands: { register(command: Command): Dispose };
+  services: {
+    provide<T>(key: ServiceKey<T>, service: T): Dispose;
+    get<T>(key: ServiceKey<T>): T | undefined;
+  };
+  events: {
+    on<T>(key: EventKey<T>, listener: (value: T) => void): Dispose;
+    emit<T>(key: EventKey<T>, value: T): void;
+  };
+  tabs: {
+    openTile(type: string, data?: Data, alongside?: string): Tile;
+    focusTile(id: string): void;
+    updateTileData(id: string, data: Data): void;
+    getTiles(): Tile[];
+    getAllTiles(): Tile[];
+    getFocusedTile(): Tile | undefined;
+  };
+}`;
+
+const tile = `interface TileDefinition {
+  type: string;                 // "demo.hello.tile"
+  title: string;
+  icon?: IconComponent;
+  dataKeys?: readonly string[];
+  guide?: string;               // ≤ 1 200 caractères, livré une fois par session
+  prepare?(data: Data): Data;
+  describe?(tile: Tile, surface: TileSurface): string;
+  actions?: Record<string, TileAction>;
+  canClose?(tile: Tile, closing: ReadonlySet<string>): boolean | Promise<boolean>;
+  close?(tile: Tile): void | Promise<void>;
+}`;
+
+const action = `interface TileAction {
+  title: string;
+  description?: string;
+  input?: Record<string, ActionField>;   // string | number | boolean
+  requires?: readonly ServiceKey<unknown>[];
+  mutates?: boolean | ((tile: Tile) => boolean);
+  run(tile: Tile, input: Record<string, ActionValue>): unknown | Promise<unknown>;
+}`;
+
+const command = `interface Command {
+  id: string;
+  title: string;
+  icon?: IconComponent;
+  category?: string;
+  tileType?: string;        // apparaît aussi dans le rail si épinglée
+  keywords?: string[];
+  dev?: boolean;            // mode développeur uniquement
+  run(): unknown | Promise<unknown>;
+}`;
+
+const view = `type TileView = React.ComponentType<{ tile: Tile; active: boolean }>;
+
+interface ExtensionModule {
+  activate(api: ExtensionAPI): void | Promise<void>;
+  deactivate?(): void | Promise<void>;
+}`;
+
+const minimal = `import type { ExtensionModule } from "../../sdk";
+
+export default function createHello(): ExtensionModule {
+  return {
+    activate(api) {
+      api.tiles.register({
+        type: "demo.hello.tile",
+        title: "Hello",
+        dataKeys: ["name"],
+        guide: "Tuile de démonstration. Aucune action.",
+        view: ({ tile }) => <p>Bonjour {tile.data.name ?? "le monde"}</p>,
+      });
+    },
+  };
+}`;
+---
+
+<Docs
+  copy={FR}
+  title="SDK d’extension"
+  description="Manifeste, définition de tuile, actions typées, commandes, services et une tuile React minimale."
+  slug="extensions"
+>
+  <p class="docs__lead">
+    Une tuile, c’est un composant React et un contrat. Le contrat est ce que voit un agent : un
+    titre, un guide court, une description d’une ligne et des actions typées qu’il peut appeler.
+  </p>
+
+  <h2>Manifeste</h2>
+  <pre><code>{manifest}</code></pre>
+  <p>
+    Les extensions intégrées exportent cet objet depuis <code>manifest.ts</code>. Les paquets
+    importés utilisent un <code>extension.json</code> sérialisable, converti vers la même forme ;
+    voir <a href="/fr/docs/packages/">Paquets et dépôts</a>.
+  </p>
+
+  <h2>API</h2>
+  <pre><code>{api}</code></pre>
+  <ul>
+    <li><code>state</code> est isolé par identifiant d’extension et sérialisé en JSON.</li>
+    <li><code>publish</code> alimente le brief et les lectures ciblées. C’est un résumé, jamais du contenu.</li>
+    <li><code>services</code> et <code>events</code> sont globaux au registre ; chaque contribution est retirée au <code>deactivate</code>.</li>
+    <li><code>tabs.openTile</code> applique le <code>prepare</code> du type de tuile et ajoute la tuile à l’onglet demandé.</li>
+  </ul>
+
+  <h2>Tuile</h2>
+  <pre><code>{tile}</code></pre>
+  <p>
+    <code>guide</code> est un mode d’emploi pour un agent, pas du marketing. Il est plafonné à
+    1 200 caractères et livré une seule fois par session.
+  </p>
+
+  <h2>Action</h2>
+  <pre><code>{action}</code></pre>
+  <p>Le registre applique, à l’appel :</p>
+  <ul>
+    <li>nom d’action conforme à <code>^[a-z][a-z0-9_.-]*$</code>, champ conforme à <code>^[a-z][a-zA-Z0-9_]*$</code> ;</li>
+    <li>entrées <code>string</code>, <code>number</code> ou <code>boolean</code> uniquement ; un argument inconnu, manquant ou mal typé est refusé ;</li>
+    <li>nombres finis, enum respecté ;</li>
+    <li>résultat JSON plafonné à 16 000 caractères ;</li>
+    <li>une action avec <code>requires</code> est masquée si le service manque ;</li>
+    <li><code>mutates</code> est signalé au client MCP, qui décide de demander confirmation.</li>
+  </ul>
+
+  <h2>Commande</h2>
+  <pre><code>{command}</code></pre>
+  <p>
+    Une commande avec <code>tileType</code> apparaît dans le rail quand elle est épinglée, et dans
+    <kbd>⌘K</kbd>. Une commande <code>dev</code> n’apparaît qu’en mode développeur.
+  </p>
+
+  <h2>Vue</h2>
+  <pre><code>{view}</code></pre>
+  <p>
+    <code>ExtensionAPI</code> est <code>SparkAPI</code> avec <code>tiles.register</code> enrichi de
+    <code>view</code>. L’hôte monte votre composant dans dockview.
+  </p>
+
+  <h2>Une tuile minimale</h2>
+  <pre><code>{minimal}</code></pre>
+
+  <h2>Services et événements</h2>
+  <table>
+    <thead>
+      <tr><th>Identifiant</th><th>Type</th><th>Fourni par</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>terminal.open@1</code></td><td>service</td><td>Terminal</td></tr>
+      <tr><td><code>terminal.sessions@1</code></td><td>service</td><td>Terminal</td></tr>
+      <tr><td><code>terminal.session.closed</code></td><td>événement</td><td>Terminal</td></tr>
+      <tr><td><code>markdown.open@1</code></td><td>service</td><td>Markdown</td></tr>
+      <tr><td><code>markdown.documents@1</code></td><td>service</td><td>Markdown</td></tr>
+      <tr><td><code>markdown.document.saved</code></td><td>événement</td><td>Markdown</td></tr>
+      <tr><td><code>data.tables@1</code></td><td>service</td><td>Données</td></tr>
+      <tr><td><code>data.charts@1</code></td><td>service</td><td>Données</td></tr>
+      <tr><td><code>data.table.changed</code></td><td>événement</td><td>Données</td></tr>
+      <tr><td><code>preview.pdf@1</code></td><td>service</td><td>Aperçu</td></tr>
+      <tr><td><code>spark.notifications@1</code></td><td>service</td><td>Noyau</td></tr>
+    </tbody>
+  </table>
+  <p>
+    <code>get</code> renvoie <code>undefined</code> pour un service absent : vous pouvez en
+    consommer un qui n’est pas là. Une action qui le déclare dans <code>requires</code> n’est
+    simplement pas proposée.
+  </p>
+
+  <h2>Conventions</h2>
+  <ul>
+    <li>Préfixer les types de tuiles, les identifiants de commandes et les clés par l’identifiant de l’extension.</li>
+    <li>Ne jamais mettre de contenu lourd dans une surface, un brief ou un résultat d’action.</li>
+    <li>Une vue doit survivre à ses propres erreurs : la barrière de tuile est un filet, pas un contrôle de flux.</li>
+  </ul>
+</Docs>

@@ -1,0 +1,92 @@
+---
+import Docs from "../../../layouts/Docs.astro";
+import { FR } from "../../../data/copy";
+
+const dev = `npm ci                    # installe depuis le verrou
+npm run tauri -- dev      # l'application, avec Vite sur 127.0.0.1:1420
+npm run dev               # Vite seul, pour ouvrir le rendu dans un navigateur
+npm run sidecar           # reconstruit le pont MCP (debug)`;
+
+const checks = `npm run typecheck
+npm run lint
+npm test
+
+cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+cargo test --manifest-path src-tauri/Cargo.toml --lib
+cargo build --manifest-path src-tauri/Cargo.toml --no-default-features`;
+
+const release = `npm run sidecar:release
+npm run tauri -- build --bundles dmg`;
+---
+
+<Docs
+  copy={FR}
+  title="Compiler et lancer"
+  description="Prérequis, commandes de développement, vérifications avant de rendre, et reconstruction du pont MCP."
+  slug="build"
+>
+  <p class="docs__lead">
+    Tout part des sources. Il n’y a ni binaire, ni installeur, ni canal de mise à jour aujourd’hui :
+    c’est donc aussi le chemin d’installation.
+  </p>
+
+  <h2>Prérequis</h2>
+  <ul>
+    <li>macOS, Apple silicon ou Intel.</li>
+    <li>Node.js 22.18 ou plus récent, avec npm.</li>
+    <li>Une chaîne Rust, installée avec rustup.</li>
+    <li>Les outils en ligne de commande de Xcode.</li>
+  </ul>
+
+  <h2>Développement</h2>
+  <pre><code>{dev}</code></pre>
+  <ul>
+    <li><code>npm run tauri -- dev</code> est la boucle normale : Vite démarre sur le port 1420 et la fenêtre Tauri s’ouvre.</li>
+    <li>Un changement Rust déclenche un rebuild et un redémarrage de la fenêtre ; l’espace est restauré au lancement suivant.</li>
+    <li><code>npm run sidecar</code> n’est nécessaire que si le pont, le protocole ou la liste d’outils changent.</li>
+  </ul>
+
+  <h2>Vérifications avant de rendre</h2>
+  <pre><code>{checks}</code></pre>
+  <p>
+    <code>npm test</code> tourne avec <code>node --experimental-strip-types</code>. Éviter les
+    énumérations, les propriétés de paramètres et les décorateurs dans tout fichier importé par les
+    tests : ils ne sont pas retirés.
+  </p>
+  <p>
+    Les tests Node couvrent l’espace de travail, le registre, les extensions, le brief, les tuiles
+    Données, OpenAlex, les versions et la navigation du Store. Les tests Rust couvrent le stockage,
+    les paquets (dossier, zip, empreinte, source), le terminal, les agents, l’explorateur, le PDF et
+    les migrations.
+  </p>
+
+  <h2>Après un changement MCP</h2>
+  <p>
+    Si <code>src-tauri/src/bin/spark-mcp.rs</code>, le protocole ou la liste d’outils changent,
+    reconstruire le pont pour que les clients aient le nouveau binaire :
+  </p>
+  <pre><code>npm run sidecar</code></pre>
+  <p>
+    Un client déjà connecté garde sa liste d’outils en cache et peut avoir besoin d’une nouvelle
+    session pour voir un nouvel outil noyau.
+  </p>
+
+  <h2>Release</h2>
+  <pre><code>{release}</code></pre>
+  <p>
+    Le DMG n’est ni signé ni notarié. macOS demande une confirmation au premier lancement, et il
+    n’y a aucun canal de mise à jour : une nouvelle version, c’est une nouvelle compilation.
+  </p>
+
+  <h2>Formatage</h2>
+  <pre><code>npm run format
+cargo fmt --manifest-path src-tauri/Cargo.toml</code></pre>
+
+  <h2>Changer un contrat</h2>
+  <p>
+    Le code fait foi, mais un changement de contrat (SDK, manifeste, index de dépôt, commande
+    Tauri, format de stockage) met à jour le document correspondant dans <code>doc/</code> dans le
+    même changement. Une décision structurante ajoute une entrée dans
+    <code>doc/decisions/</code>.
+  </p>
+</Docs>

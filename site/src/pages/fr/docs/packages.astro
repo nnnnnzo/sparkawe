@@ -1,0 +1,187 @@
+---
+import Docs from "../../../layouts/Docs.astro";
+import { FR } from "../../../data/copy";
+
+const layout = `extension.json
+index.js           # script classique, pas un module ES
+style.css          # optionnel
+icon.svg           # optionnel, utilisé comme masque teinté
+media/1.webp       # captures optionnelles, 16:9, 1280×720`;
+
+const json = `{
+  "schema": 2,
+  "id": "demo.hello",
+  "name": "Hello",
+  "version": "0.1.0",
+  "subtitle": "Tuile de démonstration",
+  "summary": "Affiche un message dans une tuile.",
+  "description": "Description longue optionnelle.",
+  "category": "Démonstration",
+  "icon": "icon.svg",
+  "color": "#769ac8",
+  "entry": "index.js",
+  "style": "style.css",
+  "tileTypes": ["demo.hello.tile"],
+  "screenshots": ["media/1.webp"],
+  "engine": { "spark": ">=0.1" }
+}`;
+
+const bundle = `(function () {
+  const extensions = (window.SparkExtensions = window.SparkExtensions || {});
+
+  extensions["demo.hello"] = function (runtime) {
+    const React = runtime.React;
+
+    function HelloTile() {
+      return React.createElement("div", null, "Bonjour");
+    }
+
+    return {
+      activate(api) {
+        api.tiles.register({
+          type: "demo.hello.tile",
+          title: "Hello",
+          view: HelloTile,
+        });
+        api.commands.register({
+          id: "demo.hello.open",
+          title: "Ouvrir Hello",
+          tileType: "demo.hello.tile",
+          run: () => api.tabs.openTile("demo.hello.tile"),
+        });
+      },
+    };
+  };
+})();`;
+
+const pipeline = `registry_fetch(url)
+  → téléchargement du zip (30 Mio max)
+  → comparaison SHA-256
+  → extraction contrôlée
+  → validation de extension.json
+  → staging → extensions/<id>/<version>/
+  → extensions.json (version, chemin, source)
+  → ExtensionManager.addEntry
+  → activation`;
+
+const index = `{
+  "schema": 1,
+  "name": "Mon dépôt",
+  "updatedAt": "2026-11-21T22:00:00Z",
+  "extensions": [{
+    "id": "demo.hello",
+    "name": "Hello",
+    "publisher": "Demo",
+    "summary": "Une ligne de description.",
+    "category": "Démonstration",
+    "versions": [{
+      "version": "0.3.0",
+      "url": "https://…/hello-0.3.0.zip",
+      "sha256": "…",
+      "size": 1307,
+      "engine": ">=0.1",
+      "publishedAt": "2026-11-21T22:00:00Z"
+    }]
+  }]
+}`;
+---
+
+<Docs
+  copy={FR}
+  title="Paquets et dépôts"
+  description="Le contrat extension.json, le bundle en script classique, les limites, l’installation et l’index de dépôt."
+  slug="packages"
+>
+  <p class="docs__lead">
+    Un paquet est un dossier ou un zip avec un manifeste, un script et des ressources optionnelles.
+    Un dépôt est un index JSON statique qui pointe vers des versions zippées. Rien ne s’installe
+    automatiquement.
+  </p>
+
+  <h2>Contenu d’un paquet</h2>
+  <pre><code>{layout}</code></pre>
+
+  <h2>extension.json</h2>
+  <pre><code>{json}</code></pre>
+  <ul>
+    <li><code>schema</code> doit valoir <code>2</code>.</li>
+    <li><code>id</code> : au moins deux segments, minuscules, chiffres et tirets ; <code>spark.*</code> et <code>official.*</code> sont réservés ; 64 caractères max.</li>
+    <li><code>version</code> : <code>x.y.z</code> numérique. <code>name</code> : 1 à 80 caractères.</li>
+    <li><code>entry</code> : fichier relatif <code>.js</code> ou <code>.mjs</code> existant. <code>style</code> : fichier relatif <code>.css</code> existant.</li>
+    <li><code>icon</code> : fichier relatif <code>.svg</code> existant, 32 Kio max. <code>color</code> : <code>#rrggbb</code> ou <code>#rgb</code> ; noms CSS et <code>rgb()</code> refusés.</li>
+    <li><code>tileTypes</code> : 1 à 20 types, chacun préfixé par <code>&lt;id&gt;.</code>, uniques.</li>
+    <li><code>screenshots</code> : 0 à 8 fichiers <code>.webp</code>, <code>.png</code>, <code>.jpg</code> ou <code>.jpeg</code> existants.</li>
+    <li><code>certification</code> est refusé dans un paquet importé. <code>summary</code> est plafonné à 400 caractères, <code>description</code> à 4 000.</li>
+    <li>Chemins absolus, <code>..</code>, antislashs et liens symboliques refusés. <code>.git</code> et <code>node_modules</code> ignorés.</li>
+  </ul>
+
+  <h2>Icône et teinte</h2>
+  <p>
+    L’icône est un <strong>masque CSS</strong>, jamais du markup interprété : le SVG fournit l’alpha,
+    la couleur vient de <code>currentColor</code>. Aucun script du fichier ne s’exécute, et l’icône
+    prend la couleur de l’extension dans le Store, le rail et la barre d’onglet.
+  </p>
+  <p>
+    Conséquence : Spark ne peut pas réappliquer l’épaisseur de trait. Dessiner le SVG en viewBox 24,
+    <code>fill="none"</code>, <code>stroke="currentColor"</code>, <code>stroke-width="1.7"</code>,
+    et le tester à 16&nbsp;px.
+  </p>
+
+  <h2>Bundle</h2>
+  <pre><code>{bundle}</code></pre>
+  <ul>
+    <li>L’hôte expose <code>window.SparkRuntime = &#123; React, jsxRuntime &#125;</code> et passe le même runtime à votre fabrique.</li>
+    <li>Ne jamais importer React par un module nu : utiliser le runtime de l’hôte.</li>
+    <li>Le paquet n’a pas d’API Tauri dédiée. Il partage la fenêtre principale et ses API globales.</li>
+  </ul>
+
+  <h2>Limites</h2>
+  <table>
+    <thead>
+      <tr><th>Limite</th><th>Valeur</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Manifeste</td><td>256 Kio</td></tr>
+      <tr><td>Fichiers</td><td>400</td></tr>
+      <tr><td>Taille décompressée</td><td>25 Mio</td></tr>
+      <tr><td>Profondeur</td><td>8</td></tr>
+      <tr><td>Types de tuiles</td><td>20</td></tr>
+      <tr><td>Icône</td><td>32 Kio</td></tr>
+      <tr><td>Captures</td><td>8</td></tr>
+      <tr><td>Zip téléchargé</td><td>30 Mio</td></tr>
+      <tr><td>Index de dépôt</td><td>2 Mio</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Installation</h2>
+  <pre><code>{pipeline}</code></pre>
+  <p>
+    Une erreur de téléchargement, d’empreinte, d’extraction ou de manifeste laisse l’installation
+    précédente intacte. L’état est écrit dans <code>extensions.json</code> avec
+    <code>version</code>, <code>path</code> et <code>source</code> (absent pour un import local).
+    Une nouvelle version va dans un nouveau dossier ; l’ancien n’est pas supprimé automatiquement.
+  </p>
+
+  <h2>Index de dépôt</h2>
+  <pre><code>{index}</code></pre>
+  <ul>
+    <li>Une source est une URL HTTPS vers un fichier JSON statique. Jusqu’à 20 sources, enregistrées dans <code>extensions.json</code>.</li>
+    <li>En release, seul HTTPS est accepté ; en debug, <code>http://127.0.0.1</code> et <code>http://localhost</code> sont tolérés.</li>
+    <li>Les index ne sont pas mis en cache sur disque : vérifier les recharge, un redémarrage les redemande.</li>
+    <li>La dernière version est choisie par comparaison numérique de <code>x.y.z</code>. Une version doit fournir <code>version</code>, <code>url</code> et <code>sha256</code>.</li>
+    <li>Le backend n’impose que <code>schema: 1</code> et un tableau <code>extensions</code> ; le front normalise et écarte les entrées invalides.</li>
+  </ul>
+
+  <h2>Mise à jour</h2>
+  <ol>
+    <li>Le dépôt publie une version supérieure.</li>
+    <li><strong>Vérifier</strong> recharge l’index.</li>
+    <li><strong>Mettre à jour</strong> télécharge le zip et vérifie son empreinte.</li>
+    <li>L’extension active est désactivée, la nouvelle version installée, puis réactivée.</li>
+    <li>Les tuiles et l’état de l’extension sont conservés.</li>
+  </ol>
+  <p>
+    Aucune installation automatique et aucun canal stable/beta pour l’instant. Les extensions
+    intégrées ne sont jamais mises à jour par un dépôt.
+  </p>
+</Docs>

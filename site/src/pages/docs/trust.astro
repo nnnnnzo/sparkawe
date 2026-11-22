@@ -1,0 +1,78 @@
+---
+import Docs from "../../layouts/Docs.astro";
+import { EN } from "../../data/copy";
+---
+
+<Docs
+  copy={EN}
+  title="Trust model"
+  description="Extensions run unsandboxed. What is validated, what is only declared, and what the app never promises."
+  slug="trust"
+>
+  <p class="docs__lead">
+    Spark runs extensions inside the main window, with no sandbox and no iframe. An imported
+    package is code you chose to trust. Everything below follows from that decision.
+  </p>
+
+  <h2>Tiers</h2>
+  <table>
+    <thead>
+      <tr><th>Tier</th><th>Example</th><th>Trust</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Core</td><td>Terminal, Markdown, Data</td><td>Shipped with Spark, reviewed with the binary.</td></tr>
+      <tr><td>Official</td><td>OpenAlex</td><td>A named integration, shipped with Spark.</td></tr>
+      <tr><td>Community</td><td>Imported or downloaded package</td><td>Your explicit trust.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    <code>certification: "spark"</code> is reserved for packages published and signed by Spark.
+    <strong>Today no cryptographic check is wired</strong>, so the badge on built-ins is declarative.
+    Third-party certified organisations are not supported yet.
+  </p>
+
+  <h2>Before install</h2>
+  <ul>
+    <li>The v2 manifest is validated in Rust, not only in the renderer.</li>
+    <li><code>spark.*</code> and <code>official.*</code> identifiers are reserved; the version must be <code>x.y.z</code>.</li>
+    <li>Relative paths only: <code>..</code>, backslashes and symbolic links are refused; <code>.git</code> and <code>node_modules</code> are skipped.</li>
+    <li>Size, file count and depth are bounded.</li>
+    <li><code>certification</code> is refused inside an imported package.</li>
+    <li>HTTPS is required in release; localhost is tolerated in debug.</li>
+    <li>The zip's SHA-256 is checked before extraction, then the package is staged and renamed atomically.</li>
+  </ul>
+
+  <h2>After install</h2>
+  <ul>
+    <li>Activation is given 5 seconds; a failure is cleaned up rather than leaving partial contributions.</li>
+    <li>Each tile has an error boundary with <strong>Retry</strong> and <strong>Disable the extension</strong>.</li>
+    <li>Uninstalling asks for confirmation and removes the package and its state entry.</li>
+    <li>Local import is restricted to developer mode.</li>
+    <li>Registry sources are capped at 20 and their URLs are validated.</li>
+  </ul>
+
+  <h2>What the guardrails do not do</h2>
+  <ul>
+    <li>They do not sandbox the code.</li>
+    <li>They do not prevent an extension from calling the Tauri commands allowed for the window.</li>
+    <li>They do not isolate services and events per extension: identifiers are global.</li>
+    <li>They do not restrict an extension's network access.</li>
+    <li>They do not verify signatures, and they do not update anything automatically.</li>
+    <li>They do not replace a code review for a certified package.</li>
+  </ul>
+
+  <h2>Native surface</h2>
+  <p>
+    Every command allowed for the <code>main</code> window is reachable from code running in that
+    window. Capabilities live in <code>src-tauri/capabilities/</code>; CSP and asset scope in
+    <code>tauri.conf.json</code>. The <code>asset</code> protocol only covers the PDF cache and
+    <code>$APPCONFIG/extensions/**</code>.
+  </p>
+
+  <h2>Wording</h2>
+  <p>
+    When a feature touches trust, say what is verified and what is not. Never write "secure" where
+    you mean "signed" or "checked locally". Distinguish a built-in from a community package, and
+    document a limit instead of hiding it.
+  </p>
+</Docs>

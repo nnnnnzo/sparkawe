@@ -1,0 +1,80 @@
+---
+import Docs from "../../../layouts/Docs.astro";
+import { FR } from "../../../data/copy";
+---
+
+<Docs
+  copy={FR}
+  title="Modèle de confiance"
+  description="Les extensions s’exécutent sans sandbox. Ce qui est validé, ce qui est seulement déclaré, et ce que l’app ne promet pas."
+  slug="trust"
+>
+  <p class="docs__lead">
+    Spark exécute les extensions dans la fenêtre principale, sans sandbox ni iframe. Un paquet
+    importé est du code auquel vous avez choisi de faire confiance. Tout ce qui suit découle de ce
+    choix.
+  </p>
+
+  <h2>Niveaux</h2>
+  <table>
+    <thead>
+      <tr><th>Niveau</th><th>Exemple</th><th>Confiance</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Intégrée</td><td>Terminal, Markdown, Données</td><td>Livrée avec Spark, relue avec le binaire.</td></tr>
+      <tr><td>Officielle</td><td>OpenAlex</td><td>Intégration nommée, livrée avec Spark.</td></tr>
+      <tr><td>Communautaire</td><td>Paquet importé ou téléchargé</td><td>Votre confiance explicite.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    <code>certification: "spark"</code> est réservé aux paquets publiés et signés par Spark.
+    <strong>Aucune vérification cryptographique n’est branchée aujourd’hui</strong> : le sceau des
+    intégrées est déclaratif. Une organisation tierce certifiée n’est pas encore supportée.
+  </p>
+
+  <h2>Avant l’installation</h2>
+  <ul>
+    <li>Le manifeste v2 est validé en Rust, pas seulement dans le rendu.</li>
+    <li>Les identifiants <code>spark.*</code> et <code>official.*</code> sont réservés ; la version doit être <code>x.y.z</code>.</li>
+    <li>Chemins relatifs uniquement : <code>..</code>, antislashs et liens symboliques refusés ; <code>.git</code> et <code>node_modules</code> ignorés.</li>
+    <li>Taille, nombre de fichiers et profondeur sont bornés.</li>
+    <li><code>certification</code> est refusé dans un paquet importé.</li>
+    <li>HTTPS exigé en release ; localhost toléré en debug.</li>
+    <li>Le SHA-256 du zip est vérifié avant extraction, puis le paquet est mis en staging et renommé atomiquement.</li>
+  </ul>
+
+  <h2>Après l’installation</h2>
+  <ul>
+    <li>L’activation dispose de 5 secondes ; un échec est nettoyé plutôt que de laisser des contributions partielles.</li>
+    <li>Chaque tuile a une barrière d’erreur avec <strong>Réessayer</strong> et <strong>Désactiver l’extension</strong>.</li>
+    <li>La désinstallation demande confirmation et retire le paquet et son entrée d’état.</li>
+    <li>L’import local est réservé au mode développeur.</li>
+    <li>Les sources de dépôt sont limitées à 20 et leurs URL sont validées.</li>
+  </ul>
+
+  <h2>Ce que les garde-fous ne font pas</h2>
+  <ul>
+    <li>Ils ne sandboxent pas le code.</li>
+    <li>Ils n’empêchent pas une extension d’appeler les commandes Tauri autorisées pour la fenêtre.</li>
+    <li>Ils n’isolent pas les services et événements par extension : les identifiants sont globaux.</li>
+    <li>Ils ne limitent pas le réseau d’une extension.</li>
+    <li>Ils ne vérifient pas de signature et ne mettent rien à jour automatiquement.</li>
+    <li>Ils ne remplacent pas une revue de code pour un paquet certifié.</li>
+  </ul>
+
+  <h2>Surface native</h2>
+  <p>
+    Toutes les commandes autorisées pour la fenêtre <code>main</code> sont accessibles au code
+    exécuté dans cette fenêtre. Les capabilities sont dans
+    <code>src-tauri/capabilities/</code> ; le CSP et la portée <code>asset</code> dans
+    <code>tauri.conf.json</code>. Le protocole <code>asset</code> ne couvre que le cache PDF et
+    <code>$APPCONFIG/extensions/**</code>.
+  </p>
+
+  <h2>Formulation</h2>
+  <p>
+    Quand une fonctionnalité touche la confiance, dire ce qui est vérifié et ce qui ne l’est pas.
+    Ne jamais écrire « sécurisé » à la place de « signé » ou « vérifié localement ». Distinguer une
+    intégrée d’un paquet communautaire, et documenter une limite plutôt que la masquer.
+  </p>
+</Docs>

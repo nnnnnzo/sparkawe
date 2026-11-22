@@ -1,0 +1,98 @@
+---
+import Docs from "../../layouts/Docs.astro";
+import { EN } from "../../data/copy";
+
+const chain = `agent client ──stdio JSON-RPC──► spark-mcp (sidecar)
+                                      │ Unix socket
+                                      ▼
+                             Spark window (attachMcp)
+                                      │
+                                      ▼
+                             runtime / registry / workspace`;
+
+const config = `{
+  "mcpServers": {
+    "spark": {
+      "command": "/Applications/Spark.app/Contents/MacOS/spark-mcp"
+    }
+  }
+}`;
+---
+
+<Docs
+  copy={EN}
+  title="MCP bridge"
+  description="The local socket, the fifteen tools, and the contracts that keep agent calls bounded and attributable."
+  slug="mcp"
+>
+  <p class="docs__lead">
+    Agents talk to the window over the Model Context Protocol, through a Unix socket and a small
+    sidecar. There is no network port, no account and no cloud relay.
+  </p>
+
+  <h2>Chain</h2>
+  <pre><code>{chain}</code></pre>
+  <ul>
+    <li><code>src-tauri/src/bin/spark-mcp.rs</code> is declared as an external binary and shipped inside the bundle.</li>
+    <li>The Rust server creates <code>run/mcp.sock</code> in the app configuration directory, mode <code>0600</code>.</li>
+    <li><code>attachMcp</code> forwards each line to the window and returns the reply.</li>
+    <li>When Spark is closed, the bridge answers <code>spark_not_running</code> and serves the last cached tool list, so a client does not have to restart.</li>
+  </ul>
+
+  <h2>Tools</h2>
+  <table>
+    <thead>
+      <tr><th>Tool</th><th>Job</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>spark_brief</code></td><td>Short summary of the active or targeted tab.</td></tr>
+      <tr><td><code>spark_tabs</code></td><td>Tabs and their layout mode.</td></tr>
+      <tr><td><code>spark_tiles</code></td><td>Compact catalogue of tile types, actions and availability; <code>detail: "full"</code> adds descriptions and schemas.</td></tr>
+      <tr><td><code>spark_tab_open</code></td><td>Creates a tab in the background.</td></tr>
+      <tr><td><code>spark_tab_close</code></td><td>Closes a tab; refused when an unsaved document objects.</td></tr>
+      <tr><td><code>spark_tab_focus</code></td><td>Activates a tab.</td></tr>
+      <tr><td><code>spark_tile_open</code></td><td>Opens a tile and returns its reference.</td></tr>
+      <tr><td><code>spark_tile_read</code></td><td>Reads a tile's surface, data and available actions.</td></tr>
+      <tr><td><code>spark_tile_call</code></td><td>Runs a declared action.</td></tr>
+      <tr><td><code>spark_tile_close</code></td><td>Closes a tile.</td></tr>
+      <tr><td><code>spark_tile_move</code></td><td>Places a tile next to another one, or as a tab in its group.</td></tr>
+      <tr><td><code>spark_tile_resize</code></td><td>Gives a tile a width or height as a fraction of the tab.</td></tr>
+      <tr><td><code>spark_undo</code></td><td>Undoes a layout operation.</td></tr>
+      <tr><td><code>spark_redo</code></td><td>Redoes a layout operation.</td></tr>
+      <tr><td><code>spark_events_since</code></td><td>Resumes the journal from a sequence number.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    The list is deliberately stable: a client caches it and refreshes it badly. What varies is the
+    <em>actions</em>, discovered per tile with <code>spark_tiles</code> and
+    <code>spark_tile_read</code>.
+  </p>
+
+  <h2>Contracts</h2>
+  <ul>
+    <li><strong>Bounded results.</strong> An action returning more than 16,000 characters is refused; it must return an identifier or a summary.</li>
+    <li><strong>Surfaces.</strong> <code>api.tiles.publish</code> is a volatile 2,000-character summary, never persisted.</li>
+    <li><strong>Guides.</strong> A tile type's guide is at most 1,200 characters and is delivered once per agent session, at the first catalogue or the first read.</li>
+    <li><strong>Services.</strong> An action declaring <code>requires</code> is hidden when that service is absent, and refused when called.</li>
+    <li><strong>Mutations.</strong> An action flagged <code>mutates</code> is announced as such and executed; asking for confirmation belongs to the calling client.</li>
+    <li><strong>Attribution.</strong> Every action called through <code>spark_tile_call</code> is journaled with <code>source: "agent"</code>.</li>
+    <li><strong>Focus.</strong> Tabs opened by an agent stay in the background and show a discreet dot in the bar until opened.</li>
+    <li><strong>Content.</strong> No MCP action reads or writes a terminal's content, and no action returns a document.</li>
+  </ul>
+
+  <h2>Connect a client</h2>
+  <pre><code>{config}</code></pre>
+  <p>
+    The absolute path is the one shown by the gear menu at the bottom of the rail, under
+    <strong>Connect an agent…</strong>, with a copy button. Spark also detects a known agent command
+    in a terminal and offers to write the client's configuration in one click; the running session
+    sees the server on its next start.
+  </p>
+
+  <h2>Lifecycle</h2>
+  <ul>
+    <li><code>registry.subscribeTools</code> emits <code>notifications/tools/list_changed</code> when an extension is activated, disabled or imported.</li>
+    <li><code>spark_tiles</code> is recomputed on every call, so a new extension appears without restarting the client.</li>
+    <li>The sidecar caches the tool list for closed-window replies. A new <em>core</em> tool still needs a new session on the client side.</li>
+  </ul>
+</Docs>

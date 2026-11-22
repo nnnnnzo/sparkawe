@@ -1,0 +1,104 @@
+---
+import Docs from "../../layouts/Docs.astro";
+import { EN } from "../../data/copy";
+
+const startup = `main.tsx
+  └─ createRuntime()
+       ├─ workspace_load / settings_load
+       ├─ new TileViews()
+       ├─ discoverExtensions(views)
+       │    ├─ built-in manifests and modules (import.meta.glob)
+       │    └─ extension_list → imported packages
+       ├─ seedCoreExtensions()
+       ├─ Workspace + persistence
+       ├─ Registry
+       ├─ ExtensionManager.restore()
+       ├─ Marketplace.restore() (background)
+       └─ attachMcp()
+  └─ SparkShell`;
+
+const flow = `Interface ──► Runtime ──► Workspace / Registry / ExtensionManager
+                   │                    │
+                   │                    ├─ contributions (tiles, actions, commands)
+                   │                    └─ per-extension state
+                   ▼
+              invoke Tauri ──► Rust ──► files, sockets, PTY, network
+                   ▲
+MCP agent ──► attachMcp ──► Runtime ──► same primitives, source "agent"`;
+---
+
+<Docs
+  copy={EN}
+  title="How Spark works"
+  description="The three objects Spark keeps apart — workspace, registry, extension manager — and the path a click takes to the disk."
+  slug=""
+>
+  <p class="docs__lead">
+    Spark is a Tauri 2 desktop app: a React renderer, a Rust backend and a local MCP bridge. This
+    page is the map. The other pages zoom into one part at a time.
+  </p>
+
+  <h2>Three objects, three jobs</h2>
+  <ul>
+    <li>
+      <strong>The workspace</strong> is the document: tabs, tiles, one layout per tab per mode, the
+      active tab, the theme. It is the single truth for what the window shows, and the only thing
+      that gets persisted.
+    </li>
+    <li>
+      <strong>The registry</strong> is what the code can do right now: tile types, actions,
+      commands, services and events contributed by the extensions that are active. It is rebuilt
+      when an extension is activated, removed or imported.
+    </li>
+    <li>
+      <strong>The extension manager</strong> decides which extensions are installed and enabled.
+      Installed packages live outside the repository, in the app configuration directory.
+    </li>
+  </ul>
+
+  <h2>Layers</h2>
+  <table>
+    <thead>
+      <tr><th>Layer</th><th>Path</th><th>Job</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Contracts</td><td><code>src/sdk</code></td><td>Manifest, SparkAPI, tile definitions, actions, services, events, React contract.</td></tr>
+      <tr><td>Domain</td><td><code>src/core</code></td><td>Workspace, journal, brief, contribution registry, extension lifecycle, persistence, settings.</td></tr>
+      <tr><td>Application</td><td><code>src/app</code></td><td>Startup, discovery, package loading, marketplace, MCP bridge, global theme.</td></tr>
+      <tr><td>Interface</td><td><code>src/ui</code></td><td>Window, tabs, dockview, rail, Store, splash, error boundaries.</td></tr>
+      <tr><td>Extensions</td><td><code>src/extensions</code></td><td>Built-in extensions: manifest, React module, styles, cooperation APIs, media.</td></tr>
+      <tr><td>Native</td><td><code>src-tauri</code></td><td>Disk storage, imported packages, files, PTY, PDF, MCP, agent configuration.</td></tr>
+      <tr><td>Shared</td><td><code>src/shared</code></td><td>Design system, brand, agent list, utilities.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Startup</h2>
+  <pre><code>{startup}</code></pre>
+  <p>
+    The splash stays visible for at least 1.2&nbsp;seconds. The MCP bridge is attached before the
+    main window renders, so an agent never sees a half-built workspace.
+  </p>
+
+  <h2>Data flow</h2>
+  <pre><code>{flow}</code></pre>
+  <p>
+    The interface and the agents go through the same primitives. Only the journal source changes:
+    <code>human</code>, <code>agent</code> or <code>system</code>.
+  </p>
+
+  <h2>Invariants</h2>
+  <ul>
+    <li>A terminal session dies when its tile is unmounted. The Store is therefore an overlay, never a replacement for the workspace.</li>
+    <li>A tab opened by an agent appears in the background and never takes focus.</li>
+    <li>Tiles keep their id and their data when an extension is disabled; only their view becomes unavailable.</li>
+    <li>An action result, a surface and a brief are bounded. Heavy content stays in the tile.</li>
+    <li>An imported extension runs with the window's privileges. See the <a href="/docs/trust/">trust model</a>.</li>
+  </ul>
+
+  <h2>Next</h2>
+  <p>
+    <a href="/docs/build/">Build and run</a> to get a window on screen, then
+    <a href="/docs/workspace/">Workspace</a> and <a href="/docs/mcp/">MCP bridge</a> for the two
+    halves an extension or an agent touches.
+  </p>
+</Docs>
