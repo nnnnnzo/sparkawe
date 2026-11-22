@@ -13,14 +13,7 @@
   Your agents work in the same room as you.
 </p>
 
-<p align="center">
-  <img alt="macOS" src="https://img.shields.io/badge/macOS-only-191c1e?style=flat-square&logo=apple&logoColor=f2f1ec">
-  <img alt="MCP" src="https://img.shields.io/badge/MCP-15_tools-6f6593?style=flat-square">
-  <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-4f6f96?style=flat-square&logo=tauri&logoColor=f2f1ec">
-  <img alt="React 19" src="https://img.shields.io/badge/React-19-4f8b93?style=flat-square&logo=react&logoColor=f2f1ec">
-  <img alt="MIT" src="https://img.shields.io/badge/license-MIT-7d8457?style=flat-square">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-a3715f?style=flat-square">
-</p>
+<p align="center"><img alt="macOS today" src="https://img.shields.io/badge/macOS-today-191c1e?style=flat-square&logo=apple&logoColor=f2f1ec"> <img alt="MCP" src="https://img.shields.io/badge/MCP-15_tools-6f6593?style=flat-square"> <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-4f6f96?style=flat-square&logo=tauri&logoColor=f2f1ec"> <img alt="React 19" src="https://img.shields.io/badge/React-19-4f8b93?style=flat-square&logo=react&logoColor=f2f1ec"> <img alt="MIT" src="https://img.shields.io/badge/license-MIT-7d8457?style=flat-square"> <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-a3715f?style=flat-square"></p>
 
 <p align="center">
   <img src="assets/workspace.webp" alt="Spark with three tiles: a Codex terminal, a table of WMT 2014 BLEU scores from Attention Is All You Need, its chart, and the paper itself." width="920">
@@ -59,7 +52,7 @@ a local folder, in a Store that opens over the workspace.
 
 ## Build from source
 
-Requires macOS, Node.js 22.18+, a Rust toolchain and the Xcode command line tools.
+Requires macOS (the only platform for now), Node.js 22.18+, a Rust toolchain and the Xcode command line tools.
 
 ```sh
 git clone https://github.com/nnnnnzo/sparkawe.git
@@ -102,8 +95,8 @@ configured by Spark; anything else only needs the bridge path.
 
 ## Status
 
-- **macOS only.** Built and tested locally. The PTY layer also targets Linux; Windows is not
-  supported yet, including the MCP bridge.
+- **macOS only, for now.** Built and tested locally. The PTY layer also targets Linux; Windows is
+  not supported yet — the MCP bridge relies on a Unix socket.
 - **No release artefact yet.** You build from source. Builds are unsigned and not notarised.
 - **No update channel.** Pull the repository and rebuild.
 - **Extensions are not sandboxed.** An imported package runs in the main window with the app's

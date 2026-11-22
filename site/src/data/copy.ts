@@ -297,7 +297,7 @@ export const EN: Copy = {
       {
         label: "Platform",
         value:
-          "<strong>macOS</strong>, built locally. The PTY layer also targets Linux; Windows is not supported yet, including the MCP bridge.",
+          "<strong>macOS</strong> for now, built locally. The PTY layer also targets Linux; Windows is not supported yet — the MCP bridge relies on a Unix socket.",
       },
       {
         label: "Builds",
@@ -570,7 +570,7 @@ export const FR: Copy = {
       {
         label: "Plateforme",
         value:
-          "<strong>macOS</strong>, compilé en local. La couche PTY vise aussi Linux ; Windows n’est pas pris en charge, pont MCP compris.",
+          "<strong>macOS</strong> pour l’instant, compilé en local. La couche PTY vise aussi Linux ; Windows n’est pas pris en charge — le pont MCP repose sur une socket Unix.",
       },
       {
         label: "Compilations",
