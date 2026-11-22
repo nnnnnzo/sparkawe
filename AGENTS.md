@@ -93,3 +93,9 @@ Les messages suivent [Conventional Commits](https://www.conventionalcommits.org/
 - `!` après le scope, ou `BREAKING CHANGE:` en pied de message, quand un contrat casse : SDK, manifeste, index de dépôt, format de stockage.
 - Un corps seulement s’il explique un pourquoi ou une conséquence non évidente ; lignes de 72 caractères.
 - Un commit, un changement logique. Une retouche annulée par la suivante se fond dans la suivante.
+
+## Pousser sur le distant
+
+- Ne jamais pousser sans demande explicite : ni un push normal, ni un `--force`. Préparer les commits, montrer `git log` et attendre le feu vert.
+- Un `--force-with-lease` ne se justifie qu’après une réécriture d’historique demandée, sur la branche concernée uniquement.
+- Après un push, dire ce qui est parti et ce qui reste en local.
