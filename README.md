@@ -13,7 +13,7 @@
   Your agents work in the same room as you.
 </p>
 
-<p align="center"><img alt="macOS today" src="https://img.shields.io/badge/macOS-today-191c1e?style=flat-square&logo=apple&logoColor=f2f1ec"> <img alt="MCP" src="https://img.shields.io/badge/MCP-15_tools-6f6593?style=flat-square"> <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-4f6f96?style=flat-square&logo=tauri&logoColor=f2f1ec"> <img alt="React 19" src="https://img.shields.io/badge/React-19-4f8b93?style=flat-square&logo=react&logoColor=f2f1ec"> <img alt="MIT" src="https://img.shields.io/badge/license-MIT-7d8457?style=flat-square"> <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-a3715f?style=flat-square"></p>
+<p align="center"><img alt="macOS today" src="https://img.shields.io/badge/macOS-today-191c1e?style=flat&logo=apple&logoColor=f2f1ec"> <img alt="MCP" src="https://img.shields.io/badge/MCP-15_tools-6f6593?style=flat"> <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-4f6f96?style=flat&logo=tauri&logoColor=f2f1ec"> <img alt="React 19" src="https://img.shields.io/badge/React-19-4f8b93?style=flat&logo=react&logoColor=f2f1ec"> <img alt="MIT" src="https://img.shields.io/badge/license-MIT-7d8457?style=flat"> <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-a3715f?style=flat"></p>
 
 <p align="center">
   <img src="assets/workspace.webp" alt="Spark with three tiles: a Codex terminal, a table of WMT 2014 BLEU scores from Attention Is All You Need, its chart, and the paper itself." width="920">
