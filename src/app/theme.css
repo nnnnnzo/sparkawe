@@ -507,6 +507,7 @@ svg {
 }
 .spark-rail [data-sidebar="sidebar"] {
   border-radius: 8px;
+  background: transparent;
 }
 .spark-rail [data-sidebar="menu-button"] {
   height: 32px;
