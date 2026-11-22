@@ -48,9 +48,9 @@
 }
 
 .store-brand-label {
-  font-family: var(--font-brand);
-  font-size: 12px;
-  letter-spacing: 0.16em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -136,11 +136,10 @@
 
 .store-title {
   margin: 0;
-  font-family: var(--font-brand);
-  font-size: clamp(28px, 3.2vw, 36px);
-  font-weight: 300;
+  font-size: clamp(24px, 2.6vw, 30px);
+  font-weight: 600;
   letter-spacing: -0.02em;
-  line-height: 1.05;
+  line-height: 1.2;
 }
 
 .store-subtitle {
@@ -271,11 +270,10 @@
   align-items: center;
   gap: 4px;
   margin-top: 10px;
-  font-family: var(--font-brand);
-  font-size: 32px;
-  font-weight: 300;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
 }
 
 .store-hero-subtitle {
@@ -599,11 +597,10 @@
   align-items: center;
   gap: 6px;
   margin: 0;
-  font-family: var(--font-brand);
-  font-size: 32px;
-  font-weight: 300;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
 }
 
 .store-detail-title .certified-badge {
@@ -881,9 +878,8 @@
 }
 
 .store-empty [data-slot="empty-title"] {
-  font-family: var(--font-brand);
-  font-size: 20px;
-  font-weight: 300;
+  font-size: 17px;
+  font-weight: 600;
 }
 
 .store-source-card {
@@ -1206,7 +1202,7 @@
   }
 
   .store-detail-title {
-    font-size: 26px;
+    font-size: 22px;
   }
 
   .store-detail-icon {
@@ -1217,6 +1213,6 @@
   }
 
   .store-hero-title {
-    font-size: 26px;
+    font-size: 22px;
   }
 }
