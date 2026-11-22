@@ -419,6 +419,15 @@ const config = `{
     margin-top: clamp(44px, 6vw, 72px);
   }
 
+  /* Sans cela, le bloc de code impose sa largeur min-content à la grille. */
+  .agents__how > *,
+  .start > *,
+  .agents__side,
+  .panel,
+  .start__steps li {
+    min-width: 0;
+  }
+
   .agents__side {
     display: grid;
     gap: 22px;

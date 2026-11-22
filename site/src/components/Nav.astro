@@ -34,6 +34,13 @@ const links = [
 
     <nav class="nav__links" id="nav-links" data-menu aria-label="Sections">
       {links.map((link) => <a href={link.href}>{link.label}</a>)}
+      <a
+        class="nav__lang nav__lang--menu"
+        href={copy.switchHref}
+        hreflang={copy.lang === "fr" ? "en" : "fr"}
+      >
+        {copy.switchCode}
+      </a>
     </nav>
 
     <div class="nav__actions">
@@ -68,5 +75,19 @@ const links = [
 
   .nav__lang:hover {
     color: var(--fg);
+  }
+
+  .nav__lang--menu {
+    display: none;
+  }
+
+  @media (max-width: 359px) {
+    .nav__lang--menu {
+      display: block;
+      width: 100%;
+      margin-top: 8px;
+      padding: 14px 0 4px;
+      border-top: 1px solid var(--line-soft);
+    }
   }
 </style>
