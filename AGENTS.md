@@ -81,3 +81,15 @@ Après l’ajout, mettre à jour `doc/operations/tauri.md` et la liste du backen
 - Les cartes et le hero du Store n’affichent pas de capture ; la galerie de la fiche est le seul endroit.
 - Les cartes d’étagère prennent une fraction entière de la largeur (4, 3, 2 puis 1) ; ne pas laisser une carte coupée.
 - Tout élément cliquable du Store doit avoir `cursor: pointer` ; les flèches désactivées gardent le curseur normal.
+
+## Écrire un commit
+
+Les messages suivent [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) :
+`type(scope): description`.
+
+- Types utilisés : `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `perf`, `chore`.
+- Scopes : `site`, `store`, `extensions`, `mcp`, `workspace`, `terminal`, `data`, `markdown`, `preview`, `openalex`, `ui`, `agents`, `readme`, `brand`, `deps`. Omettre le scope quand le changement traverse plusieurs domaines.
+- Description en anglais, à l’impératif, en minuscules, sans point final ; 72 caractères au maximum, préfixe compris.
+- `!` après le scope, ou `BREAKING CHANGE:` en pied de message, quand un contrat casse : SDK, manifeste, index de dépôt, format de stockage.
+- Un corps seulement s’il explique un pourquoi ou une conséquence non évidente ; lignes de 72 caractères.
+- Un commit, un changement logique. Une retouche annulée par la suivante se fond dans la suivante.
