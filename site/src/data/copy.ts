@@ -267,21 +267,21 @@ export const EN: Copy = {
   },
   extensions: {
     eyebrow: "Extensions",
-    title: "A tile is a small contract.",
+    title: "New tiles, without closing your tabs.",
     lede:
-      "Extensions declare tile types, actions, data keys and a short guide. The guide is delivered once per agent session, so the agent learns the tile without spending tokens twice.",
+      "Extensions live in a Store that opens over the workspace. Your terminals, PDFs and tables stay mounted behind it, so browsing never costs you a session.",
     cards: [
       {
-        title: "Declare",
-        body: "A manifest with a stable id, React views, typed action inputs and a mutates or read-only contract per action.",
+        title: "A Store over the workspace",
+        body: "A full-width page with a floating sidebar: Discover, Installed, Sources. It never unmounts the workspace while you look around.",
       },
       {
-        title: "Install",
-        body: "A JSON registry index, zips verified by SHA-256, extraction and activation handled in Rust. HTTPS only in release.",
+        title: "Install in one click",
+        body: "Open an extension sheet, look at its screenshots, install. The zip is checked before extraction, and a failed install leaves the previous version intact.",
       },
       {
-        title: "Update",
-        body: "An update reinstalls the package and reactivates the extension. Nothing installs itself in the background.",
+        title: "Bring your own",
+        body: "Import a local folder in developer mode. Nothing installs or updates on its own — an update is a button you press.",
       },
     ],
     noticeTitle: "Unsigned and unsandboxed",
@@ -540,21 +540,21 @@ export const FR: Copy = {
   },
   extensions: {
     eyebrow: "Extensions",
-    title: "Une tuile, un petit contrat.",
+    title: "De nouvelles tuiles, sans fermer vos onglets.",
     lede:
-      "Une extension déclare ses types de tuiles, ses actions, ses dataKeys et un guide. Le guide est livré une fois par session d’agent : il apprend la tuile sans payer deux fois les mêmes tokens.",
+      "Les extensions vivent dans un Store qui s’ouvre par-dessus l’espace. Vos terminaux, PDF et tableaux restent montés derrière : naviguer ne coûte jamais une session.",
     cards: [
       {
-        title: "Déclarer",
-        body: "Un manifeste avec un identifiant stable, des vues React, des entrées d’action typées et un contrat lecture seule ou mutates par action.",
+        title: "Un Store par-dessus l’espace",
+        body: "Une page pleine largeur avec une sidebar flottante : Découvrir, Installées, Sources. Elle ne démonte jamais l’espace pendant que vous regardez.",
       },
       {
-        title: "Installer",
-        body: "Un index JSON, des zips vérifiés par SHA-256, extraction et activation côté Rust. HTTPS uniquement en release.",
+        title: "Installer en un clic",
+        body: "Ouvrez une fiche, regardez ses captures, installez. Le zip est vérifié avant extraction, et un échec laisse la version précédente intacte.",
       },
       {
-        title: "Mettre à jour",
-        body: "Une mise à jour réinstalle le paquet et réactive l’extension. Rien ne s’installe tout seul en arrière-plan.",
+        title: "Amener les vôtres",
+        body: "Importez un dossier local en mode développeur. Rien ne s’installe ni ne se met à jour tout seul — une mise à jour, c’est un bouton.",
       },
     ],
     noticeTitle: "Non signé, non isolé",
