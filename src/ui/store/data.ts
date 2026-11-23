@@ -37,6 +37,7 @@ export const backRoute = (route: StoreRoute): StoreRoute => {
 };
 
 export const FEATURED_IDS = [
+  "spark.web",
   "spark.terminal",
   "spark.markdown",
   "spark.data",

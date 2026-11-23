@@ -54,6 +54,7 @@ test("l’état distingue une intégrée désactivée d’une tierce non install
 });
 
 test("la sélection À la une est stable et sans doublon", () => {
+  assert.ok(FEATURED_IDS.includes("spark.web"));
   assert.ok(FEATURED_IDS.includes("spark.terminal"));
   assert.ok(FEATURED_IDS.includes("spark.openalex"));
   assert.equal(new Set(FEATURED_IDS).size, FEATURED_IDS.length);
