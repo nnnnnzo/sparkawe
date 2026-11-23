@@ -1470,7 +1470,7 @@ export function StorePage({
       <aside className="store-sidebar">
         <div className="store-brand">
           <Blocks />
-          <span className="store-brand-label">Store</span>
+          <span className="store-brand-label">{t("store.brand")}</span>
         </div>
         <nav className="store-nav" aria-label={t("store.nav.sections")}>
           <SidebarItem

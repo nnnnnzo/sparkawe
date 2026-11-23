@@ -21,6 +21,16 @@ const messages = {
     ja: "拡張機能",
     zh: "扩展",
   },
+  "store.brand": {
+    fr: "Store",
+    en: "Store",
+    es: "Tienda",
+    de: "Store",
+    it: "Store",
+    pt: "Loja",
+    ja: "ストア",
+    zh: "商店",
+  },
   "store.header.subtitle": {
     fr: "Découvrez et gérez les extensions de Spark.",
     en: "Discover and manage Spark extensions.",
