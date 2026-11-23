@@ -49,12 +49,7 @@ La page du navigateur ne dépend pas de cette CSP : elle est rendue par une vue 
 `assetProtocol.scope` :
 
 ```json
-[
-  "$APPCACHE/preview/**",
-  "$APPCACHE/pdf/**",
-  "$APPCACHE/openalex/**",
-  "$APPCONFIG/extensions/**"
-]
+["$APPCACHE/preview/**", "$APPCONFIG/extensions/**"]
 ```
 
 Le scope extensions permet de charger les paquets importés. `convertFileSrc` produit l’URL utilisée par le loader.
