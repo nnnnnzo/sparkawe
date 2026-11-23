@@ -46,7 +46,7 @@ opposite: the workspace is the surface, and the agent plugs into it.
 | **Terminal** | A real PTY session per tile, with agent detection and one-click MCP setup. |
 | **Explorer** | A folder tree that opens a file in Markdown or a shell in the right directory. |
 | **Markdown** | Editor and preview over the same document, with line-addressed agent actions. |
-| **PDF** | Fetches an https link, caches it, keeps the content out of MCP. |
+| **Preview** | PDF, images, audio, video, text and HTML in one tile, from a file or an https link. Content stays out of MCP. |
 | **Data** | Typed tables (text, number, date) up to 2,000 rows, with charts bound to the table. |
 | **OpenAlex** *(official extension)* | Search by topic, author or DOI, then open a free PDF beside your notes. |
 | **Browser** | Any public page in a native view: sign-in, media, real sites. https only, downloads refused, and the page title names the tab. |
