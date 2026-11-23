@@ -184,7 +184,12 @@ function StoreRow({
       <Button variant="outline" size="sm" disabled={busy} onClick={onToggle}>
         {busy ? "…" : active ? t("store.row.disable") : t("store.row.enable")}
       </Button>
-      <Button variant="ghost" size="sm" onClick={onOpen}>
+      <Button
+        variant="ghost"
+        size="sm"
+        data-store-key={`row:${manifest.id}`}
+        onClick={onOpen}
+      >
         {t("store.row.details")}
       </Button>
     </div>
@@ -204,6 +209,7 @@ function RemoteCard({
       type="button"
       className="store-card store-card-grid"
       aria-label={t("store.card.open", { name: remote.extension.name })}
+      data-store-key={`remote:${remote.source.url}:${remote.extension.id}`}
       onClick={onOpen}
     >
       <span className="store-card-body">
@@ -388,6 +394,9 @@ export function StorePage({
   );
   const { locale, t, tp, text } = useI18n();
   const [route, setRoute] = useState<StoreRoute>({ view: "home" });
+  /** Carte qui a ouvert la fiche ou le dépôt, et carte à refocaliser au retour. */
+  const originKey = useRef<string | undefined>(undefined);
+  const returnFocus = useRef<string | undefined>(undefined);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>(ALL_CATEGORIES);
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
@@ -403,7 +412,10 @@ export function StorePage({
   const searchRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const origin = activeStoreView(route);
-  const back = useCallback(() => setRoute(backRoute), []);
+  const back = useCallback(() => {
+    returnFocus.current = originKey.current;
+    setRoute(backRoute(route));
+  }, [route]);
   const fromRepository =
     route.view === "detail" && typeof route.from === "object";
   const originLabel = fromRepository
@@ -659,10 +671,14 @@ export function StorePage({
   );
 
   const openRepository = useCallback((url: string) => {
+    originKey.current = (document.activeElement as HTMLElement | null)?.dataset
+      .storeKey;
     setRoute({ view: "repository", url });
   }, []);
 
   const openDetail = useCallback((id: string, source?: string) => {
+    originKey.current = (document.activeElement as HTMLElement | null)?.dataset
+      .storeKey;
     setRoute((current) => ({
       view: "detail",
       id,
@@ -691,8 +707,21 @@ export function StorePage({
   );
 
   useEffect(() => {
-    const target = route.view === "home" ? searchRef.current : mainRef.current;
-    const frame = requestAnimationFrame(() => target?.focus());
+    const restore = returnFocus.current;
+    returnFocus.current = undefined;
+    const frame = requestAnimationFrame(() => {
+      // Revenir doit rendre le focus à la carte d’origine, pas au début de
+      // la vue : au clavier, on retrouve sa place dans la liste.
+      const restored = restore
+        ? [...document.querySelectorAll<HTMLElement>("[data-store-key]")].find(
+            (element) => element.dataset.storeKey === restore,
+          )
+        : undefined;
+      const target =
+        restored ??
+        (route.view === "home" ? searchRef.current : mainRef.current);
+      target?.focus();
+    });
     return () => cancelAnimationFrame(frame);
   }, [route]);
 
@@ -1356,6 +1385,7 @@ export function StorePage({
                         aria-label={t("store.sources.open", {
                           name: repository.name,
                         })}
+                        data-store-key={`repo:${repository.url}`}
                         onClick={() => openRepository(repository.url)}
                       >
                         <span className="store-source-icon">

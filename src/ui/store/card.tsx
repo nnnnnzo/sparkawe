@@ -32,6 +32,7 @@ export function StoreCard({
         } as CSSProperties
       }
       aria-label={certified ? `${label}${t("store.certified.suffix")}` : label}
+      data-store-key={`card:${manifest.id}`}
       onClick={() => onOpen(manifest.id)}
     >
       <span className="store-card-body">

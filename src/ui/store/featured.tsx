@@ -32,6 +32,7 @@ export function FeaturedHero({
         } as CSSProperties
       }
       aria-label={`${t("store.featured.open", { name })}${certified ? t("store.certified.suffix") : ""}`}
+      data-store-key={`hero:${manifest.id}`}
       onClick={() => onOpen(manifest.id)}
     >
       <span className="store-hero-copy">
