@@ -57,43 +57,44 @@ function ExtensionButton({
   extension,
   commands,
   run,
+  open,
+  mode,
+  onEnter,
+  onLeave,
+  onPin,
+  onClose,
 }: {
   extension: Manifest;
   commands: Command[];
   run: (command: Command) => void;
+  open: boolean;
+  mode: "hover" | "click" | null;
+  onEnter: () => void;
+  onLeave: () => void;
+  onPin: () => void;
+  onClose: () => void;
 }) {
   const { text } = useI18n();
-  const [open, setOpen] = useState<"hover" | "click" | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const cancel = () => clearTimeout(timer.current);
-  const away = () => {
-    timer.current = setTimeout(
-      () => setOpen((value) => (value === "hover" ? null : value)),
-      180,
-    );
-  };
-  useEffect(() => () => clearTimeout(timer.current), []);
   return (
     <SidebarMenuItem>
       <Popover
-        open={!!open}
-        onOpenChange={(value) => setOpen(value ? "click" : null)}
+        open={open}
+        onOpenChange={(value) => {
+          if (!value) onClose();
+        }}
       >
         <PopoverTrigger asChild>
           <SidebarMenuButton
             aria-label={text(extension.name)}
-            title={text(extension.name)}
             onPointerEnter={(event) => {
               if (event.pointerType !== "mouse") return;
-              cancel();
-              setOpen((value) => value ?? "hover");
+              onEnter();
             }}
-            onPointerLeave={away}
+            onPointerLeave={onLeave}
             onClick={(event) => {
-              if (open === "hover") {
-                event.preventDefault();
-                setOpen("click");
-              }
+              event.preventDefault();
+              if (mode === "click") onClose();
+              else onPin();
             }}
           >
             <Icon glyph={extension.icon} extension={extension} />
@@ -103,30 +104,32 @@ function ExtensionButton({
           side="right"
           align="start"
           sideOffset={9}
-          className="w-52 p-1.5"
+          className="max-h-[var(--radix-popover-content-available-height)] w-64 overflow-y-auto p-1.5"
           aria-label={text(extension.name)}
           onOpenAutoFocus={(event) => {
-            if (open === "hover") event.preventDefault();
+            if (mode === "hover") event.preventDefault();
           }}
           onCloseAutoFocus={(event) => {
-            if (open !== "click") event.preventDefault();
+            if (mode !== "click") event.preventDefault();
           }}
-          onPointerEnter={cancel}
-          onPointerLeave={away}
+          onPointerEnter={onEnter}
+          onPointerLeave={onLeave}
         >
           {commands.map((command) => (
             <Button
               variant="ghost"
               size="sm"
-              className="w-full justify-start"
+              className="h-auto min-h-8 w-full min-w-0 justify-start gap-2 px-2 py-1.5 text-left whitespace-normal"
               key={command.id}
               onClick={() => {
-                setOpen(null);
+                onClose();
                 run(command);
               }}
             >
               <Icon glyph={command.icon} extension={extension} />
-              {text(command.title)}
+              <span className="min-w-0 flex-1 break-words">
+                {text(command.title)}
+              </span>
             </Button>
           ))}
         </PopoverContent>
@@ -152,6 +155,37 @@ export function Rail({
 }) {
   const [about, setAbout] = useState(false);
   const [agent, setAgent] = useState(false);
+  const [extensionMenu, setExtensionMenu] = useState<{
+    id: string;
+    mode: "hover" | "click";
+  } | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const clearClose = () => clearTimeout(closeTimer.current);
+  const enterExtension = (id: string) => {
+    clearClose();
+    setExtensionMenu((current) =>
+      current?.id === id ? current : { id, mode: "hover" },
+    );
+  };
+  const leaveExtension = (id: string) => {
+    clearClose();
+    closeTimer.current = setTimeout(() => {
+      setExtensionMenu((current) =>
+        current?.id === id && current.mode === "hover" ? null : current,
+      );
+    }, 180);
+  };
+  const pinExtension = (id: string) => {
+    clearClose();
+    setExtensionMenu({ id, mode: "click" });
+  };
+  const closeExtension = (id: string) => {
+    clearClose();
+    setExtensionMenu((current) => (current?.id === id ? null : current));
+  };
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
   const [link, setLink] = useState<AgentLink | null>(null);
   const [copied, setCopied] = useState(false);
   const { t, locale } = useI18n();
@@ -218,6 +252,16 @@ export function Rail({
                   key={extension.id}
                   extension={extension}
                   run={run}
+                  open={extensionMenu?.id === extension.id}
+                  mode={
+                    extensionMenu?.id === extension.id
+                      ? extensionMenu.mode
+                      : null
+                  }
+                  onEnter={() => enterExtension(extension.id)}
+                  onLeave={() => leaveExtension(extension.id)}
+                  onPin={() => pinExtension(extension.id)}
+                  onClose={() => closeExtension(extension.id)}
                   commands={tileCommands.filter(
                     (command) => command.owner.id === extension.id,
                   )}
