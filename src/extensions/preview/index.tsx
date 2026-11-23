@@ -14,8 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import * as pdfjs from "pdfjs-dist";
-import type { PDFDocumentProxy } from "pdfjs-dist";
+import type { PDFDocumentLoadingTask, PDFDocumentProxy } from "pdfjs-dist";
 import { toast } from "sonner";
 import type {
   ExtensionAPI,
@@ -48,10 +47,21 @@ import manifest, { previewType } from "./manifest.ts";
 import { webBrowser } from "../web/api.ts";
 import "./style.css";
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
+/**
+ * Le moteur PDF pèse plus lourd que le reste de la tuile : il n’est chargé
+ * qu’au premier PDF, pas lors de l’activation de l’extension au lancement.
+ */
+let pdfjs: Promise<typeof import("pdfjs-dist")> | undefined;
+function loadPdfjs() {
+  pdfjs ??= import("pdfjs-dist").then((module) => {
+    module.GlobalWorkerOptions.workerSrc = new URL(
+      "pdfjs-dist/build/pdf.worker.min.mjs",
+      import.meta.url,
+    ).toString();
+    return module;
+  });
+  return pdfjs;
+}
 
 const familyIcons: Record<PreviewKind, IconComponent> = {
   pdf: FileText,
@@ -160,13 +170,15 @@ function PdfViewer({
 
   useEffect(() => {
     let alive = true;
-    let task: pdfjs.PDFDocumentLoadingTask | undefined;
+    let task: PDFDocumentLoadingTask | undefined;
     setDoc(undefined);
     setError(undefined);
     void (async () => {
       try {
         const response = await fetch(url);
         const data = await response.arrayBuffer();
+        if (!alive) return;
+        const pdfjs = await loadPdfjs();
         if (!alive) return;
         task = pdfjs.getDocument({ data });
         const loaded = await task.promise;
