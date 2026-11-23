@@ -33,14 +33,21 @@ interface Tile {
 const files = `~/Library/Application Support/fr.spark.desktop/
   workspace-v1.json      tabs, tiles, layouts, extension state, theme
   workspace-recovery.json backup written on an invalid-format recovery
-  settings-v1.json       { "dev": boolean }
+  settings-v1.json       { "dev": boolean, "locale": "fr" }
   extensions.json        installed packages, versions, registry sources
   extensions/<id>/<version>/
   markdown-access.json   tokens for allowed Markdown files
   explorer-access.json   tokens for allowed folders
+  preview-access.json    tokens for files the preview may open
   run/mcp.sock           MCP socket
   run/tools.json         tool list cache for the bridge
-  ~/Library/Caches/fr.spark.desktop/pdf/<id>.pdf`;
+
+~/Library/Caches/fr.spark.desktop/
+  preview/<id>.bin       files downloaded for the preview
+  web/text/<tile>.txt    page text extracted for an agent
+
+~/Library/WebKit/fr.spark.desktop/
+                         cookies and storage of the browser tile`;
 ---
 
 <Docs

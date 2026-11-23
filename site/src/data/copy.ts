@@ -174,7 +174,7 @@ export const EN: Copy = {
       },
       {
         title: "Preview",
-        body: "PDF, images, audio, video and text in one tile, from a file or an https link. Agents see the type and metadata, never the content.",
+        body: "PDF, images, audio, video, text and HTML in one tile, from a file or an https link. Agents see the type and metadata, never the content.",
       },
       {
         title: "Data",
@@ -447,7 +447,7 @@ export const FR: Copy = {
       },
       {
         title: "Aperçu",
-        body: "PDF, images, audio, vidéo et texte dans une tuile, depuis un fichier ou un lien https. Les agents voient le type et les métadonnées, jamais le contenu.",
+        body: "PDF, images, audio, vidéo, texte et HTML dans une tuile, depuis un fichier ou un lien https. Les agents voient le type et les métadonnées, jamais le contenu.",
       },
       {
         title: "Données",

@@ -33,14 +33,21 @@ interface Tile {
 const files = `~/Library/Application Support/fr.spark.desktop/
   workspace-v1.json      onglets, tuiles, dispositions, état, thème
   workspace-recovery.json copie écrite lors d'une reprise de format invalide
-  settings-v1.json       { "dev": boolean }
+  settings-v1.json       { "dev": boolean, "locale": "fr" }
   extensions.json        paquets installés, versions, sources de dépôt
   extensions/<id>/<version>/
   markdown-access.json   jetons des fichiers Markdown autorisés
   explorer-access.json   jetons des dossiers autorisés
+  preview-access.json    jetons des fichiers que l’Aperçu peut ouvrir
   run/mcp.sock           socket MCP
   run/tools.json         cache de la liste d'outils pour le pont
-  ~/Library/Caches/fr.spark.desktop/pdf/<id>.pdf`;
+
+~/Library/Caches/fr.spark.desktop/
+  preview/<id>.bin       fichiers téléchargés pour l’Aperçu
+  web/text/<tile>.txt    texte de page extrait pour un agent
+
+~/Library/WebKit/fr.spark.desktop/
+                         cookies et stockage de la tuile navigateur`;
 ---
 
 <Docs

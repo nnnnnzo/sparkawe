@@ -65,8 +65,9 @@ import { EN } from "../../data/copy";
   <p>
     Every command allowed for the <code>main</code> window is reachable from code running in that
     window. Capabilities live in <code>src-tauri/capabilities/</code>; CSP and asset scope in
-    <code>tauri.conf.json</code>. The <code>asset</code> protocol only covers the PDF cache and
-    <code>$APPCONFIG/extensions/**</code>.
+    <code>tauri.conf.json</code>. The <code>asset</code> protocol only covers the preview cache and
+    <code>$APPCONFIG/extensions/**</code>; a local file joins its scope at runtime, after an
+    explicit grant.
   </p>
 
   <p>

@@ -67,8 +67,9 @@ import { FR } from "../../../data/copy";
     Toutes les commandes autorisées pour la fenêtre <code>main</code> sont accessibles au code
     exécuté dans cette fenêtre. Les capabilities sont dans
     <code>src-tauri/capabilities/</code> ; le CSP et la portée <code>asset</code> dans
-    <code>tauri.conf.json</code>. Le protocole <code>asset</code> ne couvre que le cache PDF et
-    <code>$APPCONFIG/extensions/**</code>.
+    <code>tauri.conf.json</code>. Le protocole <code>asset</code> ne couvre que le cache de
+    l’Aperçu et <code>$APPCONFIG/extensions/**</code> ; un fichier local rejoint sa portée à
+    l’exécution, après une autorisation explicite.
   </p>
 
   <p>
