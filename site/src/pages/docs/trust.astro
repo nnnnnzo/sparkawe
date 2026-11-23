@@ -69,6 +69,12 @@ import { EN } from "../../data/copy";
     <code>$APPCONFIG/extensions/**</code>.
   </p>
 
+  <p>
+    The browser tile is the one exception in the other direction: the remote page lives in a
+    separate native view with no Tauri IPC, so a web page can neither call the registry nor read
+    the workspace.
+  </p>
+
   <h2>Wording</h2>
   <p>
     When a feature touches trust, say what is verified and what is not. Never write "secure" where

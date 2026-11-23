@@ -127,7 +127,7 @@ export const EN: Copy = {
     title: ["Your agents work", "in the same room", "as you."],
     accent: 1,
     lede:
-      "Spark is a desktop workspace built around tabs. Terminals, files, PDFs, tables and agents live side by side in one window — and share the same objects.",
+      "Spark is a desktop workspace built around tabs. Terminals, files, PDFs, tables, web pages and agents live side by side in one window — and share the same objects.",
     primary: "Build from source",
     secondary: "Read the code",
     meta: ["macOS", "Tauri 2 · Rust", "MIT", "v0.1.0"],
@@ -181,8 +181,8 @@ export const EN: Copy = {
         body: "Typed tables — text, number, date — up to 2,000 rows and 32 columns, with charts bound to the table itself.",
       },
       {
-        title: "OpenAlex",
-        body: "Search by topic, author or DOI, read a work's fields, and open its free PDF beside your notes.",
+        title: "Browser",
+        body: "Any public page in a native view, sign-in and media included. The page title names the tab, and the preferred colour scheme follows the theme.",
       },
     ],
   },
@@ -269,7 +269,7 @@ export const EN: Copy = {
     eyebrow: "Extensions",
     title: "Extensions add tiles.",
     lede:
-      "The app is built from tiles: terminal, Markdown, PDF, data, OpenAlex. The Store adds the rest.",
+      "The app is built from tiles: terminal, Markdown, PDF, data, browser. The Store adds the rest, official integrations included.",
     cards: [
       {
         title: "Browse",
@@ -400,7 +400,7 @@ export const FR: Copy = {
     title: ["Vos agents travaillent", "dans la même pièce", "que vous."],
     accent: 1,
     lede:
-      "Spark est un espace de travail construit autour d’onglets. Terminaux, fichiers, PDF, tableaux et agents vivent côte à côte dans une seule fenêtre — et partagent les mêmes objets.",
+      "Spark est un espace de travail construit autour d’onglets. Terminaux, fichiers, PDF, tableaux, pages web et agents vivent côte à côte dans une seule fenêtre — et partagent les mêmes objets.",
     primary: "Compiler les sources",
     secondary: "Lire le code",
     meta: ["macOS", "Tauri 2 · Rust", "MIT", "v0.1.0"],
@@ -454,8 +454,8 @@ export const FR: Copy = {
         body: "Des tableaux typés — texte, nombre, date — jusqu’à 2 000 lignes et 32 colonnes, avec des graphiques liés au tableau.",
       },
       {
-        title: "OpenAlex",
-        body: "Chercher par sujet, auteur ou DOI, lire les champs d’un travail et ouvrir son PDF libre à côté de vos notes.",
+        title: "Navigateur",
+        body: "N’importe quelle page publique dans une vue native, connexions et médias compris. Le titre de la page nomme l’onglet, et le schéma clair ou sombre suit le thème.",
       },
     ],
   },
@@ -542,7 +542,7 @@ export const FR: Copy = {
     eyebrow: "Extensions",
     title: "Les extensions ajoutent des tuiles.",
     lede:
-      "L’application est faite de tuiles : terminal, Markdown, PDF, données, OpenAlex. Le Store ajoute les autres.",
+      "L’application est faite de tuiles : terminal, Markdown, PDF, données, navigateur. Le Store ajoute les autres, intégrations officielles comprises.",
     cards: [
       {
         title: "Parcourir",
