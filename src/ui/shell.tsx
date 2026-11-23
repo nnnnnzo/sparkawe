@@ -492,15 +492,27 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
               setMode(value);
           }}
         >
-          <ToggleGroupItem value="side" aria-label="Side" title="Side">
+          <ToggleGroupItem
+            value="side"
+            aria-label={t("shell.command.side")}
+            title={t("shell.command.side")}
+          >
             <Columns2 />
             <span>Side</span>
           </ToggleGroupItem>
-          <ToggleGroupItem value="tiling" aria-label="Tiling" title="Tiling">
+          <ToggleGroupItem
+            value="tiling"
+            aria-label={t("shell.command.tiling")}
+            title={t("shell.command.tiling")}
+          >
             <LayoutGrid />
             <span>Tiling</span>
           </ToggleGroupItem>
-          <ToggleGroupItem value="stack" aria-label="Stack" title="Stack">
+          <ToggleGroupItem
+            value="stack"
+            aria-label={t("shell.command.stack")}
+            title={t("shell.command.stack")}
+          >
             <Rows3 />
             <span>Stack</span>
           </ToggleGroupItem>

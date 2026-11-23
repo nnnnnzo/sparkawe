@@ -274,7 +274,7 @@ export function Rail({
             <SidebarMenuItem>
               <SidebarMenuButton
                 id="store-trigger"
-                tooltip="Store"
+                tooltip={t("rail.store")}
                 aria-label={t("rail.store")}
                 onClick={onOpenStore}
               >
