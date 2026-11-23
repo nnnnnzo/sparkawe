@@ -250,7 +250,7 @@ export const EN: Copy = {
       {
         keys: "⌘K",
         title: "Palette",
-        body: "Every command, tile and pinned extension action, from the keyboard.",
+        body: "Every command the app and its extensions declare, from the keyboard.",
       },
       {
         keys: "⌘Z · ⇧⌘Z",
@@ -523,7 +523,7 @@ export const FR: Copy = {
       {
         keys: "⌘K",
         title: "Palette",
-        body: "Toutes les commandes, tuiles et actions épinglées, au clavier.",
+        body: "Toutes les commandes déclarées par l’application et ses extensions, au clavier.",
       },
       {
         keys: "⌘Z · ⇧⌘Z",
