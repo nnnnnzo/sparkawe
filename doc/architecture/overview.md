@@ -84,7 +84,8 @@ src-tauri/src/
   terminal/       PTY
   markdown.rs     accès fichiers Markdown
   explorer.rs     accès dossiers
-  pdf.rs          téléchargement et cache PDF
+  preview.rs      sources et cache de l’Aperçu
+  web.rs          vues web natives
 doc/              cette documentation
 examples/         paquets et dépôt de démonstration
 ```

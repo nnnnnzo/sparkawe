@@ -82,4 +82,4 @@ Le CSP autorise :
 - `script-src`, `style-src`, `font-src` et `img-src` depuis `asset:` et `http://asset.localhost` ;
 - `connect-src` vers l’IPC Tauri et `https://api.openalex.org`.
 
-Le protocole `asset` est limité au cache PDF/OpenAlex et à `$APPCONFIG/extensions/**`. Une extension importée n’a pas de CSP séparée : ses scripts et styles sont chargés dans la page principale. Voir [Tauri](../operations/tauri.md).
+Le protocole `asset` est limité au cache de l’Aperçu, aux anciens caches PDF et OpenAlex, et à `$APPCONFIG/extensions/**`. Une extension importée n’a pas de CSP séparée : ses scripts et styles sont chargés dans la page principale. Voir [Tauri](../operations/tauri.md).
