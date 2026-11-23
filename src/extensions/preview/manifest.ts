@@ -11,7 +11,7 @@ export default {
   name: localized("manifest.preview.name"),
   version: "0.1.0",
   icon: FileSearch,
-  color: SPECTRUM.lime,
+  color: SPECTRUM.honey,
   tier: "core",
   tileTypes: [pdfType],
   certification: "spark",

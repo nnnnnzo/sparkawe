@@ -15,6 +15,8 @@ export const SPECTRUM = {
   cyan: "#7AB8C1",
   lime: "#B4BC82",
   coral: "#CE9E8D",
+  /** Accent d’extension : le spectre du logo reste à cinq couleurs. */
+  honey: "#C9AC80",
 } as const;
 
 export const SPECTRUM_ORDER = [

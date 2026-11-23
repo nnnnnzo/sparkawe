@@ -13,7 +13,7 @@ export default {
   name: localized("manifest.data.name"),
   version: "0.1.0",
   icon: Table2,
-  color: SPECTRUM.cyan,
+  color: SPECTRUM.lime,
   tier: "core",
   tileTypes: [tableType, chartType],
   certification: "spark",

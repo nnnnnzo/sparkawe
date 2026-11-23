@@ -5,7 +5,7 @@
  */
 export interface TileMark {
   /** Variable CSS de la palette spectrale. */
-  color: "violet" | "blue" | "cyan" | "lime" | "coral";
+  color: "violet" | "blue" | "cyan" | "lime" | "coral" | "honey";
   /** Contenu d'un svg 24 × 24, tracé Lucide. */
   icon: string;
 }
@@ -24,11 +24,11 @@ export const TILE_MARKS: readonly TileMark[] = [
     icon: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /> <path d="M14 2v4a2 2 0 0 0 2 2h4" /> <path d="M10 9H8" /> <path d="M16 13H8" /> <path d="M16 17H8" />',
   },
   {
-    color: "lime",
+    color: "honey",
     icon: '<path d="M14 2v4a2 2 0 0 0 2 2h4" /> <path d="M4.268 21a2 2 0 0 0 1.727 1H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3" /> <path d="m9 18-1.5-1.5" /> <circle cx="5" cy="14" r="3" />',
   },
   {
-    color: "cyan",
+    color: "lime",
     icon: '<path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18" />',
   },
   {
