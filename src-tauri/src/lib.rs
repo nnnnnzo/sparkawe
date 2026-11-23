@@ -5,7 +5,7 @@ mod markdown;
 pub mod mcp;
 mod menu;
 mod notifications;
-mod pdf;
+mod preview;
 mod settings;
 mod storage;
 mod terminal;
@@ -85,6 +85,7 @@ pub fn run() {
             }
             app.manage(markdown::MarkdownStorage::new(&path));
             app.manage(explorer::ExplorerStorage::new(&path));
+            app.manage(preview::PreviewStorage::new(&path));
             app.manage(storage::Storage::new(path).map_err(std::io::Error::other)?);
             match mcp::McpServer::start(app.handle().clone()) {
                 Ok(server) => {
@@ -127,8 +128,12 @@ pub fn run() {
             mcp_link,
             agent_setup,
             agent_connected,
-            pdf::pdf_fetch,
-            pdf::pdf_probe,
+            preview::preview_select,
+            preview::preview_source,
+            preview::preview_from_explorer,
+            preview::preview_drop,
+            preview::preview_fetch,
+            preview::preview_probe,
             notifications::notify_desktop,
             menu::popup_tile_menu,
             web::web_open,

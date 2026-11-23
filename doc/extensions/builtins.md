@@ -7,8 +7,8 @@ Les intégrées vivent dans `src/extensions/<nom>/`. Chacune a un `manifest.ts`,
 | Terminal | `spark.terminal` | core | `terminal.session` | `terminal.open@1`, `terminal.sessions@1`, `terminal.session.closed` |
 | Markdown | `spark.markdown` | core | `markdown.editor`, `markdown.preview` | `markdown.open@1`, `markdown.documents@1`, `markdown.document.saved` |
 | Données | `spark.data` | core | `data.table`, `data.chart` | `data.tables@1`, `data.charts@1`, `data.table.changed` |
-| Explorateur | `spark.explorer` | core | `explorer.tree` | utilise `markdown.open@1` et `terminal.open@1` |
-| Aperçu | `spark.preview` | core | `preview.pdf` | `preview.pdf@1` |
+| Explorateur | `spark.explorer` | core | `explorer.tree` | utilise `markdown.open@1`, `preview.open@1` et `terminal.open@1` |
+| Aperçu | `spark.preview` | core | `preview.file` | `preview.pdf@1`, `preview.open@1` |
 | OpenAlex | `spark.openalex` | official | `openalex.search`, `openalex.work` | utilise `preview.pdf@1` |
 | Navigateur web | `spark.web` | core | `web.page` | `web.open@1` |
 
@@ -39,15 +39,22 @@ Les intégrées vivent dans `src/extensions/<nom>/`. Chacune a un `manifest.ts`,
 ## Explorateur
 
 - Arborescence d’un dossier choisi, avec grants persistés.
-- Ouvre un Markdown via `markdown.open@1`, un terminal via `terminal.open@1`.
+- Ouvre un Markdown via `markdown.open@1`, un fichier pris en charge via `preview.open@1`, un terminal via `terminal.open@1`.
+- L’action `open-in-preview` accepte un chemin relatif à la racine, ou la sélection de l’interface.
 - Commandes natives `explorer_*` ; pas d’accès hors du dossier autorisé.
 - Capture : `explorer.webp` (arborescence + aperçu Markdown).
 
 ## Aperçu
 
-- PDF téléchargé via `pdf_fetch`, cache local, rendu pdf.js.
-- `preview.pdf@1` permet à OpenAlex d’ouvrir un PDF libre.
-- `pdf_probe` vérifie qu’une URL sert un PDF avant téléchargement.
+- Une tuile `preview.file` garde une source ; plusieurs tuiles sont possibles dans un même onglet.
+- Formats : PDF (pdf.js), images, audio, vidéo, texte, code source et HTML.
+- Markdown n’est pas rendu ici : l’Explorateur l’ouvre dans l’éditeur.
+- Sources : fichier choisi ou déposé, ou lien `https`. Un fichier local est autorisé par un grant dans `preview-access.json` et par la portée du protocole asset ; un lien non média est téléchargé dans `$APPCACHE/preview`.
+- L’audio et la vidéo distants se lisent directement ; les médias locaux passent par le protocole asset, qui gère les requêtes `Range`.
+- HTML n’est jamais exécuté : le source est affiché, et « Ouvrir dans le navigateur » n’est proposé que pour une URL `https`.
+- Plafonds : PDF 30 Mo, image 50 Mo, texte 2 Mo, média 100 Mo ; un texte local est affiché sur 512 Ko au plus.
+- `preview.pdf@1` permet à OpenAlex d’ouvrir un PDF libre ; `preview.open@1` ouvre une source générique.
+- L’état vide montre les familles de formats, un champ de lien et « Choisir un fichier… » ; la tuile accepte aussi le dépôt d’un fichier.
 - Capture : `preview.webp`.
 
 ## OpenAlex

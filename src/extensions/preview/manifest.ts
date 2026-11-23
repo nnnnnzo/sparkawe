@@ -4,7 +4,7 @@ import type { Manifest } from "../../sdk/index.ts";
 import { localized } from "../../core/i18n.ts";
 import { SPECTRUM } from "../../shared/brand/index.tsx";
 
-export const pdfType = "preview.pdf";
+export const previewType = "preview.file";
 
 export default {
   id: "spark.preview",
@@ -13,7 +13,7 @@ export default {
   icon: FileSearch,
   color: SPECTRUM.honey,
   tier: "core",
-  tileTypes: [pdfType],
+  tileTypes: [previewType],
   certification: "spark",
   subtitle: localized("manifest.preview.subtitle"),
   summary: localized("manifest.preview.summary"),

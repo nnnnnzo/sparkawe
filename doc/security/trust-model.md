@@ -65,7 +65,11 @@ Le champ `certification: "spark"` est prévu pour les paquets publiés et signé
 
 ## Surface native
 
-Toutes les commandes autorisées à la fenêtre `main` sont accessibles au code exécuté dans cette fenêtre. Les capabilities sont dans `src-tauri/capabilities/` et le CSP/asset dans `tauri.conf.json`. Le protocole `asset` est limité au cache PDF/OpenAlex et à `$APPCONFIG/extensions/**`.
+Toutes les commandes autorisées à la fenêtre `main` sont accessibles au code exécuté dans cette fenêtre. Les capabilities sont dans `src-tauri/capabilities/` et le CSP/asset dans `tauri.conf.json`. Le protocole `asset` est limité au cache de l’Aperçu, à l’ancien cache PDF, au cache OpenAlex et à `$APPCONFIG/extensions/**`.
+
+Un fichier local n’est jamais copié pour l’Aperçu. `preview_select`, `preview_drop` et `preview_from_explorer` vérifient qu’il s’agit d’un fichier ordinaire, refusent les liens symboliques, enregistrent un grant dans `preview-access.json` et l’ajoutent pour la session à la portée du protocole `asset`. La portée n’est pas persistée ; `preview_source` la rétablit depuis un token connu. Un chemin arbitraire n’est jamais accepté par la tuile.
+
+L’Aperçu ne rend jamais de HTML actif : le source est affiché, et le navigateur natif n’ouvre qu’une URL `https` à la demande. Les médias distants sont lus directement par le webview, qui contacte alors l’hôte ; les autres liens sont téléchargés dans le cache. La tuile n’écrit aucun fichier et la surface ne transporte que le type, le titre et des métadonnées (pages, dimensions, durée), jamais le contenu.
 
 Un navigateur externe n’est pas utilisé pour les extensions : le bundle est injecté dans la page principale, avec React fourni par `window.SparkRuntime`.
 

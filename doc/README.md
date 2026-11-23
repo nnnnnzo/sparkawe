@@ -42,6 +42,7 @@ Le code fait foi. Quand un contrat change (SDK, manifeste, index de dépôt, com
 - [0003 — Captures d’extensions](decisions/0003-extension-captures.md)
 - [0004 — Langues de l’interface](decisions/0004-interface-languages.md)
 - [0005 — Navigateur dans une tuile native](decisions/0005-browser-tile.md)
+- [0006 — Aperçu multi-format](decisions/0006-file-preview.md)
 
 ## Règles de lecture
 

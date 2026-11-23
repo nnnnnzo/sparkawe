@@ -1,4 +1,5 @@
 import {
+  FileSearch,
   FileText,
   FolderOpen,
   FolderSearch,
@@ -26,6 +27,8 @@ import { localized } from "../../core/i18n.ts";
 import { t as translateNow } from "../../i18n/index.ts";
 import { useI18n } from "../../i18n/react.ts";
 import { markdownOpener } from "../markdown/api.ts";
+import { previewOpener } from "../preview/api.ts";
+import { isPreviewable } from "../preview/kind.ts";
 import { terminalLauncher } from "../terminal/api.ts";
 import {
   isMarkdown,
@@ -121,6 +124,42 @@ export default function createExplorer(): ExtensionModule {
                   translateNow("explorer.error.markdownUnavailable"),
                 );
               const created = markdown.open(file, tile.id);
+              return { ref: created.id, name: entry.name };
+            },
+          },
+          "open-in-preview": {
+            title: localized("explorer.action.openInPreview"),
+            description: localized("explorer.action.openInPreview.description"),
+            input: {
+              path: {
+                type: "string",
+                required: false,
+                description: translateNow("explorer.input.path"),
+              },
+            },
+            requires: [previewOpener],
+            run: async (tile, input) => {
+              const entry = targetOf(tile, input);
+              if (entry.kind === "folder" || !isPreviewable(entry.name))
+                throw new Error(
+                  translateNow("explorer.error.notPreviewable", {
+                    name: entry.name,
+                  }),
+                );
+              const preview = api.services.get(previewOpener);
+              if (!preview)
+                throw new Error(
+                  translateNow("explorer.error.previewUnavailable"),
+                );
+              const created = await preview.open(
+                {
+                  type: "explorer",
+                  token: rootToken(tile),
+                  segments: entry.segments,
+                  name: entry.name,
+                },
+                tile.id,
+              );
               return { ref: created.id, name: entry.name };
             },
           },
@@ -286,27 +325,67 @@ function ProjectTree({
     };
   }, [api, root.path, selected, tileId]);
   const markdown = api.services.get(markdownOpener);
+  const preview = api.services.get(previewOpener);
   const terminal = api.services.get(terminalLauncher);
   const folderSelected = selected.kind === "folder";
+  const markdownSelected = !folderSelected && isMarkdown(selected);
+  const previewSelected = !folderSelected && isPreviewable(selected.name);
   const action = folderSelected
     ? t("explorer.action.openInTerminal")
-    : t("explorer.action.openInMarkdown");
-  const ActionIcon = folderSelected ? Terminal : FileText;
-  const available = folderSelected ? !!terminal : !!markdown;
-  const canOpen = folderSelected || isMarkdown(selected);
+    : markdownSelected
+      ? t("explorer.action.openInMarkdown")
+      : previewSelected
+        ? t("explorer.action.openInPreview")
+        : t("explorer.action.openInMarkdown");
+  const ActionIcon = folderSelected
+    ? Terminal
+    : markdownSelected
+      ? FileText
+      : previewSelected
+        ? FileSearch
+        : FileText;
+  const available = folderSelected
+    ? !!terminal
+    : markdownSelected
+      ? !!markdown
+      : previewSelected
+        ? !!preview
+        : false;
+  const canOpen = folderSelected || markdownSelected || previewSelected;
 
   async function open(entry: Selection) {
     if (pending || picking) return;
     const folder = entry.kind === "folder";
-    if (folder ? !terminal : !markdown) return;
+    const markdownFile = !folder && isMarkdown(entry);
+    const previewable = !folder && isPreviewable(entry.name);
+    if (folder && !terminal) return;
+    if (markdownFile && !markdown) return;
+    if (previewable && !preview) {
+      toast.error(translateNow("explorer.error.previewUnavailable"));
+      return;
+    }
     setPending(true);
     try {
       if (folder) {
         const directory = await resolveFolder(root.token, entry.segments);
         api.services.get(terminalLauncher)?.open(directory, tileId);
-      } else {
+      } else if (markdownFile) {
         const file = await readMarkdown(root.token, entry.segments);
         api.services.get(markdownOpener)?.open(file, tileId);
+      } else if (previewable) {
+        await api.services.get(previewOpener)?.open(
+          {
+            type: "explorer",
+            token: root.token,
+            segments: entry.segments,
+            name: entry.name,
+          },
+          tileId,
+        );
+      } else {
+        toast.error(
+          translateNow("explorer.error.notPreviewable", { name: entry.name }),
+        );
       }
     } catch (error) {
       toast.error(

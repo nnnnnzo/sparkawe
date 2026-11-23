@@ -3,7 +3,7 @@
 ## Dossiers
 
 - Configuration : `app_config_dir()` ; sur macOS `~/Library/Application Support/fr.spark.desktop/`.
-- Cache : `app_cache_dir()` ; PDF dans `pdf/<id>.pdf`, texte extrait dans `web/text/`.
+- Cache : `app_cache_dir()` ; aperçus dans `preview/<id>.bin`, texte extrait dans `web/text/`.
 - Profil du navigateur : `web/profile/` sous Windows et Linux. Sous macOS, WKWebView range cookies et stockage dans le magasin WebKit de l’application (`~/Library/WebKit/fr.spark.desktop/`) : `data_directory` y est ignoré.
 - L’ancien dossier `fr.lab.desktop` est repris au premier lancement, sans écraser les fichiers existants.
 
@@ -18,9 +18,10 @@
 | `extensions/<id>/<version>/` | Rust | Paquet extrait (`extension.json`, bundle, styles, icône, médias). |
 | `markdown-access.json` | Rust | Tokens de fichiers Markdown autorisés. |
 | `explorer-access.json` | Rust | Tokens de dossiers autorisés. |
+| `preview-access.json` | Rust | Tokens de fichiers autorisés pour l’Aperçu. |
 | `run/mcp.sock` | Rust | Socket MCP local. |
 | `run/tools.json` | Rust | Cache d’outils pour le sidecar. |
-| `pdf/<id>.pdf` | Rust | PDF téléchargés. |
+| `preview/<id>.bin` | Rust | Fichiers téléchargés pour l’Aperçu. |
 | `web/profile/` | webview | Profil du navigateur sous Windows et Linux ; macOS utilise `~/Library/WebKit/fr.spark.desktop/`. |
 | `web/text/<tuile>.txt` | Rust | Texte de page extrait pour un agent. |
 
@@ -96,7 +97,7 @@
 - Un workspace illisible ou invalide repart d’un état initial.
 - Le runtime marque `recovery` ; la première sauvegarde copie l’ancien fichier dans `workspace-recovery.json` s’il n’existe pas.
 - Les identifiants `lab.*` sont migrés vers `spark.*` au chargement.
-- Les anciennes tuiles `openalex.pdf` deviennent `preview.pdf`.
+- Les anciennes tuiles `openalex.pdf` et `preview.pdf` deviennent `preview.file` avec `kind: "pdf"`.
 
 ## Mémoire uniquement
 

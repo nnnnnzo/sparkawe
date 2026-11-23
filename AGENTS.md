@@ -60,6 +60,8 @@ Après l’ajout, mettre à jour `doc/operations/tauri.md` et la liste du backen
 - Une action qui modifie des données le déclare avec `mutates` (booléen ou fonction selon la tuile).
 - Une extension importée s’exécute dans la fenêtre principale, sans sandbox. Ne jamais la présenter comme sûre ; le modèle est la confiance explicite.
 - Le manifeste d’un paquet importé est validé côté Rust. Ne pas faire confiance à une validation uniquement côté front.
+- L’Aperçu accepte PDF, images, audio, vidéo, texte et HTML ; le Markdown reste dans l’éditeur. Une tuile garde une source, plusieurs tuiles sont permises, et déposer un fichier sur une tuile occupée remplace sa source.
+- L’Aperçu ne rend jamais de HTML actif ; « Ouvrir dans le navigateur » n’apparaît que pour une URL `https`, jamais pour un fichier local.
 - Les paquets importés se chargent par un script classique enregistré dans `window.SparkExtensions[id]` et reçoivent React par `window.SparkRuntime`.
 - Les captures ne vont ni dans les cartes ni dans le hero : seulement dans la galerie de la fiche. Elles sont générées depuis les vraies vues React, en 16:9, avec des données neutres.
 - Le retour d’une fiche revient à la vue d’origine (Découvrir, Installées, Sources). Une galerie de dépôt revient à Sources.

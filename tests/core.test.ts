@@ -404,11 +404,29 @@ test("les anciennes tuiles PDF d’OpenAlex deviennent des aperçus", () => {
     data: { work: "W123", url: "https://example.org/article.pdf" },
   });
   const restored = restoreWorkspace(snapshot);
-  assert.equal(restored.tabs[0].tiles[0].type, "preview.pdf");
+  assert.equal(restored.tabs[0].tiles[0].type, "preview.file");
   assert.deepEqual(restored.tabs[0].tiles[0].data, {
+    kind: "pdf",
     id: "W123",
     title: "",
     url: "https://example.org/article.pdf",
+  });
+});
+
+test("les tuiles de l’ancien aperçu PDF gardent leur source", () => {
+  const snapshot = JSON.parse(JSON.stringify(initialWorkspace()));
+  snapshot.tabs[0].tiles.push({
+    id: "pdf-2",
+    type: "preview.pdf",
+    data: { id: "W456", title: "Article", url: "https://example.org/b.pdf" },
+  });
+  const restored = restoreWorkspace(snapshot);
+  assert.equal(restored.tabs[0].tiles[0].type, "preview.file");
+  assert.deepEqual(restored.tabs[0].tiles[0].data, {
+    kind: "pdf",
+    id: "W456",
+    title: "Article",
+    url: "https://example.org/b.pdf",
   });
 });
 

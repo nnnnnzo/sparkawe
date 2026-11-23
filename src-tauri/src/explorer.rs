@@ -19,7 +19,7 @@ impl ExplorerStorage {
         Self(PathGrants::new(home.join("explorer-access.json")))
     }
 
-    fn resolve(&self, token: &str, segments: &[String]) -> Result<PathBuf> {
+    pub(crate) fn resolve_path(&self, token: &str, segments: &[String]) -> Result<PathBuf> {
         let root = self.0.resolve(token)?;
         if root.canonicalize().map_err(message)? != root || !root.is_dir() {
             return Err("Le dossier sélectionné a changé d’emplacement.".into());
@@ -121,7 +121,9 @@ pub async fn explorer_list(
     segments: Vec<String>,
 ) -> Result<Vec<Entry>> {
     tauri::async_runtime::spawn_blocking(move || {
-        let folder = app.state::<ExplorerStorage>().resolve(&token, &segments)?;
+        let folder = app
+            .state::<ExplorerStorage>()
+            .resolve_path(&token, &segments)?;
         read_directory(&folder)
     })
     .await
@@ -135,7 +137,9 @@ pub async fn explorer_open_markdown(
     segments: Vec<String>,
 ) -> Result<markdown::Selection> {
     tauri::async_runtime::spawn_blocking(move || {
-        let file = app.state::<ExplorerStorage>().resolve(&token, &segments)?;
+        let file = app
+            .state::<ExplorerStorage>()
+            .resolve_path(&token, &segments)?;
         markdown::open_file(&app.state::<MarkdownStorage>(), &file)
     })
     .await
@@ -149,7 +153,9 @@ pub async fn explorer_directory(
     segments: Vec<String>,
 ) -> Result<String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let folder = app.state::<ExplorerStorage>().resolve(&token, &segments)?;
+        let folder = app
+            .state::<ExplorerStorage>()
+            .resolve_path(&token, &segments)?;
         if !folder.is_dir() {
             return Err("Ce dossier est indisponible.".into());
         }
@@ -190,23 +196,25 @@ mod tests {
 
         let token = ExplorerStorage::new(&fixture.0).0.grant(&project).unwrap();
         let storage = ExplorerStorage::new(&fixture.0);
-        let folder = storage.resolve(&token, &["docs".into()]).unwrap();
+        let folder = storage.resolve_path(&token, &["docs".into()]).unwrap();
         assert_eq!(read_directory(&folder).unwrap()[0].name, "Guide.MD");
         assert!(storage
-            .resolve(&token, &["..".into(), "outside.md".into()])
+            .resolve_path(&token, &["..".into(), "outside.md".into()])
             .is_err());
-        assert!(storage.resolve(&token, &["docs/Guide.MD".into()]).is_err());
-        assert!(storage.resolve("unknown token", &[]).is_err());
+        assert!(storage
+            .resolve_path(&token, &["docs/Guide.MD".into()])
+            .is_err());
+        assert!(storage.resolve_path("unknown token", &[]).is_err());
 
         #[cfg(unix)]
         {
             std::os::unix::fs::symlink(fixture.0.join("outside.md"), project.join("link.md"))
                 .unwrap();
-            assert!(storage.resolve(&token, &["link.md".into()]).is_err());
+            assert!(storage.resolve_path(&token, &["link.md".into()]).is_err());
         }
 
         let source = storage
-            .resolve(&token, &["docs".into(), "Guide.MD".into()])
+            .resolve_path(&token, &["docs".into(), "Guide.MD".into()])
             .unwrap();
         let markdown = MarkdownStorage::new(&fixture.0);
         let file = markdown::open_file(&markdown, &source).unwrap();

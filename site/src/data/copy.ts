@@ -173,8 +173,8 @@ export const EN: Copy = {
         body: "Editor and preview over the same document, with line-addressed actions so an agent edits precisely.",
       },
       {
-        title: "PDF",
-        body: "An https link is fetched and cached. The content stays out of MCP: agents only see the title and page count.",
+        title: "Preview",
+        body: "PDF, images, audio, video and text in one tile, from a file or an https link. Agents see the type and metadata, never the content.",
       },
       {
         title: "Data",
@@ -446,8 +446,8 @@ export const FR: Copy = {
         body: "Éditeur et aperçu sur le même document, avec des actions adressées par ligne pour qu’un agent modifie au bon endroit.",
       },
       {
-        title: "PDF",
-        body: "Un lien https est téléchargé et mis en cache. Le contenu reste hors de MCP : l’agent ne voit que le titre et le nombre de pages.",
+        title: "Aperçu",
+        body: "PDF, images, audio, vidéo et texte dans une tuile, depuis un fichier ou un lien https. Les agents voient le type et les métadonnées, jamais le contenu.",
       },
       {
         title: "Données",

@@ -12,7 +12,7 @@ Le backend est local. Il n’expose pas de serveur HTTP ; la fenêtre communique
 | `markdown.rs` | Sélection, lecture et écriture de fichiers Markdown, grants. |
 | `explorer.rs` | Sélection de dossier, listage, ouverture Markdown, grants. |
 | `terminal/` | Sessions PTY, entrée/sortie, redimensionnement, zsh. |
-| `pdf.rs` | Téléchargement, cache et validation de PDF. |
+| `preview.rs` | Fichiers locaux, cache des liens, classification et validation pour l’Aperçu. |
 | `web.rs` | Vues web natives par tuile, navigation, boîte, texte extrait. |
 | `mcp/` | Socket local, clients, messages JSON-RPC. |
 | `agents.rs` | Détection et configuration des clients MCP connus. |
@@ -31,7 +31,7 @@ Groupes :
 - Markdown : `markdown_select`, `markdown_confirm_close`, `markdown_read`, `markdown_write`.
 - Explorateur : `explorer_select`, `explorer_list`, `explorer_open_markdown`, `explorer_directory`.
 - Terminal : `terminal_start`, `terminal_input`, `terminal_resize`, `terminal_close`.
-- PDF : `pdf_fetch`, `pdf_probe`.
+- Aperçu : `preview_select`, `preview_source`, `preview_from_explorer`, `preview_drop`, `preview_fetch`, `preview_probe`.
 - Navigateur : `web_open`, `web_bounds`, `web_snapshot`, `web_show`, `web_appearance`, `web_navigate`, `web_history`, `web_reload`, `web_close`, `web_read_text`.
 - Notifications : `notify_desktop`, adossé à `tauri-plugin-notification`.
 - Menu de tuile : `popup_tile_menu`, menu du système pour le déplacement.
@@ -51,9 +51,10 @@ Le dossier est `app_config_dir()`, soit sur macOS `~/Library/Application Support
 | `extensions/<id>/<version>/` | Paquets importés extraits. |
 | `markdown-access.json` | Grants de fichiers Markdown. |
 | `explorer-access.json` | Grants de dossiers. |
+| `preview-access.json` | Grants de fichiers ouverts par l’Aperçu. |
 | `run/mcp.sock` | Socket MCP local. |
 | `run/tools.json` | Cache d’outils MCP pour les clients. |
-| cache applicatif `pdf/<id>.pdf` | PDF téléchargés. |
+| cache applicatif `preview/<id>.bin` | Fichiers téléchargés pour l’Aperçu (PDF, images, textes). |
 | cache applicatif `web/profile/` | Profil du webview sous Windows et Linux ; macOS utilise `~/Library/WebKit/<identifiant>/`. |
 | cache applicatif `web/text/<tuile>.txt` | Texte de page extrait pour un agent. |
 

@@ -15,7 +15,7 @@ Commandes actuelles : voir [le backend](../architecture/backend.md#commandes-tau
 ## Fenêtres et capabilities
 
 - Une seule fenêtre `main`.
-- `capabilities/main.json` couvre le workspace, les réglages, le PDF, le navigateur, les notifications, le MCP, les agents, les extensions.
+- `capabilities/main.json` couvre le workspace, les réglages, l’Aperçu, le navigateur, les notifications, le MCP, les agents, les extensions.
 - `capabilities/markdown.json`, `explorer.json` et `terminal.json` ajoutent les commandes de leurs modules à la fenêtre `main`.
 - Toutes les extensions importées s’exécutent dans `main` : elles partagent cette surface de permissions.
 - Aucune capability n’est accordée en `remote` : la page distante du navigateur n’a pas d’IPC Tauri.
@@ -37,7 +37,8 @@ Commandes actuelles : voir [le backend](../architecture/backend.md#commandes-tau
 
 - `script-src`, `style-src`, `font-src`, `img-src` depuis `asset:` et `http://asset.localhost` ;
 - `connect-src` vers l’IPC Tauri et `https://api.openalex.org` ;
-- `worker-src 'self' blob:` pour pdf.js.
+- `media-src` depuis `asset:`, `http://asset.localhost`, `blob:` et `https:` pour l’audio et la vidéo ;
+- `object-src 'none'` et `worker-src 'self' blob:` pour pdf.js.
 
 Une extension importée charge son bundle et son CSS par le protocole `asset`. Il n’y a pas de CSP séparée par extension.
 
@@ -49,6 +50,7 @@ La page du navigateur ne dépend pas de cette CSP : elle est rendue par une vue 
 
 ```json
 [
+  "$APPCACHE/preview/**",
   "$APPCACHE/pdf/**",
   "$APPCACHE/openalex/**",
   "$APPCONFIG/extensions/**"
@@ -56,6 +58,8 @@ La page du navigateur ne dépend pas de cette CSP : elle est rendue par une vue 
 ```
 
 Le scope extensions permet de charger les paquets importés. `convertFileSrc` produit l’URL utilisée par le loader.
+
+Un fichier local choisi, déposé ou ouvert depuis l’Explorateur n’entre pas dans le scope statique : `preview_source` et `preview_select` l’ajoutent à l’exécution avec `asset_protocol_scope().allow_file`. Cette autorisation n’est pas persistée ; elle est rétablie au chargement de la tuile. Seuls les grants de `preview-access.json` peuvent être réautorisés.
 
 ## Sidecar MCP
 

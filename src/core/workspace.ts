@@ -126,19 +126,26 @@ export function restoreWorkspace(state: unknown): WorkspaceState {
   }
   const tabs: Tab[] = (state.tabs as Tab[]).map((tab) => ({
     ...tab,
-    tiles: tab.tiles.map((tile) =>
-      tile.type === "openalex.pdf"
-        ? {
-            ...tile,
-            type: "preview.pdf",
-            data: {
-              id: tile.data.work ?? "",
-              title: "",
-              url: tile.data.url ?? "",
-            },
-          }
-        : tile,
-    ),
+    tiles: tab.tiles.map((tile) => {
+      if (tile.type === "openalex.pdf")
+        return {
+          ...tile,
+          type: "preview.file",
+          data: {
+            kind: "pdf",
+            id: tile.data.work ?? "",
+            title: "",
+            url: tile.data.url ?? "",
+          },
+        };
+      if (tile.type === "preview.pdf")
+        return {
+          ...tile,
+          type: "preview.file",
+          data: { ...tile.data, kind: "pdf" },
+        };
+      return tile;
+    }),
   }));
   const ids = tabs.flatMap((tab) => [
     tab.id,

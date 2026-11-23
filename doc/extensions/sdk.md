@@ -169,7 +169,7 @@ Contrats existants :
 - `terminal.open@1`, `terminal.sessions@1`, `terminal.session.closed`.
 - `markdown.open@1`, `markdown.documents@1`, `markdown.document.saved`.
 - `data.tables@1`, `data.charts@1`, `data.table.changed`.
-- `preview.pdf@1`.
+- `preview.pdf@1` : ouvre un PDF libre et renvoie la tuile ; `preview.open@1` : ouvre une source locale ou un lien dans une tuile Aperçu et indique les formats pris en charge.
 - `spark.notifications@1` : service du noyau, `send({ title, body })`, disponible même pour un paquet importé. Il passe par le plugin de notification natif ; l’appelant garde son propre repli si l’OS refuse.
 
 Une extension peut consommer un service absent : `get` renvoie `undefined`. Une action qui le déclare dans `requires` n’est pas proposée.
