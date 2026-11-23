@@ -38,14 +38,14 @@ function FolderContents({
   segments,
   ...props
 }: TreeProps & { segments: string[] }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { token, revision } = props;
   const [entries, setEntries] = useState<Entry[]>();
   const [error, setError] = useState<string>();
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     let current = true;
-    void listFolder(token, segments).then(
+    void listFolder(token, segments, locale).then(
       (result) => {
         if (!current) return;
         setEntries(result);
@@ -60,7 +60,7 @@ function FolderContents({
     return () => {
       current = false;
     };
-  }, [token, revision, segments, retry]);
+  }, [token, revision, segments, retry, locale]);
 
   const indent = {
     "--explorer-depth": Math.min(segments.length, 6),

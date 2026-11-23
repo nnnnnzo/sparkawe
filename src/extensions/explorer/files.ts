@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { Locale } from "../../core/i18n.ts";
 import type { MarkdownFile } from "../markdown/api.ts";
 
 export interface ProjectFolder {
@@ -16,22 +17,23 @@ export interface Selection extends Entry {
   segments: string[];
 }
 
-const collator = new Intl.Collator("fr", {
-  numeric: true,
-  sensitivity: "base",
-});
+const collators = new Map<Locale, Intl.Collator>();
+function collatorFor(locale: Locale) {
+  let collator = collators.get(locale);
+  if (!collator) {
+    collator = new Intl.Collator(locale, {
+      numeric: true,
+      sensitivity: "base",
+    });
+    collators.set(locale, collator);
+  }
+  return collator;
+}
 const paths = (token: string, segments: string[]) => ({ token, segments });
 
-export const isMarkdown = (entry: Entry) =>
-  entry.kind === "file" && /\.(?:md|markdown)$/i.test(entry.name);
-
-export const pickFolder = () => invoke<ProjectFolder | null>("explorer_select");
-
-export async function listFolder(token: string, segments: string[]) {
-  const entries = await invoke<Entry[]>(
-    "explorer_list",
-    paths(token, segments),
-  );
+/** Dossiers d’abord, puis noms triés dans la langue de l’interface. */
+export function sortEntries(entries: Entry[], locale: Locale): Entry[] {
+  const collator = collatorFor(locale);
   return entries.sort((a, b) => {
     return (
       Number(b.kind === "folder") - Number(a.kind === "folder") ||
@@ -39,6 +41,23 @@ export async function listFolder(token: string, segments: string[]) {
       a.name.localeCompare(b.name)
     );
   });
+}
+
+export const isMarkdown = (entry: Entry) =>
+  entry.kind === "file" && /\.(?:md|markdown)$/i.test(entry.name);
+
+export const pickFolder = () => invoke<ProjectFolder | null>("explorer_select");
+
+export async function listFolder(
+  token: string,
+  segments: string[],
+  locale: Locale,
+) {
+  const entries = await invoke<Entry[]>(
+    "explorer_list",
+    paths(token, segments),
+  );
+  return sortEntries(entries, locale);
 }
 
 export const readMarkdown = (token: string, segments: string[]) =>
