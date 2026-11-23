@@ -78,6 +78,7 @@ Après l’ajout, mettre à jour `doc/operations/tauri.md` et la liste du backen
 - Séparer les tuiles par un espace qui reprend le fond de la fenêtre. Garder les tuiles sans contour extérieur et utiliser les couleurs du thème clair ou sombre pour leurs barres de défilement.
 - Privilégier le geste direct : glisser un onglet vers un bord divise, vers le centre regroupe, les séparateurs se redimensionnent au glisser. Ne pas remplacer ces manipulations par des boutons ou des presets.
 - Le Store est une page overlay pleine largeur, avec une sidebar flottante, pas un dialog. Il ne démonte jamais le workspace.
+- La tuile navigateur est une vue native : le DOM ne peut pas la recouvrir. Ne jamais rejouer la page à l’ouverture, la masquer quand une couche la chevauche, et ne jamais démonter la vue (elle perdrait son état). Voir [la décision 0005](doc/decisions/0005-browser-tile.md).
 - Les cartes et le hero du Store n’affichent pas de capture ; la galerie de la fiche est le seul endroit.
 - Les cartes d’étagère prennent une fraction entière de la largeur (4, 3, 2 puis 1) ; ne pas laisser une carte coupée.
 - Tout élément cliquable du Store doit avoir `cursor: pointer` ; les flèches désactivées gardent le curseur normal.
