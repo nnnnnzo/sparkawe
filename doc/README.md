@@ -20,7 +20,7 @@ Le code fait foi. Quand un contrat change (SDK, manifeste, index de dépôt, com
 - [Modèle et cycle de vie](extensions/overview.md) — catalogue, niveaux, activation, import.
 - [SDK](extensions/sdk.md) — `SparkAPI`, tuiles, actions, services, événements.
 - [Format du paquet](extensions/package.md) — `extension.json` v2, bundle, validation, zip.
-- [Extensions intégrées](extensions/builtins.md) — Terminal, Markdown, Données, Explorateur, Aperçu, OpenAlex.
+- [Extensions intégrées](extensions/builtins.md) — Terminal, Markdown, Données, Explorateur, Aperçu, OpenAlex, Navigateur web.
 - [Store](extensions/store.md) — page, navigation, cartes, fiche, captures, import.
 - [Dépôts et mises à jour](extensions/registry.md) — index JSON, sources, installation zip, versions.
 - [Publier une extension](extensions/authoring.md) — construire, packager, tester, publier.
@@ -41,6 +41,7 @@ Le code fait foi. Quand un contrat change (SDK, manifeste, index de dépôt, com
 - [0002 — Page Store et navigation](decisions/0002-store-navigation.md)
 - [0003 — Captures d’extensions](decisions/0003-extension-captures.md)
 - [0004 — Langues de l’interface](decisions/0004-interface-languages.md)
+- [0005 — Navigateur dans une tuile native](decisions/0005-browser-tile.md)
 
 ## Règles de lecture
 

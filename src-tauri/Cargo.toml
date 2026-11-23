@@ -9,7 +9,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 [dependencies]
-tauri = { version = "2", features = ["protocol-asset"] }
+tauri = { version = "2", features = ["protocol-asset", "unstable"] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -17,6 +17,18 @@ ureq = "2"
 uuid = { version = "1", features = ["v4"] }
 sha2 = "0.10"
 zip = "2"
+base64 = "0.22"
 tauri-plugin-notification = "2"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", features = [
+    "NSView",
+    "NSImage",
+    "NSBitmapImageRep",
+    "objc2-quartz-core",
+] }
+objc2-quartz-core = { version = "0.3", features = ["CALayer"] }
+objc2-foundation = { version = "0.3", features = ["NSData", "NSDictionary"] }
+objc2-web-kit = { version = "0.3", features = ["WKWebView", "WKSnapshotConfiguration"] }
+block2 = "0.6"

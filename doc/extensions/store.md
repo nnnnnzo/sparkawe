@@ -62,6 +62,7 @@ Le Store est une **page**, pas un dialog. Il est monté en overlay au-dessus du 
 - Sources des intégrées : `src/extensions/<id>/media/*.webp`.
 - 1280×720, thème sombre, données neutres.
 - Markdown, Données et OpenAlex ont deux captures ; les autres une.
+- Le Navigateur web n’a pas encore de capture : sa page est une vue native, hors React. Ses captures ne pourront montrer que l’habillage (voir [la décision 0005](../decisions/0005-browser-tile.md)).
 - Les captures d’un paquet importé sont résolues depuis son manifeste via le protocole `asset`.
 
 ## Icône et teinte

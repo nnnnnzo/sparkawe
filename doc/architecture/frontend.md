@@ -34,6 +34,8 @@ La langue vit dans les réglages (`locale`), pas dans le workspace. Un changemen
 
 Le layout monte les vues d’extension dans des nœuds détachés puis les porte dans les panneaux dockview. Une `TileBoundary` entoure chaque vue : une erreur de rendu affiche un fallback avec « Réessayer » et « Désactiver l’extension ».
 
+Une tuile peut aussi déléguer son contenu à une vue native : le navigateur web pose une vue web enfant de la fenêtre sur le rectangle qu’il mesure. `src/ui/layoutSignal.ts` transporte le début et la fin d’un glissement, `src/ui/layoutPlacement.ts` la demande d’ouverture en onglet d’un groupe. Voir [l’espace de travail](workspace.md#contenus-natifs).
+
 ## Workspace et persistance
 
 - Le workspace est sérialisé en `workspace-v1.json`.

@@ -3,7 +3,8 @@
 ## Dossiers
 
 - Configuration : `app_config_dir()` ; sur macOS `~/Library/Application Support/fr.spark.desktop/`.
-- Cache : `app_cache_dir()` ; PDF dans `pdf/<id>.pdf`.
+- Cache : `app_cache_dir()` ; PDF dans `pdf/<id>.pdf`, texte extrait dans `web/text/`.
+- Profil du navigateur : `web/profile/` sous Windows et Linux. Sous macOS, WKWebView range cookies et stockage dans le magasin WebKit de l’application (`~/Library/WebKit/fr.spark.desktop/`) : `data_directory` y est ignoré.
 - L’ancien dossier `fr.lab.desktop` est repris au premier lancement, sans écraser les fichiers existants.
 
 ## Fichiers
@@ -20,6 +21,8 @@
 | `run/mcp.sock` | Rust | Socket MCP local. |
 | `run/tools.json` | Rust | Cache d’outils pour le sidecar. |
 | `pdf/<id>.pdf` | Rust | PDF téléchargés. |
+| `web/profile/` | webview | Profil du navigateur sous Windows et Linux ; macOS utilise `~/Library/WebKit/fr.spark.desktop/`. |
+| `web/text/<tuile>.txt` | Rust | Texte de page extrait pour un agent. |
 
 ## `workspace-v1.json`
 

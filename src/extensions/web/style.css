@@ -1,0 +1,130 @@
+.web-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--tile);
+  color: var(--foreground);
+}
+
+.web-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.web-step {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: var(--radius);
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.web-step:hover:not(:disabled) {
+  background: var(--muted);
+}
+
+.web-step:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.web-address {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  margin-left: 4px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--muted);
+  color: var(--foreground);
+  font-size: 12px;
+}
+
+.web-address:focus {
+  outline: none;
+  border-color: var(--ring);
+}
+
+.web-address::placeholder {
+  color: var(--muted-foreground);
+}
+
+.web-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Image de la page pendant un glisser-déposer. */
+.web-frozen {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+}
+
+.web-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.web-empty-title {
+  font-size: 13px;
+  color: var(--foreground);
+}
+
+.web-empty-hint {
+  font-size: 12px;
+  max-width: 34ch;
+}
+
+.web-error,
+.web-notice {
+  margin: 0;
+  padding: 7px 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.web-error {
+  color: var(--destructive, #c46a6a);
+}
+
+.web-notice {
+  color: var(--muted-foreground);
+}
+
+.web-spin {
+  animation: web-spin 0.9s linear infinite;
+}
+
+@keyframes web-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .web-spin {
+    animation: none;
+  }
+}

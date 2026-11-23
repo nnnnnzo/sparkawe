@@ -8,6 +8,7 @@ import preview from "./preview.ts";
 import shell from "./shell.ts";
 import store from "./store.ts";
 import terminal from "./terminal.ts";
+import web from "./web.ts";
 
 /**
  * Toutes les traductions, fusionnées par domaine. Chaque clé est unique :
@@ -24,6 +25,7 @@ const messages = {
   ...shell,
   ...store,
   ...terminal,
+  ...web,
 } as const;
 
 export type TranslationKey = keyof typeof messages;

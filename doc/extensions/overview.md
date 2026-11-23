@@ -68,7 +68,7 @@ Voir [le paquet](package.md), [le Store](store.md), [les dépôts](registry.md).
 
 ## Extensions intégrées
 
-Voir [la liste détaillée](builtins.md) : Terminal, Markdown, Données, Explorateur, Aperçu, OpenAlex.
+Voir [la liste détaillée](builtins.md) : Terminal, Markdown, Données, Explorateur, Aperçu, OpenAlex, Navigateur web.
 
 ## Contrats de coopération
 

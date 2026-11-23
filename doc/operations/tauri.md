@@ -15,9 +15,21 @@ Commandes actuelles : voir [le backend](../architecture/backend.md#commandes-tau
 ## Fenêtres et capabilities
 
 - Une seule fenêtre `main`.
-- `capabilities/main.json` couvre le workspace, les réglages, le PDF, les notifications, le MCP, les agents, les extensions.
+- `capabilities/main.json` couvre le workspace, les réglages, le PDF, le navigateur, les notifications, le MCP, les agents, les extensions.
 - `capabilities/markdown.json`, `explorer.json` et `terminal.json` ajoutent les commandes de leurs modules à la fenêtre `main`.
 - Toutes les extensions importées s’exécutent dans `main` : elles partagent cette surface de permissions.
+- Aucune capability n’est accordée en `remote` : la page distante du navigateur n’a pas d’IPC Tauri.
+- `set_window_theme` aligne l’apparence native sur le thème de Spark (dossier sombre ou clair). Sur macOS et Linux le réglage vaut pour l’application, sur Windows pour la fenêtre ; les vues web en héritent pour `prefers-color-scheme`.
+
+## Multi-vue
+
+`tauri` est compilé avec la feature `unstable`, seule voie pour attacher une vue web enfant à la fenêtre existante (`Window::add_child`). Conséquences :
+
+- la version de Tauri est épinglée par `Cargo.lock` et revue à chaque montée de version ;
+- une vue enfant ne suit pas la taille de la fenêtre : la tuile renvoie sa boîte à chaque mesure (`web_bounds`) ;
+- son apparence est imposée par la tuile (`web_appearance`), pas héritée du thème de l’application ;
+- sous Linux, le positionnement des vues enfants est cassé en amont (tauri#10420) et la commande `web_open` refuse avec un message explicite ;
+- les vues enfants sont créées depuis une commande **async** pour éviter le blocage de WebView2 sous Windows.
 
 ## CSP
 
@@ -28,6 +40,8 @@ Commandes actuelles : voir [le backend](../architecture/backend.md#commandes-tau
 - `worker-src 'self' blob:` pour pdf.js.
 
 Une extension importée charge son bundle et son CSS par le protocole `asset`. Il n’y a pas de CSP séparée par extension.
+
+La page du navigateur ne dépend pas de cette CSP : elle est rendue par une vue native distincte, hors du webview Spark, et n’a donc accès ni à `asset:`, ni à l’IPC.
 
 ## Protocole asset
 
@@ -49,9 +63,11 @@ Le scope extensions permet de charger les paquets importés. `convertFileSrc` pr
 - `npm run sidecar` le reconstruit en debug ; `npm run sidecar:release` pour la distribution.
 - Le socket et le cache d’outils vivent dans `run/`.
 
-## Dialogue
+## Dialogues et menus
 
 `tauri-plugin-dialog` est initialisé. Le Store utilise le sélecteur de dossier de l’Explorateur (`explorer_select`) pour le bouton **Parcourir** de l’import local.
+
+Le menu de déplacement d’une tuile (les trois points de l’onglet) est un **menu du système** (`popup_tile_menu`), pas un menu DOM : une vue web native passe au-dessus du DOM, et seul un menu de la plateforme peut s’afficher par-dessus. Le menu renvoie son choix par l’évènement `tile-move` (`{ tile, side }`). Sous Linux, où `popup_menu` n’existe pas, le menu DOM reste utilisé et la page est masquée pendant qu’il est ouvert.
 
 ## Notifications
 

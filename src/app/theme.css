@@ -642,6 +642,11 @@ svg {
   width: 14px;
   height: 14px;
 }
+/* Un titre de page peut être long : l’onglet s’arrête à une largeur lisible et
+   le texte est tronqué ; l’infobulle donne le titre entier. */
+.dock-tab > .truncate {
+  max-width: 180px;
+}
 .dock-tab button {
   width: 23px;
   height: 23px;

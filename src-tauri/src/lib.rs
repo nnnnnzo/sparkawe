@@ -3,11 +3,13 @@ mod explorer;
 mod extensions;
 mod markdown;
 pub mod mcp;
+mod menu;
 mod notifications;
 mod pdf;
 mod settings;
 mod storage;
 mod terminal;
+mod web;
 mod window;
 
 use std::path::Path;
@@ -59,7 +61,20 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .on_menu_event(|app, event| {
+            use tauri::Emitter;
+            let id = event.id().0.as_str();
+            if let Some(rest) = id.strip_prefix("spark.tile.move.") {
+                if let Some((tile, side)) = rest.rsplit_once('.') {
+                    let _ = app.emit(
+                        "tile-move",
+                        serde_json::json!({ "tile": tile, "side": side }),
+                    );
+                }
+            }
+        })
         .manage(terminal::Sessions::default())
+        .manage(web::Pages::default())
         .setup(|app| {
             let path = app.path().app_config_dir()?;
             migrate_legacy_config(&path);
@@ -91,6 +106,7 @@ pub fn run() {
             extensions::extension_source_add,
             extensions::extension_source_remove,
             window::set_window_material,
+            window::set_window_theme,
             settings::settings_load,
             settings::settings_save,
             markdown::markdown_select,
@@ -114,6 +130,17 @@ pub fn run() {
             pdf::pdf_fetch,
             pdf::pdf_probe,
             notifications::notify_desktop,
+            menu::popup_tile_menu,
+            web::web_open,
+            web::web_bounds,
+            web::web_snapshot,
+            web::web_appearance,
+            web::web_show,
+            web::web_navigate,
+            web::web_history,
+            web::web_reload,
+            web::web_close,
+            web::web_read_text,
         ])
         .build(tauri::generate_context!())
         .expect("Démarrage de Spark impossible");

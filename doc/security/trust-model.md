@@ -69,6 +69,8 @@ Toutes les commandes autorisées à la fenêtre `main` sont accessibles au code 
 
 Un navigateur externe n’est pas utilisé pour les extensions : le bundle est injecté dans la page principale, avec React fourni par `window.SparkRuntime`.
 
+La tuile navigateur est la seule exception, et elle va dans l’autre sens : la page distante vit dans une **vue native séparée**, sans IPC Tauri, sans capability `remote`, sans accès au protocole `asset`. Ce n’est pas une sandbox pour les extensions — celles-ci restent dans la page principale — mais une frontière entre le contenu du web et les commandes de Spark. Une page web ne peut donc pas appeler le registre, lire le workspace ou piloter une autre extension.
+
 ## Règle de communication
 
 Quand une fonctionnalité touche la confiance :

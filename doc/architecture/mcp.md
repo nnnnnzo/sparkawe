@@ -39,8 +39,8 @@ Client agent ──stdio JSON-RPC──► spark-mcp (sidecar)
 
 ## Contrats
 
-- **Résultats bornés** : une action qui renvoie plus de 16 000 caractères est refusée ; elle doit renvoyer un identifiant ou un résumé.
-- **Surfaces** : `api.tiles.publish` reste un résumé volatil de 2 000 caractères, jamais persisté.
+- **Résultats bornés** : une action qui renvoie plus de 16 000 caractères est refusée ; elle doit renvoyer un identifiant ou un résumé. Le navigateur suit cette règle : `read_text` renvoie au plus 6 000 caractères et le chemin du texte complet.
+- **Surfaces** : `api.tiles.publish` reste un résumé volatil de 2 000 caractères, jamais persisté. Le navigateur n’y met que l’adresse, le titre et l’état de chargement.
 - **Guides** : le `guide` d’un type de tuile est livré une fois par session, au premier catalogue ou à la première lecture.
 - **Services** : une action avec `requires` n’apparaît pas si le service est absent.
 - **Mutations** : une action `mutates` est signalée ; la confirmation appartient au harnais qui l’appelle.

@@ -21,6 +21,8 @@ fichiers de verrouillage de chaque paquet.
 | Lucide | ISC |
 | react-markdown, remark-gfm | MIT |
 | Tailwind CSS, Vite | MIT |
+| objc2 (AppKit, WebKit, QuartzCore, Foundation) | MIT |
+| base64 | MIT ou Apache-2.0 |
 
 ## Site
 

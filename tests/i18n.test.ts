@@ -20,6 +20,7 @@ import preview from "../src/core/locales/preview.ts";
 import shell from "../src/core/locales/shell.ts";
 import store from "../src/core/locales/store.ts";
 import terminal from "../src/core/locales/terminal.ts";
+import web from "../src/core/locales/web.ts";
 
 const domains = {
   data,
@@ -32,6 +33,7 @@ const domains = {
   shell,
   store,
   terminal,
+  web,
 };
 
 const placeholders = (value: string) =>

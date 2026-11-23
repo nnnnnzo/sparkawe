@@ -13,6 +13,7 @@ Le backend est local. Il n’expose pas de serveur HTTP ; la fenêtre communique
 | `explorer.rs` | Sélection de dossier, listage, ouverture Markdown, grants. |
 | `terminal/` | Sessions PTY, entrée/sortie, redimensionnement, zsh. |
 | `pdf.rs` | Téléchargement, cache et validation de PDF. |
+| `web.rs` | Vues web natives par tuile, navigation, boîte, texte extrait. |
 | `mcp/` | Socket local, clients, messages JSON-RPC. |
 | `agents.rs` | Détection et configuration des clients MCP connus. |
 | `window.rs` | Matériau de fenêtre macOS. |
@@ -31,9 +32,11 @@ Groupes :
 - Explorateur : `explorer_select`, `explorer_list`, `explorer_open_markdown`, `explorer_directory`.
 - Terminal : `terminal_start`, `terminal_input`, `terminal_resize`, `terminal_close`.
 - PDF : `pdf_fetch`, `pdf_probe`.
+- Navigateur : `web_open`, `web_bounds`, `web_snapshot`, `web_show`, `web_appearance`, `web_navigate`, `web_history`, `web_reload`, `web_close`, `web_read_text`.
 - Notifications : `notify_desktop`, adossé à `tauri-plugin-notification`.
+- Menu de tuile : `popup_tile_menu`, menu du système pour le déplacement.
 - MCP et agents : `mcp_reply`, `mcp_notify`, `mcp_cache_tools`, `mcp_link`, `agent_setup`, `agent_connected`.
-- Fenêtre : `set_window_material`.
+- Fenêtre : `set_window_material`, `set_window_theme`.
 
 ## Stockage local
 
@@ -51,6 +54,8 @@ Le dossier est `app_config_dir()`, soit sur macOS `~/Library/Application Support
 | `run/mcp.sock` | Socket MCP local. |
 | `run/tools.json` | Cache d’outils MCP pour les clients. |
 | cache applicatif `pdf/<id>.pdf` | PDF téléchargés. |
+| cache applicatif `web/profile/` | Profil du webview sous Windows et Linux ; macOS utilise `~/Library/WebKit/<identifiant>/`. |
+| cache applicatif `web/text/<tuile>.txt` | Texte de page extrait pour un agent. |
 
 Le dossier `fr.lab.desktop` de l’ancienne identité est repris au premier lancement si `fr.spark.desktop` n’existe pas encore. Les fichiers existants ne sont jamais écrasés.
 

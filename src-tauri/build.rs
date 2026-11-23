@@ -11,6 +11,7 @@ fn main() {
         "extension_source_add",
         "extension_source_remove",
         "set_window_material",
+        "set_window_theme",
         "settings_load",
         "settings_save",
         "markdown_select",
@@ -34,6 +35,17 @@ fn main() {
         "pdf_fetch",
         "pdf_probe",
         "notify_desktop",
+        "popup_tile_menu",
+        "web_open",
+        "web_bounds",
+        "web_snapshot",
+        "web_appearance",
+        "web_show",
+        "web_navigate",
+        "web_history",
+        "web_reload",
+        "web_close",
+        "web_read_text",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))
         .expect("configuration Tauri invalide");

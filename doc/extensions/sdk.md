@@ -73,6 +73,8 @@ interface TileDefinition {
   dataKeys?: readonly string[];
   guide?: LocalizedText;
   prepare?(data: Data): Data;
+  /** Nom de l’onglet quand la tuile porte un titre propre (une page web). */
+  tabTitle?(tile: Tile): string | undefined;
   describe?(tile: Tile, surface: TileSurface): string;
   actions?: Record<string, TileAction>;
   canClose?(tile: Tile, closing: ReadonlySet<string>): boolean | Promise<boolean>;
@@ -82,6 +84,7 @@ interface TileDefinition {
 
 - `dataKeys` limite les clés acceptées à l’ouverture.
 - `guide` : mode d’emploi court pour un agent, **1 200 caractères maximum**, livré une fois par session. Une référence `localized(...)` est résolue dans la langue courante.
+- `tabTitle` : nom affiché dans l’onglet de la tuile. Absent ou vide, `title` sert de repli ; il est relu à chaque changement de données de la tuile.
 - `describe` : résumé d’une ligne pour le brief ; il ne doit pas lever.
 - `canClose` : refuse une fermeture (document non enregistré).
 - `close` : libère les ressources de la tuile (session, fichier, écouteur).

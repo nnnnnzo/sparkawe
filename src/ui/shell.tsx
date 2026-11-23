@@ -240,9 +240,13 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
 
   useLayoutEffect(() => {
     const transparent = macOS && state.theme === "transparent";
+    const dark = transparent || state.theme === "dark";
     const root = document.documentElement;
-    root.classList.toggle("dark", transparent || state.theme === "dark");
+    root.classList.toggle("dark", dark);
     root.classList.toggle("transparent", transparent);
+    // L’apparence native suit le thème : les pages web reçoivent
+    // `prefers-color-scheme` et les contrôles système restent cohérents.
+    void invoke("set_window_theme", { dark }).catch(report);
     if (macOS)
       void invoke("set_window_material", { enabled: transparent }).catch(
         report,

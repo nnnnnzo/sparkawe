@@ -97,7 +97,12 @@ export interface TileDefinition {
    */
   guide?: LocalizedText;
   prepare?(data: Data): Data;
-  /** Résumé court et lisible affiché dans le brief d'un onglet. */
+  /**
+   * Nom de l’onglet quand la tuile porte un titre propre — le titre d’une page
+   * web par exemple. Absent ou vide, `title` sert de repli.
+   */
+  tabTitle?(tile: Tile): string | undefined;
+  /** Résumé court et lisible affiché dans le brief d’un onglet. */
   describe?(tile: Tile, surface: TileSurface): string;
   actions?: Record<string, TileAction>;
   canClose?(

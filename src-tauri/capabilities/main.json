@@ -20,6 +20,7 @@
     "allow-extension-source-add",
     "allow-extension-source-remove",
     "allow-set-window-material",
+    "allow-set-window-theme",
     "allow-settings-load",
     "allow-settings-save",
     "allow-mcp-reply",
@@ -30,6 +31,17 @@
     "allow-agent-connected",
     "allow-pdf-fetch",
     "allow-pdf-probe",
-    "allow-notify-desktop"
+    "allow-notify-desktop",
+    "allow-popup-tile-menu",
+    "allow-web-open",
+    "allow-web-bounds",
+    "allow-web-snapshot",
+    "allow-web-appearance",
+    "allow-web-show",
+    "allow-web-navigate",
+    "allow-web-history",
+    "allow-web-reload",
+    "allow-web-close",
+    "allow-web-read-text"
   ]
 }

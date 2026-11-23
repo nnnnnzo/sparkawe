@@ -10,6 +10,7 @@ Les intégrées vivent dans `src/extensions/<nom>/`. Chacune a un `manifest.ts`,
 | Explorateur | `spark.explorer` | core | `explorer.tree` | utilise `markdown.open@1` et `terminal.open@1` |
 | Aperçu | `spark.preview` | core | `preview.pdf` | `preview.pdf@1` |
 | OpenAlex | `spark.openalex` | official | `openalex.search`, `openalex.work` | utilise `preview.pdf@1` |
+| Navigateur web | `spark.web` | core | `web.page` | `web.open@1` |
 
 ## Terminal
 
@@ -56,8 +57,23 @@ Les intégrées vivent dans `src/extensions/<nom>/`. Chacune a un `manifest.ts`,
 - Aucune commande native propre.
 - Captures : `openalex-search.webp` et `openalex-work.webp`.
 
-## Coopération
+## Navigateur web
 
+- Une page par tuile, rendue par une vue web native posée sur le rectangle mesuré de la tuile.
+- Barre minimale : précédent, suivant, recharger, adresse éditable, chargement.
+- L’onglet de la tuile prend le titre de la page (via `tabTitle`), et retombe sur « Navigateur web » tant qu’il n’y en a pas.
+- `web.open@1` permet aux autres extensions d’ouvrir une adresse.
+- Un lien « nouvelle fenêtre », un `window.open` ou un **clic molette sur un lien** ouvrent une tuile en onglet dans le groupe de la tuile d’origine.
+- Adresses `https://` uniquement ; téléchargements refusés ; session persistante (profil `web/profile/` sous Windows et Linux, magasin WebKit de l’application sous macOS).
+- L’apparence est imposée à la vue web elle-même (`NSAppearance`) selon le thème de Spark : les pages qui honorent `prefers-color-scheme` passent en sombre avec le thème sombre, sans dépendre du réglage du système. La page apparaît et s’efface en fondu quand la tuile revient ou se masque.
+- Aucun média ne démarre tout seul dans une page ouverte ou restaurée : il faut un geste réel dans la page (l’autoplay natif de wry est neutralisé, voir [la décision 0005](../decisions/0005-browser-tile.md)).
+- Les coins bas de la vue sont arrondis comme le groupe Dockview ; un média en cours de lecture survit à un déplacement ou à une annulation de disposition.
+- La surface expose l’adresse, le titre et l’état de chargement, jamais le contenu. `read_text` renvoie au plus 6 000 caractères et le chemin du texte complet.
+- Six vues natives au maximum, les autres sont suspendues puis rouvertes à leur adresse.
+- Linux : indisponible jusqu’au correctif amont du positionnement des vues enfants (tauri#10420).
+- Captures : habillage seulement (barre et état vide), jamais une page factice. Voir [la décision 0005](../decisions/0005-browser-tile.md).
+
+## Coopération
 Une extension qui dépend d’un service doit le déclarer :
 
 ```ts
