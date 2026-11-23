@@ -19,8 +19,8 @@
   <img src="assets/workspace.webp" alt="Spark with three tiles: a Codex terminal, a table of WMT 2014 BLEU scores from Attention Is All You Need, its chart, and the paper itself." width="920">
 </p>
 
-Spark is a desktop workspace built around tabs. Terminals, files, PDFs, tables and agents live
-side by side in one window, and share the same objects. Drag a tab to an edge to split, to the
+Spark is a desktop workspace built around tabs. Terminals, files, PDFs, tables, web pages and
+agents live side by side in one window, and share the same objects. Drag a tab to an edge to split, to the
 centre to group, drag a separator to resize.
 
 The interface is available in English, French, Spanish, German, Italian, Portuguese, Japanese
@@ -48,7 +48,8 @@ opposite: the workspace is the surface, and the agent plugs into it.
 | **Markdown** | Editor and preview over the same document, with line-addressed agent actions. |
 | **PDF** | Fetches an https link, caches it, keeps the content out of MCP. |
 | **Data** | Typed tables (text, number, date) up to 2,000 rows, with charts bound to the table. |
-| **OpenAlex** | Search by topic, author or DOI, then open a free PDF beside your notes. |
+| **OpenAlex** *(official extension)* | Search by topic, author or DOI, then open a free PDF beside your notes. |
+| **Browser** | Any public page in a native view: sign-in, media, real sites. https only, downloads refused, and the page title names the tab. |
 
 Extensions add tiles: a React view, a manifest and typed actions. They install from a registry or
 a local folder, in a Store that opens over the workspace.
@@ -101,6 +102,8 @@ configured by Spark; anything else only needs the bridge path.
 - **macOS only, for now.** Built and tested locally. The PTY layer also targets Linux; Windows is
   not supported yet — the MCP bridge relies on a Unix socket.
 - **No release artefact yet.** You build from source. Builds are unsigned and not notarised.
+- **The embedded browser is macOS and Windows only for now.** On Linux it waits for an upstream
+  fix to child-webview positioning (tauri#10420).
 - **No update channel.** Pull the repository and rebuild.
 - **Extensions are not sandboxed.** An imported package runs in the main window with the app's
   privileges. The zip's SHA-256 is checked before extraction; no signature is verified today.
