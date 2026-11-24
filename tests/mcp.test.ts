@@ -197,6 +197,22 @@ test("un client peut passer du brief à une tuile sans analyser le texte", async
   assert.match(failed.content[0].text, /Tuile inconnue/);
 });
 
+test("une session MCP est identifiable dans le journal", async () => {
+  const { request, call, journal, workspace } = await setup();
+  await request("initialize", {
+    protocolVersion: "2025-06-18",
+    clientInfo: { name: "opencode", version: "2.3.2" },
+  });
+  const cursor = journal.lastSeq;
+  await call("spark_tile_open", { type: "demo.tile" });
+  const [entry] = journal.since(cursor);
+  assert.equal(entry.kind, "tile.open");
+  assert.equal(entry.source, "agent");
+  assert.equal(typeof entry.agent, "string");
+  assert.equal(typeof entry.op, "string");
+  assert.equal(entry.activityTabId, workspace.get().active);
+});
+
 test("des appels agent qui se terminent dans le désordre ne polluent pas le journal", async () => {
   const { call, workspace, registry, journal } = await setup();
   const pending = [latch(), latch()];

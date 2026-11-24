@@ -1,14 +1,24 @@
 import type { Data, Tile } from "../sdk/index.ts";
 import { t as translateNow } from "../i18n/index.ts";
-import type { JournalSource } from "./journal.ts";
+import type { JournalEntry, JournalSource } from "./journal.ts";
+
+export interface WorkspaceAttribution {
+  source?: JournalSource;
+  agent?: string;
+  op?: string;
+  tabId?: string;
+}
 
 export type WorkspaceRecord = (record: {
   source?: JournalSource;
+  agent?: string;
+  op?: string;
+  activityTabId?: string;
   kind: string;
   tabId?: string;
   tileId?: string;
   data?: unknown;
-}) => void;
+}) => JournalEntry | void;
 
 export type Mode = "side" | "tiling" | "stack";
 export type Theme = "dark" | "light" | "transparent";
@@ -175,23 +185,40 @@ export function restoreWorkspace(state: unknown): WorkspaceState {
   };
 }
 
+type WorkspaceEvent = Parameters<WorkspaceRecord>[0];
+
 export class Workspace {
   private readonly listeners = new Set<() => void>();
   private state: WorkspaceState;
   private readonly record: WorkspaceRecord;
-  private readonly sources: { source: JournalSource }[] = [];
+  private readonly sources: WorkspaceAttribution[] = [];
   /** Provenance par défaut, hors d'une portée d'attribution. */
   source: JournalSource = "human";
 
   constructor(state: WorkspaceState, record: WorkspaceRecord = () => {}) {
     this.state = state;
-    this.record = (event) =>
-      record({ ...event, source: this.sources.at(-1)?.source ?? this.source });
+    this.record = record;
   }
+  private write = (event: WorkspaceEvent) => {
+    const scope = this.sources.at(-1);
+    return this.record({
+      ...event,
+      source: event.source ?? scope?.source ?? this.source,
+      agent: event.agent ?? scope?.agent,
+      op: event.op ?? scope?.op,
+      activityTabId: event.activityTabId ?? scope?.tabId,
+    });
+  };
+  /** Enregistre un événement produit par le moteur de disposition. */
+  note = (event: WorkspaceEvent) => this.write(event);
   get = () => this.state;
   /** Exécute une suite d'actions en attribuant leurs effets à une source. */
-  runAs = async <T>(source: JournalSource, run: () => T | Promise<T>) => {
-    const scope = { source };
+  runAs = async <T>(
+    source: JournalSource,
+    run: () => T | Promise<T>,
+    attribution: Omit<WorkspaceAttribution, "source"> = {},
+  ) => {
+    const scope = { source, ...attribution };
     this.sources.push(scope);
     try {
       return await run();
@@ -224,7 +251,7 @@ export class Workspace {
       this.state.tabs.some((tab) => tab.id === id)
     ) {
       this.patch({ active: id });
-      this.record({ kind: "tab.activate", tabId: id });
+      this.write({ kind: "tab.activate", tabId: id });
     }
   }
   create(name?: string, mode?: Mode, activate = true) {
@@ -252,7 +279,7 @@ export class Workspace {
         ? { tabs: [...this.state.tabs, tab], active: tab.id }
         : { tabs: [...this.state.tabs, tab] },
     );
-    this.record({
+    this.write({
       kind: "tab.create",
       tabId: tab.id,
       data: { name: tab.name, mode: tab.mode },
@@ -262,16 +289,24 @@ export class Workspace {
   remove(id: string) {
     const index = this.state.tabs.findIndex((tab) => tab.id === id);
     if (index < 0) return;
+    const removed = this.state.tabs[index];
+    const wasActive = id === this.state.active;
     const tabs = this.state.tabs.filter((tab) => tab.id !== id);
     if (!tabs.length) tabs.push(newTab());
-    this.patch({
-      tabs,
-      active:
-        id === this.state.active
-          ? tabs[Math.min(index, tabs.length - 1)].id
-          : this.state.active,
+    const nextActive = wasActive
+      ? tabs[Math.min(index, tabs.length - 1)].id
+      : this.state.active;
+    this.patch({ tabs, active: nextActive });
+    this.write({
+      kind: "tab.remove",
+      tabId: id,
+      data: {
+        name: removed.name,
+        mode: removed.mode,
+        tiles: removed.tiles,
+        activityTabId: wasActive ? nextActive : this.state.active,
+      },
     });
-    this.record({ kind: "tab.remove", tabId: id });
   }
   reorder(source: string, target: string) {
     if (source === target) return;
@@ -281,7 +316,7 @@ export class Workspace {
     if (from < 0 || to < 0) return;
     tabs.splice(to, 0, tabs.splice(from, 1)[0]);
     this.patch({ tabs });
-    this.record({ kind: "tab.reorder", tabId: source });
+    this.write({ kind: "tab.reorder", tabId: source });
   }
   tabForTile(id: string) {
     return this.state.tabs.find((tab) =>
@@ -292,7 +327,7 @@ export class Workspace {
     const tab = this.tabForTile(id);
     if (tab && tab.focused !== id) {
       this.updateTab(tab.id, { focused: id });
-      this.record({ kind: "tile.focus", tabId: tab.id, tileId: id });
+      this.write({ kind: "tile.focus", tabId: tab.id, tileId: id });
     }
   }
   updateTileData(id: string, data: Data) {
@@ -309,7 +344,7 @@ export class Workspace {
     if (!tab) throw new Error(translateNow("errors.workspaceClosed"));
     const tile: Tile = { id: crypto.randomUUID(), type, data };
     this.updateTab(tab.id, { tiles: [...tab.tiles, tile], focused: tile.id });
-    this.record({
+    this.write({
       kind: "tile.open",
       tabId: tab.id,
       tileId: tile.id,
@@ -320,16 +355,20 @@ export class Workspace {
   removeTile(tabId: string, tileId: string) {
     const tab = this.state.tabs.find((tab) => tab.id === tabId);
     if (!tab) return;
+    const removed = tab.tiles.find((tile) => tile.id === tileId);
     const tiles = tab.tiles.filter((tile) => tile.id !== tileId);
     this.updateTab(tab.id, {
       tiles,
       focused: tab.focused === tileId ? tiles.at(-1)?.id : tab.focused,
     });
-    this.record({
+    this.write({
       kind: "tile.close",
       tabId,
       tileId,
-      data: { type: tab.tiles.find((tile) => tile.id === tileId)?.type },
+      data: {
+        type: removed?.type,
+        tile: removed ? { ...removed, data: { ...removed.data } } : undefined,
+      },
     });
   }
 }

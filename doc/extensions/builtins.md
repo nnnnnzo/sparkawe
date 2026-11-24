@@ -26,6 +26,7 @@ Les intégrées vivent dans `src/extensions/<nom>/`. Chacune a un `manifest.ts`,
 - `markdown.open@1` ouvre un fichier ; `markdown.documents@1` expose le texte et les sauvegardes.
 - `canClose` demande confirmation si le document est modifié.
 - Accès disque via les commandes `markdown_*` et les grants de chemins.
+- Actions réversibles : `write`, `append`, `insert`, `replace`, `delete` capturent le texte avant et le restaurent dans le tampon. `save` capture l’ancien contenu et le réécrit sur disque avec `expected`, donc seulement si le fichier n’a pas changé depuis.
 - Captures : `markdown-editor.webp` et `markdown-preview.webp`.
 
 ## Données
@@ -33,6 +34,7 @@ Les intégrées vivent dans `src/extensions/<nom>/`. Chacune a un `manifest.ts`,
 - Tableau typé : texte, nombre, date ; import TSV/CSV, plafonds de lignes/colonnes.
 - Graphiques liés à un tableau : barres, lignes, aires, points.
 - `data.tables@1` expose la liste des tableaux ; `data.charts@1` ouvre un graphique.
+- Actions réversibles : `create_table`, `append_rows`, `set_cell`, `add_column` et `set_chart`. Les captures de tableaux sont bornées ; au-delà, la ligne reste mais sans flèche.
 - Tout est dans la fenêtre, sans commande native.
 - Captures : `data-table.webp` et `data-chart.webp`.
 
@@ -72,6 +74,7 @@ Les intégrées vivent dans `src/extensions/<nom>/`. Chacune a un `manifest.ts`,
 - `web.open@1` permet aux autres extensions d’ouvrir une adresse.
 - Un lien « nouvelle fenêtre », un `window.open` ou un **clic molette sur un lien** ouvrent une tuile en onglet dans le groupe de la tuile d’origine.
 - Adresses `https://` uniquement ; téléchargements refusés ; session persistante (profil `web/profile/` sous Windows et Linux, magasin WebKit de l’application sous macOS).
+- `navigate` est marquée mutable et réversible : l’annulation revient à l’adresse précédente. `back`, `forward` et `reload` ne sont pas des mutations et n’ont pas d’inverse.
 - L’apparence est imposée à la vue web elle-même (`NSAppearance`) selon le thème de Spark : les pages qui honorent `prefers-color-scheme` passent en sombre avec le thème sombre, sans dépendre du réglage du système. La page apparaît et s’efface en fondu quand la tuile revient ou se masque.
 - Aucun média ne démarre tout seul dans une page ouverte ou restaurée : il faut un geste réel dans la page (l’autoplay natif de wry est neutralisé, voir [la décision 0005](../decisions/0005-browser-tile.md)).
 - Les coins bas de la vue sont arrondis comme le groupe Dockview ; un média en cours de lecture survit à un déplacement ou à une annulation de disposition.

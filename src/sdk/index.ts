@@ -68,6 +68,19 @@ export interface ActionField {
   enum?: readonly string[];
 }
 
+/**
+ * Inverse déclaré par une action mutable. La capture est bornée et vit avec
+ * l'action dans l'historique ; la restauration reçoit aussi le résultat.
+ */
+export interface ActionInverse {
+  capture(tile: Tile, input: Record<string, ActionValue>): unknown;
+  restore(
+    tile: Tile,
+    snapshot: unknown,
+    result: unknown,
+  ): unknown | Promise<unknown>;
+}
+
 export interface TileAction {
   title: LocalizedText;
   description?: LocalizedText;
@@ -79,6 +92,11 @@ export interface TileAction {
    * Une fonction permet de décider selon l'état de la tuile.
    */
   mutates?: boolean | ((tile: Tile) => boolean);
+  /**
+   * Comment revenir à l'état d'avant. Ignoré si l'action n'est pas mutante.
+   * Une capture absente ou trop grosse retire simplement la flèche.
+   */
+  inverse?: ActionInverse;
   run(
     tile: Tile,
     input: Record<string, ActionValue>,

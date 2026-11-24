@@ -7,6 +7,7 @@ Le backend est local. Il n’expose pas de serveur HTTP ; la fenêtre communique
 | Module | Rôle |
 |---|---|
 | `storage.rs` | Dossier de configuration, écritures atomiques, workspace, grants de chemins. |
+| `activity.rs` | `activity.db` SQLite : étapes d’activité, vues par onglet, élagage et effacement. |
 | `extensions.rs` | Paquets importés, sources/dépôts, index, zip, validation, état d’installation. |
 | `settings.rs` | `settings-v1.json`. |
 | `markdown.rs` | Sélection, lecture et écriture de fichiers Markdown, grants. |
@@ -26,6 +27,7 @@ Toute commande est déclarée trois fois : `lib.rs` (`generate_handler!`), `buil
 Groupes :
 
 - Workspace : `workspace_load`, `workspace_save`.
+- Activité : `activity_load`, `activity_append`, `activity_revert`, `activity_forget`, `activity_seen`, `activity_clear`.
 - Réglages : `settings_load`, `settings_save`.
 - Extensions : `extension_list`, `extension_install`, `extension_remove`, `extension_install_zip`, `registry_fetch`, `extension_sources`, `extension_source_add`, `extension_source_remove`.
 - Markdown : `markdown_select`, `markdown_confirm_close`, `markdown_read`, `markdown_write`.
@@ -46,6 +48,7 @@ Le dossier est `app_config_dir()`, soit sur macOS `~/Library/Application Support
 |---|---|
 | `workspace-v1.json` | Espace, onglets, tuiles, disposition, état par extension. |
 | `workspace-recovery.json` | Copie de secours créée lors d’une reprise. |
+| `activity.db` | Étapes d’activité des agents (SQLite, WAL, 30 par onglet). |
 | `settings-v1.json` | Préférences applicatives. |
 | `extensions.json` | Extensions installées, versions, sources et dépôts. |
 | `extensions/<id>/<version>/` | Paquets importés extraits. |

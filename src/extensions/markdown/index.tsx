@@ -38,6 +38,9 @@ import "./style.css";
 
 type Document = MarkdownDocument & { token?: string; savedText: string };
 
+/** Au-delà, l'instantané n'est pas conservé : la flèche est simplement retirée. */
+const MAX_INVERSE_CHARS = 240_000;
+
 const gfm = [remarkGfm];
 const editorTheme = EditorView.theme({
   "&": {
@@ -459,6 +462,70 @@ export default function createMarkdown(): ExtensionModule {
           }
         }),
       );
+      const contentUndo = {
+        capture(tile: Tile) {
+          const doc = documents.get(tile.data.document);
+          if (!doc || doc.text.length > MAX_INVERSE_CHARS) return undefined;
+          return { document: doc.id, text: doc.text };
+        },
+        restore(tile: Tile, snapshot: unknown) {
+          const value = snapshot as
+            | { document?: string; text?: string }
+            | undefined;
+          const doc = value?.document
+            ? documents.get(value.document)
+            : undefined;
+          if (!doc || typeof value?.text !== "string")
+            throw new Error(translateNow("markdown.error.unavailable"));
+          update(doc.id, value.text, doc.by === "agent" ? "agent" : "human");
+          return { ref: tile.id, characters: value.text.length };
+        },
+      };
+      const saveUndo = {
+        capture(tile: Tile) {
+          const doc = documents.get(tile.data.document);
+          if (!doc?.token) return undefined;
+          if (doc.text.length + doc.savedText.length > MAX_INVERSE_CHARS)
+            return undefined;
+          return {
+            document: doc.id,
+            token: doc.token,
+            oldText: doc.savedText,
+            newText: doc.text,
+          };
+        },
+        async restore(_tile: Tile, snapshot: unknown) {
+          const value = snapshot as
+            | {
+                document?: string;
+                token?: string;
+                oldText?: string;
+                newText?: string;
+              }
+            | undefined;
+          if (!value?.token || typeof value.oldText !== "string")
+            throw new Error(translateNow("markdown.error.unavailable"));
+          await invoke("markdown_write", {
+            token: value.token,
+            text: value.oldText,
+            expected: value.newText,
+          });
+          const doc = value.document
+            ? documents.get(value.document)
+            : undefined;
+          if (doc) {
+            const restored = {
+              ...doc,
+              text: value.oldText,
+              savedText: value.oldText,
+              dirty: false,
+            };
+            put(restored);
+            api.events.emit(documentSaved, restored);
+          }
+          return { characters: value.oldText.length };
+        },
+      };
       api.tiles.register({
         type: editorType,
         title: localized("markdown.tile.editor"),
@@ -496,6 +563,7 @@ export default function createMarkdown(): ExtensionModule {
               },
             },
             mutates: guarded,
+            inverse: contentUndo,
             run: (tile, input) => {
               const doc = documents.get(tile.data.document);
               if (!doc)
@@ -562,6 +630,7 @@ export default function createMarkdown(): ExtensionModule {
               },
             },
             mutates: guarded,
+            inverse: contentUndo,
             run: (tile, input) =>
               edit(tile, (lines) => [
                 ...lines,
@@ -582,6 +651,7 @@ export default function createMarkdown(): ExtensionModule {
               },
             },
             mutates: guarded,
+            inverse: contentUndo,
             run: (tile, input) =>
               edit(tile, (lines) => {
                 const line = Number(input.line);
@@ -618,6 +688,7 @@ export default function createMarkdown(): ExtensionModule {
               },
             },
             mutates: guarded,
+            inverse: contentUndo,
             run: (tile, input) =>
               edit(tile, (lines) => {
                 const [start, end] = range(
@@ -647,6 +718,7 @@ export default function createMarkdown(): ExtensionModule {
               },
             },
             mutates: guarded,
+            inverse: contentUndo,
             run: (tile, input) =>
               edit(tile, (lines) => {
                 const [start, end] = range(
@@ -662,6 +734,7 @@ export default function createMarkdown(): ExtensionModule {
             title: localized("markdown.action.save.title"),
             description: localized("markdown.action.save.description"),
             mutates: true,
+            inverse: saveUndo,
             run: (tile) => save(tile.data.document),
           },
         },

@@ -23,6 +23,8 @@ fichiers de verrouillage de chaque paquet.
 | Tailwind CSS, Vite | MIT |
 | objc2 (AppKit, WebKit, QuartzCore, Foundation) | MIT |
 | base64 | MIT ou Apache-2.0 |
+| SQLite | domaine public |
+| rusqlite | MIT |
 
 ## Site
 

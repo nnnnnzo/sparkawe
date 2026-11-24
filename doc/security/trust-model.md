@@ -71,6 +71,8 @@ Un fichier local n’est jamais copié pour l’Aperçu. `preview_select`, `prev
 
 L’Aperçu ne rend jamais de HTML actif : le source est affiché, et le navigateur natif n’ouvre qu’une URL `https` à la demande. Les médias distants sont lus directement par le webview, qui contacte alors l’hôte ; les autres liens sont téléchargés dans le cache. La tuile n’écrit aucun fichier et la surface ne transporte que le type, le titre et des métadonnées (pages, dimensions, durée), jamais le contenu.
 
+`activity.db` conserve les **30 dernières étapes d’activité par onglet**, avec les instantanés nécessaires pour annuler une action Markdown ou Données. Ce contenu reste local, dans le dossier de configuration, en `0600` sur Unix, avec `secure_delete` ; il s’efface depuis la timeline et n’est jamais exposé par MCP. Il n’est pas chiffré au repos. Un paquet importé s’exécute dans la même fenêtre et peut appeler les commandes `activity_*` autorisées : c’est une conséquence du modèle sans sandbox, pas une nouvelle frontière.
+
 Un navigateur externe n’est pas utilisé pour les extensions : le bundle est injecté dans la page principale, avec React fourni par `window.SparkRuntime`.
 
 La tuile navigateur est la seule exception, et elle va dans l’autre sens : la page distante vit dans une **vue native séparée**, sans IPC Tauri, sans capability `remote`, sans accès au protocole `asset`. Ce n’est pas une sandbox pour les extensions — celles-ci restent dans la page principale — mais une frontière entre le contenu du web et les commandes de Spark. Une page web ne peut donc pas appeler le registre, lire le workspace ou piloter une autre extension.

@@ -2,6 +2,12 @@ fn main() {
     let manifest = tauri_build::AppManifest::new().commands(&[
         "workspace_load",
         "workspace_save",
+        "activity_load",
+        "activity_append",
+        "activity_revert",
+        "activity_forget",
+        "activity_seen",
+        "activity_clear",
         "extension_list",
         "extension_install",
         "extension_remove",

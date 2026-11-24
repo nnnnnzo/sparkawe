@@ -15,6 +15,7 @@ Client agent ──stdio JSON-RPC──► spark-mcp (sidecar)
 - Le sidecar `src-tauri/src/bin/spark-mcp.rs` est déclaré comme binaire externe.
 - Le serveur Rust crée un socket local dans le dossier de configuration.
 - `attachMcp` relaie les lignes reçues vers la fenêtre et renvoie les réponses.
+- Le sidecar garde **une connexion par processus client**, pas une par ligne : Spark voit donc la même session pendant toute la vie du sidecar. Si Spark redémarre, le sidecar se reconnecte et rejoue la dernière `initialize` pour retrouver l’identité du client.
 - Aucun port réseau n’est ouvert.
 
 ## Appels directs et Code Mode
@@ -64,8 +65,10 @@ directement.
 - **Guides** : le `guide` d’un type de tuile est livré au premier catalogue ou à la première lecture. Le suivi est partagé par les clients de la fenêtre et réinitialisé par une nouvelle initialisation MCP.
 - **Services** : une action avec `requires` n’apparaît pas si le service est absent.
 - **Mutations** : les cinq lectures annoncent `readOnlyHint: true`, à titre indicatif. `spark_tile_call` peut modifier des données : une action `mutates` est signalée et la confirmation appartient au harnais, en Code Mode comme en direct.
-- **Source** : toute action passée par `spark_tile_call` est journalisée avec `source: "agent"`. La fin d’un appel ne retire pas l’attribution d’un autre appel agent encore en cours ; les lectures ne changent pas cette attribution.
+- **Source** : toute action passée par `spark_tile_call` est journalisée avec `source: "agent"`, la session `agent` et l’appel `op`. La fin d’un appel ne retire pas l’attribution d’un autre appel agent encore en cours ; les lectures ne changent pas cette attribution.
 - **Onglets d’agent** : `spark_tab_open` crée un onglet en arrière-plan et un point discret dans la barre, sans voler le focus.
+- **Sessions** : `initialize` lit `clientInfo` (`name`, `title`, `version`). La marque correspondante vient de `src/shared/agents/data.ts` ; un client inconnu reçoit un monogramme. Deux sessions vivantes du même client sont distinguées par un ordinal (`Claude Code 2`). `mcp:closed` libère l’ordinal. L’activité garde une copie de l’identité dans chaque étape.
+- **Limite** : l’attribution par portée asynchrone reste approximative quand deux clients appellent en même temps ; le cas courant d’un seul agent est exact. Les effets d’un même appel partagent en revanche le même `op`.
 
 ## Cycle de vie
 

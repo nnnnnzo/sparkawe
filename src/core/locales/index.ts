@@ -1,3 +1,4 @@
+import activity from "./activity.ts";
 import data from "./data.ts";
 import errors from "./errors.ts";
 import explorer from "./explorer.ts";
@@ -15,6 +16,7 @@ import web from "./web.ts";
  * le test `i18n.test.ts` vérifie qu'aucun domaine ne se chevauche.
  */
 const messages = {
+  ...activity,
   ...data,
   ...errors,
   ...explorer,

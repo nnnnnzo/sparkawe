@@ -92,12 +92,18 @@ interface TileDefinition {
 ## Action
 
 ```ts
+interface ActionInverse {
+  capture(tile: Tile, input: Record<string, ActionValue>): unknown;
+  restore(tile: Tile, snapshot: unknown, result: unknown): unknown | Promise<unknown>;
+}
+
 interface TileAction {
   title: LocalizedText;
   description?: LocalizedText;
   input?: Record<string, ActionField>;
   requires?: readonly ServiceKey<unknown>[];
   mutates?: boolean | ((tile: Tile) => boolean);
+  inverse?: ActionInverse;
   run(tile: Tile, input: Record<string, ActionValue>): unknown | Promise<unknown>;
 }
 ```
@@ -111,7 +117,10 @@ Règles appliquées par le registre :
 - résultat JSON **16 000 caractères maximum** ;
 - action exécutée par `spark_tile_call` attribuée à `source: "agent"` ;
 - `requires` : action masquée si le service est absent ;
-- `mutates` : signalée au client MCP, qui décide de la confirmation.
+- `mutates` : signalée au client MCP, qui décide de la confirmation ;
+- `inverse` : capturé dès qu’il est déclaré, même quand `mutates` vaut `false`. `mutates` ne contrôle que la confirmation côté client MCP ; une action peut modifier un document que l’agent possède sans demander cette confirmation, tout en restant annulable dans la timeline. `capture` s’exécute juste avant `run` ; `restore` reçoit la capture et le résultat. Une capture qui échoue ne bloque pas l’action : elle retire seulement la flèche de retour. Une capture trop grosse (au-delà de **480 000 caractères** sérialisés) est abandonnée par l’historique.
+- L’inverse vit dans la timeline d’activité de l’agent, pas dans le journal d’un agent. Une action annulée se disperse et sa ligne est retirée de la timeline et de la base.
+- Aucun champ n’est ajouté au manifeste ni au paquet : un paquet importé peut fournir `inverse` comme une extension intégrée.
 
 ## Commande
 

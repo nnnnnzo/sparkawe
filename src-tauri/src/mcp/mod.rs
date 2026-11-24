@@ -33,6 +33,11 @@ struct Delivery {
     line: String,
 }
 
+#[derive(Clone, Serialize)]
+struct Closed {
+    connection: u64,
+}
+
 #[cfg(unix)]
 struct Inner {
     clients: Mutex<HashMap<u64, std::os::unix::net::UnixStream>>,
@@ -101,6 +106,7 @@ impl McpServer {
                             },
                         );
                     }
+                    let _ = app.emit("mcp:closed", Closed { connection: id });
                     if let Ok(mut clients) = inner.clients.lock() {
                         clients.remove(&id);
                     }

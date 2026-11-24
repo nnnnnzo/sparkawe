@@ -1,3 +1,4 @@
+mod activity;
 mod agents;
 mod explorer;
 mod extensions;
@@ -83,6 +84,7 @@ pub fn run() {
             if let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) {
                 agents::clear_vibe_descriptors(&home);
             }
+            app.manage(activity::ActivityDb::open(&path.join("activity.db")));
             app.manage(markdown::MarkdownStorage::new(&path));
             app.manage(explorer::ExplorerStorage::new(&path));
             app.manage(preview::PreviewStorage::new(&path));
@@ -98,6 +100,12 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             storage::workspace_load,
             storage::workspace_save,
+            activity::activity_load,
+            activity::activity_append,
+            activity::activity_revert,
+            activity::activity_forget,
+            activity::activity_seen,
+            activity::activity_clear,
             extensions::extension_list,
             extensions::extension_install,
             extensions::extension_remove,

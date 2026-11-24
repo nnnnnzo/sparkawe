@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import type { ActivityAgent } from "../core/activity.ts";
 import type { Data, LocalizedText, Tile } from "../sdk/index.ts";
+import { agentForClient } from "../shared/agents/data.ts";
 import { text as translateText } from "../i18n/index.ts";
 import { report } from "../ui/errors.ts";
 import type { Runtime } from "./runtime.ts";
@@ -73,7 +75,9 @@ type McpRuntime = Pick<
 export function createMcpServer(
   runtime: McpRuntime,
   cacheTools?: (snapshot: string) => void,
+  onSession?: (session: ActivityAgent) => void,
 ) {
+  const sessions = new Map<number, ActivityAgent>();
   /** Texte pour tous les clients, objet propre pour ceux qui lisent structuredContent. */
   function toolResult(value: unknown, structured?: Record<string, unknown>) {
     const shape =
@@ -306,6 +310,46 @@ export function createMcpServer(
     },
   ];
 
+  function sessionFor(connection: number): ActivityAgent {
+    const existing = sessions.get(connection);
+    if (existing) return existing;
+    const brand = agentForClient();
+    const session: ActivityAgent = {
+      id: crypto.randomUUID(),
+      brand: brand.id,
+      name: brand.name,
+      label: brand.name,
+      startedAt: Date.now(),
+    };
+    sessions.set(connection, session);
+    onSession?.(session);
+    return session;
+  }
+
+  function openSession(connection: number, params: Record<string, unknown>) {
+    const info = object(params.clientInfo);
+    const name = typeof info.name === "string" ? info.name : undefined;
+    const title = typeof info.title === "string" ? info.title : undefined;
+    const version = typeof info.version === "string" ? info.version : undefined;
+    const brand = agentForClient(name, title);
+    const live = [...sessions.values()].filter(
+      (session) =>
+        session.brand === brand.id &&
+        session.id !== sessions.get(connection)?.id,
+    ).length;
+    const session: ActivityAgent = {
+      id: crypto.randomUUID(),
+      brand: brand.id,
+      name: brand.name,
+      ...(version ? { version } : {}),
+      label: live ? `${brand.name} ${live + 1}` : brand.name,
+      startedAt: Date.now(),
+    };
+    sessions.set(connection, session);
+    onSession?.(session);
+    return session;
+  }
+
   function openTile(args: Record<string, unknown>) {
     const type = String(args.type ?? "");
     const definition = runtime.registry.getTile(type);
@@ -371,7 +415,11 @@ export function createMcpServer(
     };
   }
 
-  async function callTile(args: Record<string, unknown>) {
+  async function callTile(
+    args: Record<string, unknown>,
+    session: ActivityAgent,
+    op: string,
+  ) {
     const tile = tileOf(runtime, args.tile);
     const name = String(args.action ?? "");
     const definition = runtime.registry.getTile(tile.type);
@@ -392,7 +440,11 @@ export function createMcpServer(
       string,
       string | number | boolean
     >;
-    return runtime.registry.callAction(tile.id, name, input, "agent");
+    return runtime.registry.callAction(tile.id, name, input, {
+      source: "agent",
+      agent: session.id,
+      op,
+    });
   }
 
   async function closeTile(args: Record<string, unknown>) {
@@ -410,7 +462,11 @@ export function createMcpServer(
     return { closed: tile.id };
   }
 
-  async function execute(name: string, args: Record<string, unknown>) {
+  async function execute(
+    name: string,
+    args: Record<string, unknown>,
+    call: { session: ActivityAgent; op: string },
+  ) {
     switch (name) {
       case "spark_brief": {
         const brief = runtime.brief(
@@ -517,7 +573,7 @@ export function createMcpServer(
       case "spark_tile_read":
         return toolResult(readTile(args));
       case "spark_tile_call":
-        return toolResult(await callTile(args));
+        return toolResult(await callTile(args, call.session, call.op));
       case "spark_tile_close":
         return toolResult(await closeTile(args));
       case "spark_tile_move": {
@@ -610,13 +666,24 @@ export function createMcpServer(
     }
   }
 
-  async function callTool(params: Record<string, unknown>) {
+  async function callTool(
+    params: Record<string, unknown>,
+    connection: number,
+  ) {
     try {
       const name = String(params.name ?? "");
-      const run = () => execute(name, object(params.arguments));
+      const session = sessionFor(connection);
+      const call = { session, op: crypto.randomUUID() };
+      const run = () => execute(name, object(params.arguments), call);
       return await (readOutput(name)
         ? run()
-        : runtime.workspace.runAs("agent", run));
+        : runtime.workspace.runAs("agent", run, {
+            agent: session.id,
+            op: call.op,
+            // L'activité raconte l'onglet dans lequel l'agent travaillait,
+            // même si l'effet touche une tuile d'un autre onglet.
+            tabId: runtime.workspace.get().active,
+          }));
     } catch (error) {
       return failure(error instanceof Error ? error.message : String(error));
     }
@@ -640,11 +707,16 @@ export function createMcpServer(
     };
   }
 
-  async function dispatch(method: string, params: Record<string, unknown>) {
+  async function dispatch(
+    method: string,
+    params: Record<string, unknown>,
+    connection: number,
+  ) {
     switch (method) {
-      case "initialize":
+      case "initialize": {
         // Nouvelle session d'agent : les guides sont de nouveau disponibles.
         deliveredGuides.clear();
+        openSession(connection, params);
         return {
           protocolVersion:
             typeof params.protocolVersion === "string"
@@ -654,6 +726,7 @@ export function createMcpServer(
           serverInfo: { name: "spark", version: "0.1.0" },
           instructions,
         };
+      }
       case "ping":
         return {};
       case "notifications/initialized":
@@ -678,7 +751,7 @@ export function createMcpServer(
         return { tools: list };
       }
       case "tools/call":
-        return callTool(params);
+        return callTool(params, connection);
       case "resources/list":
         return { resources: resources() };
       case "resources/read":
@@ -689,7 +762,7 @@ export function createMcpServer(
   }
 
   return {
-    async handle(line: string): Promise<string | null> {
+    async handle(line: string, connection = 1): Promise<string | null> {
       let message: Message;
       try {
         message = JSON.parse(line) as Message;
@@ -702,7 +775,11 @@ export function createMcpServer(
           ? null
           : problem(id ?? null, -32600, "Requête invalide.");
       try {
-        const result = await dispatch(method, message.params ?? {});
+        const result = await dispatch(
+          method,
+          message.params ?? {},
+          connection,
+        );
         return id === undefined ? null : answer(id ?? null, result);
       } catch (error) {
         // Une notification n'attend pas de réponse : on l'ignore sans alerter.
@@ -714,19 +791,26 @@ export function createMcpServer(
         );
       }
     },
+    close(connection: number) {
+      sessions.delete(connection);
+    },
   };
 }
 
 /** Relaie les messages du socket local vers la fenêtre et renvoie les réponses. */
 export async function attachMcp(runtime: Runtime) {
-  const server = createMcpServer(runtime, (snapshot) => {
-    void invoke("mcp_cache_tools", { snapshot }).catch(report);
-  });
+  const server = createMcpServer(
+    runtime,
+    (snapshot) => {
+      void invoke("mcp_cache_tools", { snapshot }).catch(report);
+    },
+    (session) => runtime.activity.registerAgent(session),
+  );
   const unlisten = await listen<{ connection: number; line: string }>(
     "mcp:message",
     async (event) => {
       const { connection, line } = event.payload;
-      const reply = await server.handle(line);
+      const reply = await server.handle(line, connection);
       if (reply === null) return;
       try {
         await invoke("mcp_reply", { connection, line: reply });
@@ -734,6 +818,10 @@ export async function attachMcp(runtime: Runtime) {
         report(error);
       }
     },
+  );
+  const closed = await listen<{ connection: number }>(
+    "mcp:closed",
+    ({ payload }) => server.close(payload.connection),
   );
   // Une extension activée ou retirée change les capacités : le client recharge
   // sa liste d'outils sans qu'on ait à le relancer.
@@ -748,5 +836,6 @@ export async function attachMcp(runtime: Runtime) {
   return () => {
     unsubscribe();
     unlisten();
+    closed();
   };
 }

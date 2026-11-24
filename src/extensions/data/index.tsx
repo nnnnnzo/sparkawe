@@ -70,6 +70,128 @@ export default function createData(): ExtensionModule {
         }));
       }
 
+      const MAX_INVERSE_CHARS = 240_000;
+      const tableUndo = {
+        capture(tile: Tile, input: Record<string, ActionValue>) {
+          const table = tableOf(tile, input);
+          if (JSON.stringify(table).length > MAX_INVERSE_CHARS) return undefined;
+          return { table: structuredClone(table) };
+        },
+        restore(_tile: Tile, snapshot: unknown) {
+          const value = snapshot as { table?: Table } | undefined;
+          const current = value?.table?.id
+            ? tables.get(value.table.id)
+            : undefined;
+          if (!value?.table || !current)
+            throw new Error(translateNow("data.error.noTable"));
+          tables.update(current.id, value.table);
+          return { table: current.id, rows: value.table.rows.length };
+        },
+      };
+      const cellUndo = {
+        capture(tile: Tile, input: Record<string, ActionValue>) {
+          const table = tableOf(tile, input);
+          const row = table.rows.find((item) => item.id === input.row);
+          const index = table.columns.findIndex(
+            (column) => column.id === input.column,
+          );
+          if (!row || index < 0) return undefined;
+          return {
+            table: table.id,
+            row: row.id,
+            column: table.columns[index].id,
+            value: row.cells[index] ?? "",
+          };
+        },
+        restore(_tile: Tile, snapshot: unknown) {
+          const value = snapshot as
+            | {
+                table?: string;
+                row?: string;
+                column?: string;
+                value?: string;
+              }
+            | undefined;
+          const table = value?.table ? tables.get(value.table) : undefined;
+          const index = table?.columns.findIndex(
+            (column) => column.id === value?.column,
+          );
+          if (!table || !value?.row || index === undefined || index < 0)
+            throw new Error(translateNow("data.error.noTable"));
+          tables.update(table.id, {
+            ...table,
+            rows: table.rows.map((row) =>
+              row.id === value.row
+                ? {
+                    ...row,
+                    cells: row.cells.map((cell, position) =>
+                      position === index ? String(value.value ?? "") : cell,
+                    ),
+                  }
+                : row,
+            ),
+          });
+          return { table: table.id, row: value.row, column: value.column };
+        },
+      };
+      const columnUndo = {
+        capture(tile: Tile, input: Record<string, ActionValue>) {
+          return { table: tableOf(tile, input).id };
+        },
+        restore(_tile: Tile, snapshot: unknown, result: unknown) {
+          const value = snapshot as { table?: string } | undefined;
+          const added = (result as { id?: string } | undefined)?.id;
+          const table = value?.table ? tables.get(value.table) : undefined;
+          if (!table || !added)
+            throw new Error(translateNow("data.error.noTable"));
+          const index = table.columns.findIndex(
+            (column) => column.id === added,
+          );
+          if (index < 0) return { id: added };
+          tables.update(table.id, {
+            ...table,
+            columns: table.columns.filter((column) => column.id !== added),
+            rows: table.rows.map((row) => ({
+              ...row,
+              cells: row.cells.filter((_, position) => position !== index),
+            })),
+          });
+          return { id: added };
+        },
+      };
+      const createTableUndo = {
+        capture(tile: Tile) {
+          return { data: { ...tile.data } };
+        },
+        restore(tile: Tile, snapshot: unknown, result: unknown) {
+          const value = snapshot as
+            | { data?: Record<string, string> }
+            | undefined;
+          if (value?.data) api.tabs.updateTileData(tile.id, value.data);
+          const created = (result as { table?: string } | undefined)?.table;
+          if (
+            created &&
+            !api.tabs
+              .getAllTiles()
+              .some((other) => other.id !== tile.id && other.data.table === created)
+          )
+            tables.remove(created);
+          return {};
+        },
+      };
+      const chartUndo = {
+        capture(tile: Tile) {
+          return { data: { ...tile.data } };
+        },
+        restore(tile: Tile, snapshot: unknown) {
+          const value = snapshot as
+            | { data?: Record<string, string> }
+            | undefined;
+          if (value?.data) api.tabs.updateTileData(tile.id, value.data);
+          return {};
+        },
+      };
+
       api.services.provide(dataTables, tables);
       api.services.provide(dataCharts, {
         open(source, alongside) {
@@ -111,6 +233,7 @@ export default function createData(): ExtensionModule {
             title: localized("data.action.createTable.title"),
             description: localized("data.action.createTable.description"),
             mutates: true,
+            inverse: createTableUndo,
             input: {
               name: {
                 type: "string",
@@ -197,6 +320,7 @@ export default function createData(): ExtensionModule {
             title: localized("data.action.appendRows.title"),
             description: localized("data.action.appendRows.description"),
             mutates: true,
+            inverse: tableUndo,
             input: {
               table: { type: "string", required: false },
               rows: {
@@ -264,6 +388,7 @@ export default function createData(): ExtensionModule {
             title: localized("data.action.setCell.title"),
             description: localized("data.action.setCell.description"),
             mutates: true,
+            inverse: cellUndo,
             input: {
               table: { type: "string", required: false },
               row: {
@@ -310,6 +435,7 @@ export default function createData(): ExtensionModule {
             title: localized("data.action.addColumn.title"),
             description: localized("data.action.addColumn.description"),
             mutates: true,
+            inverse: columnUndo,
             input: {
               table: { type: "string", required: false },
               name: {
@@ -431,6 +557,8 @@ export default function createData(): ExtensionModule {
           set_chart: {
             title: localized("data.action.setChart.title"),
             description: localized("data.action.setChart.description"),
+            mutates: true,
+            inverse: chartUndo,
             input: {
               x: { type: "string", required: false },
               y: { type: "string", required: false },

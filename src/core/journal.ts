@@ -10,13 +10,22 @@ export interface JournalEntry {
   seq: number;
   at: number;
   source: JournalSource;
+  /** Appel MCP qui regroupe plusieurs effets d'une même action. */
+  op?: string;
+  /** Session MCP à l'origine de l'action. */
+  agent?: string;
+  /** Onglet dans lequel l'agent travaillait, même si l'effet est ailleurs. */
+  activityTabId?: string;
   kind: string;
   tabId?: string;
   tileId?: string;
   data?: unknown;
 }
 
-export type JournalRecord = Omit<JournalEntry, "seq" | "at" | "source"> & {
+export type JournalRecord = Omit<
+  JournalEntry,
+  "seq" | "at" | "source"
+> & {
   source?: JournalSource;
 };
 
@@ -27,6 +36,7 @@ export class Journal {
   private nextSeq = 1;
   private readonly capacity: number;
   private readonly listeners = new Set<() => void>();
+  private readonly recorders = new Set<(entry: JournalEntry) => void>();
 
   constructor(capacity = JOURNAL_CAPACITY) {
     this.capacity = capacity;
@@ -42,8 +52,24 @@ export class Journal {
     this.entries.push(entry);
     const overflow = this.entries.length - this.capacity;
     if (overflow > 0) this.entries.splice(0, overflow);
+    for (const listener of this.recorders) {
+      try {
+        listener(entry);
+      } catch (error) {
+        // Le journal ne doit jamais casser une écriture du workspace.
+        console.error(error);
+      }
+    }
     for (const listener of this.listeners) listener();
     return entry;
+  };
+
+  /** Reçoit chaque entrée au moment où elle est écrite. */
+  onRecord = (listener: (entry: JournalEntry) => void) => {
+    this.recorders.add(listener);
+    return () => {
+      this.recorders.delete(listener);
+    };
   };
 
   /** Dernières entrées, de la plus ancienne à la plus récente. */

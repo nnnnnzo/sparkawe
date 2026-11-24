@@ -9,8 +9,21 @@ import { t as translateNow } from "../i18n/index.ts";
 export type LayoutSide = "left" | "right" | "top" | "bottom" | "center";
 
 export type LayoutCommand =
-  | { type: "move"; tile: string; target: string; side: LayoutSide }
-  | { type: "resize"; tile: string; width?: number; height?: number }
+  | {
+      type: "move";
+      tile: string;
+      target: string;
+      side: LayoutSide;
+      record?: boolean;
+    }
+  | {
+      type: "resize";
+      tile: string;
+      width?: number;
+      height?: number;
+      record?: boolean;
+    }
+  | { type: "restore"; snapshot: unknown; record?: boolean }
   | { type: "undo" }
   | { type: "redo" };
 

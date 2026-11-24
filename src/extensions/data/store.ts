@@ -86,6 +86,16 @@ export class TableStore implements TablesService {
     return table;
   };
 
+  /** Retire une table créée par une action annulée. */
+  remove = (id: string) => {
+    if (!this.get(id)) return;
+    this.state = {
+      version: 1,
+      tables: this.state.tables.filter((table) => table.id !== id),
+    };
+    this.commit(id);
+  };
+
   update = (id: string, next: Table) => {
     const current = this.get(id);
     if (!current) return;

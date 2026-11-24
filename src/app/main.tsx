@@ -38,6 +38,7 @@ async function start() {
     if (closing) return;
     closing = true;
     try {
+      await runtime.activity.flush();
       await runtime.persistence.flush();
       await window.destroy();
     } catch (error) {

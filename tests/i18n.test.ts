@@ -10,6 +10,7 @@ import {
   translatePlural,
 } from "../src/core/i18n.ts";
 import { restoreSettings } from "../src/core/settings.ts";
+import activity from "../src/core/locales/activity.ts";
 import data from "../src/core/locales/data.ts";
 import errors from "../src/core/locales/errors.ts";
 import explorer from "../src/core/locales/explorer.ts";
@@ -23,6 +24,7 @@ import terminal from "../src/core/locales/terminal.ts";
 import web from "../src/core/locales/web.ts";
 
 const domains = {
+  activity,
   data,
   errors,
   explorer,

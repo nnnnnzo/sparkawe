@@ -74,9 +74,26 @@ Les panneaux restent montés quand on change d’onglet, donc une vue native sur
 
 ## Journal
 
-`src/core/journal.ts` garde 512 entrées en mémoire. Chaque entrée contient `seq`, `at`, `source` (`human`, `agent`, `system`), `kind`, éventuellement `tabId`/`tileId`/`data`.
+`src/core/journal.ts` garde 512 entrées en mémoire. Chaque entrée contient `seq`, `at`, `source` (`human`, `agent`, `system`), `kind`, éventuellement `tabId`/`tileId`/`data`, et pour un agent :
+
+- `agent` : identifiant de la session MCP qui a agi ;
+- `op` : identifiant de l’appel d’outil, qui regroupe ses effets (ouverture, action, disposition) ;
+- `activityTabId` : onglet dans lequel l’agent travaillait, même si l’effet touche une tuile d’un autre onglet.
 
 Le journal ne remplace pas l’état : il raconte les changements. Il est borné par `summarize` (chaînes à 160 caractères, profondeur 2).
+
+## Activité des agents
+
+`src/core/activity.ts` projette le journal en **étapes** lisibles, regroupées par `op`. Une étape garde la session, les effets, un résumé borné et les inverses disponibles. La vue `src/ui/activity.tsx` affiche les 30 dernières étapes de l’onglet actif ; le bouton se trouve à gauche des modes de disposition.
+
+- Une action est retenue si le registre l’a marquée `tracked` : soit elle est mutante, soit elle déclare un inverse. `mutates` ne sert qu’à la confirmation côté client MCP.
+- Les ouvertures, fermetures, créations et suppressions d’onglet sont retenues ; les changements de focus ne le sont pas.
+- Les déplacements et redimensionnements sont journalisés par le moteur de disposition (`layout.move`, `layout.resize`, `layout.undo`, `layout.redo`), avec la disposition d’avant et, pour un déplacement, l’ancrage précédent.
+- Une étape peut être annulée : ses effets sont rejoués à l’envers, ou la disposition d’avant est restaurée. Une action fournit son inverse via `TileAction.inverse`.
+- Une étape annulée joue une courte dispersion puis disparaît de la timeline et de `activity.db`. Une ligne déjà marquée annulée est retirée au chargement suivant.
+- La vue groupe par jour et par session. L’icône de l’agent est sur l’en-tête du groupe, pas sur chaque ligne ; chaque ligne est indentée et porte un fil d’Ariane `onglet › objet`.
+- La persistance est décrite dans [la persistance](../operations/persistence.md#activitydb). L’onglet actif charge ses étapes à la demande.
+- Les instantanés trop gros sont retirés : l’action reste visible, la flèche explique pourquoi elle ne peut pas revenir en arrière.
 
 ## Brief
 
@@ -86,6 +103,7 @@ Le journal ne remplace pas l’état : il raconte les changements. Il est borné
 
 - `workspace-v1.json` est écrit après un debounce de 180 ms.
 - Les écritures sont sérialisées ; une écriture plus ancienne ne peut pas écraser une plus récente.
+- L’activité des agents vit dans `activity.db` (SQLite), séparément du document ; voir [la persistance](../operations/persistence.md#activitydb).
 - En cas de reprise après un format invalide, le runtime part d’un workspace initial et marque `recovery` ; la première sauvegarde copie l’ancien fichier dans `workspace-recovery.json`.
 - La fermeture de la fenêtre attend `persistence.flush()` avant de détruire la fenêtre.
 

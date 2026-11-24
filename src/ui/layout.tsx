@@ -29,6 +29,7 @@ import { useI18n } from "../i18n/react.ts";
 import { report } from "./errors.ts";
 import type { Tab, WorkspaceState } from "../core/workspace.ts";
 import { registerLayoutHandler } from "./layoutBridge.ts";
+import { previousPlacement } from "../core/layoutInverse.ts";
 import { takeGroupReference } from "./layoutPlacement.ts";
 import {
   beginLayoutMotion,
@@ -658,8 +659,34 @@ function Engine({
       if (command.type === "undo" || command.type === "redo") {
         if (!historyControls.current)
           throw new Error(translateNow("layout.error.history"));
+        const before = api.toJSON();
         if (command.type === "undo") historyControls.current.undo();
         else historyControls.current.redo();
+        const entry = runtime.workspace.note({
+          kind: `layout.${command.type}`,
+          tabId: tab.id,
+          data: { mode: tab.mode },
+        });
+        runtime.activity.attachLayout(entry, {
+          mode: tab.mode,
+          before,
+        });
+        return;
+      }
+      if (command.type === "restore") {
+        const panels = api.panels
+          .map((panel) => panel.id)
+          .sort()
+          .join(",");
+        const tiles = live.current.tiles
+          .map((tile) => tile.id)
+          .sort()
+          .join(",");
+        if (panels !== tiles)
+          throw new Error(translateNow("layout.error.panels"));
+        api.fromJSON(command.snapshot as SerializedDockview, {
+          reuseExistingPanels: true,
+        });
         return;
       }
       if (command.type === "move") {
@@ -675,10 +702,29 @@ function Engine({
           );
         if (moving === target)
           throw new Error(translateNow("layout.error.selfMove"));
+        const before = api.toJSON();
+        const from = previousPlacement(before, command.tile);
         moving.api.moveTo({
           group: target.group,
           position: command.side,
           skipSetActive: true,
+        });
+        if (command.record === false) return;
+        const entry = runtime.workspace.note({
+          kind: "layout.move",
+          tabId: tab.id,
+          tileId: command.tile,
+          data: {
+            tile: command.tile,
+            target: command.target,
+            side: command.side,
+            mode: tab.mode,
+          },
+        });
+        runtime.activity.attachLayout(entry, {
+          mode: tab.mode,
+          before,
+          from,
         });
         return;
       }
@@ -690,6 +736,15 @@ function Engine({
       const element = host.current;
       if (!element)
         throw new Error(translateNow("layout.error.tabUnavailable"));
+      const before = api.toJSON();
+      const beforeSize = {
+        width: element.clientWidth
+          ? Math.min(1, Math.max(0.05, panel.api.width / element.clientWidth))
+          : undefined,
+        height: element.clientHeight
+          ? Math.min(1, Math.max(0.05, panel.api.height / element.clientHeight))
+          : undefined,
+      };
       const size: { width?: number; height?: number } = {};
       if (command.width !== undefined)
         size.width = Math.max(
@@ -704,8 +759,25 @@ function Engine({
       if (size.width === undefined && size.height === undefined)
         throw new Error(translateNow("layout.error.size"));
       panel.group.api.setSize(size);
+      if (command.record === false) return;
+      const entry = runtime.workspace.note({
+        kind: "layout.resize",
+        tabId: tab.id,
+        tileId: command.tile,
+        data: {
+          tile: command.tile,
+          width: command.width,
+          height: command.height,
+          mode: tab.mode,
+        },
+      });
+      runtime.activity.attachLayout(entry, {
+        mode: tab.mode,
+        before,
+        resize: beforeSize,
+      });
     });
-  }, [api, active]);
+  }, [api, active, runtime, tab.id, tab.mode]);
 
   const historyControls = useRef<
     { undo: () => void; redo: () => void } | undefined

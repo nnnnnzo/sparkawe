@@ -60,6 +60,7 @@ Un fichier local choisi, déposé ou ouvert depuis l’Explorateur n’entre pas
 
 - `spark-mcp` est déclaré dans `externalBin`.
 - `npm run sidecar` le reconstruit en debug ; `npm run sidecar:release` pour la distribution.
+- Il garde une connexion par processus client et rejoue la dernière `initialize` après une reconnexion, pour conserver la session et son identité.
 - Le socket et le cache d’outils vivent dans `run/`.
 
 ## Dialogues et menus

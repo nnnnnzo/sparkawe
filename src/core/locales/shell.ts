@@ -781,6 +781,16 @@ const messages = {
     ja: "レイアウト履歴を利用できません。",
     zh: "布局历史不可用。",
   },
+  "layout.error.panels": {
+    fr: "Les tuiles ont changé depuis cet instant.",
+    en: "The tiles have changed since this moment.",
+    es: "Las tarjetas han cambiado desde este momento.",
+    de: "Die Kacheln haben sich seit diesem Moment geändert.",
+    it: "Le schede sono cambiate da questo momento.",
+    pt: "Os painéis mudaram desde este momento.",
+    ja: "その時点からタイルが変更されています。",
+    zh: "自那时起磁贴已发生变化。",
+  },
   "layout.empty.title": {
     fr: "Onglet vide",
     en: "Empty tab",

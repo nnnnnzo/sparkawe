@@ -12,10 +12,26 @@ import type {
   TileDefinition,
   TileSurface,
 } from "../sdk/index.ts";
-import { summarize, type JournalSource } from "./journal.ts";
+import { summarize, type JournalEntry, type JournalSource } from "./journal.ts";
 import type { WorkspaceRecord } from "./workspace.ts";
 
 type Contribution<T> = T & { owner: Manifest };
+
+export interface ActionAttribution {
+  source?: JournalSource;
+  agent?: string;
+  op?: string;
+}
+
+export interface ActionInverseEvent {
+  entry: JournalEntry | void;
+  tile: Tile;
+  action: string;
+  snapshot: unknown;
+  result: unknown;
+  mutates: boolean;
+  tracked: boolean;
+}
 const core: Manifest = {
   id: "spark.core",
   name: "Spark",
@@ -31,6 +47,8 @@ export interface RegistryOptions {
   record?: WorkspaceRecord;
   /** Onglet qui contient une tuile, pour attribuer un événement du journal. */
   tabForTile?: (tileId: string) => string | undefined;
+  /** Reçoit l'inverse capturé d'une action mutable. */
+  onAction?: (event: ActionInverseEvent) => void;
   /** Délai maximal d’une activation, en millisecondes. */
   activationTimeout?: number;
 }
@@ -115,6 +133,7 @@ export class Registry {
   private readonly state: ExtensionState;
   private readonly journal: WorkspaceRecord;
   private readonly tabForTile: (tileId: string) => string | undefined;
+  private readonly onAction?: (event: ActionInverseEvent) => void;
   private readonly activationTimeout: number;
 
   constructor(
@@ -126,6 +145,7 @@ export class Registry {
     this.state = state;
     this.journal = options.record ?? (() => {});
     this.tabForTile = options.tabForTile ?? (() => undefined);
+    this.onAction = options.onAction;
     this.activationTimeout = options.activationTimeout ?? 5000;
   }
 
@@ -188,8 +208,15 @@ export class Registry {
     tileId: string,
     name: string,
     input: Record<string, ActionValue> = {},
-    source: JournalSource = "human",
+    attribution: JournalSource | ActionAttribution = "human",
   ) => {
+    const source =
+      typeof attribution === "string"
+        ? attribution
+        : (attribution.source ?? "human");
+    const agent =
+      typeof attribution === "string" ? undefined : attribution.agent;
+    const op = typeof attribution === "string" ? undefined : attribution.op;
     const tile = this.tabs
       .getAllTiles()
       .find((candidate) => candidate.id === tileId);
@@ -202,6 +229,17 @@ export class Registry {
         `Action indisponible : ${tile.type}.${name} dépend de ${missing.join(", ")}.`,
       );
     const args = validateAction(action, input);
+    const mutates = this.mutates(tile, action);
+    const tracked = mutates || !!action.inverse;
+    let snapshot: unknown;
+    if (action.inverse) {
+      try {
+        snapshot = action.inverse.capture(tile, args);
+      } catch (error) {
+        // Une capture ratée ne doit pas empêcher l'action : elle retire la flèche.
+        console.error(error);
+      }
+    }
     const result = await action.run(tile, args);
     const json = JSON.stringify(result ?? null);
     if (json.length > MAX_RESULT)
@@ -209,14 +247,48 @@ export class Registry {
         `${tile.type}.${name} renvoie ${json.length} caractères. Renvoyez un identifiant plutôt que le contenu.`,
       );
     const tabId = this.tabForTile(tileId);
-    this.journal({
+    const entry = this.journal({
       kind: `action:${tile.type}.${name}`,
       source,
+      ...(agent ? { agent } : {}),
+      ...(op ? { op } : {}),
       tileId,
       ...(tabId ? { tabId } : {}),
-      data: summarize(args),
+      data: {
+        args: summarize(args),
+        result: summarize(result),
+        mutates,
+        tracked,
+      },
     });
+    if (action.inverse && snapshot !== undefined)
+      this.onAction?.({
+        entry,
+        tile,
+        action: name,
+        snapshot,
+        result,
+        mutates,
+        tracked,
+      });
     return result;
+  };
+
+  /** Applique une capture d'action, hors d'un nouvel appel d'outil. */
+  restoreInverse = async (
+    tileId: string,
+    name: string,
+    snapshot: unknown,
+    result: unknown,
+  ) => {
+    const tile = this.tabs
+      .getAllTiles()
+      .find((candidate) => candidate.id === tileId);
+    if (!tile) throw new Error(`Tuile inconnue : ${tileId}`);
+    const action = this.getAction(tile.type, name);
+    if (!action?.inverse)
+      throw new Error(`Action sans inverse : ${tile.type}.${name}`);
+    return action.inverse.restore(tile, snapshot, result);
   };
   getExtensions = () =>
     [...this.active.values()]

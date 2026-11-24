@@ -82,9 +82,9 @@ test("un résumé borné ne transporte jamais un document entier", () => {
 
 test("le workspace journalise ses changements structurels", () => {
   const records: { kind: string }[] = [];
-  const workspace = new Workspace(initialWorkspace(), (record) =>
-    records.push(record),
-  );
+  const workspace = new Workspace(initialWorkspace(), (record) => {
+    records.push(record);
+  });
   const first = workspace.active().id;
   const tile = workspace.addTile("demo.tile", {});
   workspace.create();

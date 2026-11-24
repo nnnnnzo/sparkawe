@@ -17,6 +17,7 @@
 | Catalogue | Store, rail | `extensions.catalog` + `extensions.subscribeCatalog` |
 | Dépôts | Store | `marketplace.subscribe` / `marketplace.version` |
 | Réglages | Shell, Store | `useSyncExternalStore(settings.subscribe, settings.get)` |
+| Activité des agents | Barre, popover | `useSyncExternalStore(activity.subscribe, activity.version)` |
 | Langue | Tous les composants | `useI18n()` + `src/i18n/index.ts` |
 
 Le Store écoute à la fois le catalogue et la marketplace. Après une installation, une désinstallation ou une mise à jour, il est donc rafraîchi sans redémarrage.
@@ -41,7 +42,8 @@ Une tuile peut aussi déléguer son contenu à une vue native : le navigateur we
 - Le workspace est sérialisé en `workspace-v1.json`.
 - Les snapshots d’état des extensions vivent dans `WorkspaceState.extensions`.
 - Les écritures passent par `createPersistence` : debounce de 180 ms, écritures sérialisées, récupération de la dernière version non écrite.
-- Le journal est en mémoire, borné à 512 entrées.
+- Le journal est en mémoire, borné à 512 entrées ; `src/core/activity.ts` le projette en étapes persistées dans `activity.db`.
+- Une étape est chargée à la demande quand on ouvre son onglet, puis fusionnée avec les actions fraîches.
 - Les préférences (`dev`) sont séparées dans `settings-v1.json`.
 
 Voir [le workspace](workspace.md) et [la persistance](../operations/persistence.md).

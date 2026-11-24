@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { Activity } from "../core/activity.ts";
 import { buildBrief } from "../core/brief.ts";
 import {
   createExtensionManager,
@@ -19,6 +20,7 @@ import {
 import type { Data, Tile } from "../sdk/index.ts";
 import { TileViews } from "../ui/contracts.ts";
 import { report } from "../ui/errors.ts";
+import { activityPersistence } from "./activity.ts";
 import { discoverExtensions, installedEntry } from "./extensions.ts";
 import type { InstalledRecord } from "./installed.ts";
 import { Marketplace } from "./marketplace.ts";
@@ -41,6 +43,8 @@ export async function createRuntime() {
   const catalog = await discoverExtensions(views);
   const snapshots = new Map(Object.entries(state.extensions ?? {}));
   const journal = new Journal();
+  const activity = new Activity(activityPersistence(), report);
+  journal.onRecord(activity.record);
   let savedSettings: unknown = null;
   try {
     const snapshot = await invoke<string | null>("settings_load");
@@ -126,8 +130,9 @@ export async function createRuntime() {
       },
     },
     {
-      record: journal.record,
+      record: workspace.note,
       tabForTile: (tileId) => workspace.tabForTile(tileId)?.id,
+      onAction: activity.attachAction,
     },
   );
   // Un paquet importé n’a pas d’API Tauri dédiée : le noyau lui expose les
@@ -163,6 +168,7 @@ export async function createRuntime() {
   });
   void marketplace.restore().catch(report);
   workspace.subscribe(queue);
+  await activity.ensure(workspace.active().id);
 
   let closing = false;
   return {
@@ -173,6 +179,7 @@ export async function createRuntime() {
     views,
     persistence,
     journal,
+    activity,
     settings,
     brief(tabId?: string) {
       return buildBrief(

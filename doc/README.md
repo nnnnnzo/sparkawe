@@ -43,6 +43,7 @@ Le code fait foi. Quand un contrat change (SDK, manifeste, index de dépôt, com
 - [0004 — Langues de l’interface](decisions/0004-interface-languages.md)
 - [0005 — Navigateur dans une tuile native](decisions/0005-browser-tile.md)
 - [0006 — Aperçu multi-format](decisions/0006-file-preview.md)
+- [0007 — Activité des agents](decisions/0007-agent-activity.md)
 
 ## Règles de lecture
 

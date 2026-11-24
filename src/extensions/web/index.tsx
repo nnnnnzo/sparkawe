@@ -612,6 +612,25 @@ export default function createWeb(): ExtensionModule {
           navigate: {
             title: localized("web.action.navigate"),
             description: localized("web.action.navigate.hint"),
+            mutates: true,
+            inverse: {
+              capture: (tile) =>
+                tile.data.url
+                  ? { url: tile.data.url, title: tile.data.title ?? "" }
+                  : undefined,
+              restore: async (tile, snapshot) => {
+                const value = snapshot as
+                  | { url?: string; title?: string }
+                  | undefined;
+                if (!value?.url) return { url: "" };
+                extension.tabs.updateTileData(tile.id, {
+                  url: value.url,
+                  title: value.title ?? "",
+                });
+                await navigatePage(tile.id, value.url).catch(() => {});
+                return { url: value.url };
+              },
+            },
             input: {
               url: { type: "string", description: "https://example.org/" },
             },
