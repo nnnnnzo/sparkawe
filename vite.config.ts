@@ -5,12 +5,19 @@ import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   plugins: [react(), tailwind()],
-  resolve: { alias: { "@spark/ui": fileURLToPath(new URL("./src/shared", import.meta.url)) } },
+  resolve: {
+    alias: {
+      "@spark/ui": fileURLToPath(new URL("./src/shared", import.meta.url)),
+    },
+  },
   server: {
     host: "127.0.0.1",
     port: 1420,
     strictPort: true,
-    watch: { ignored: ["**/src-tauri/**"], usePolling: process.platform === "darwin" },
+    watch: {
+      ignored: ["**/src-tauri/**", "**/site/**", "**/dist/**"],
+      usePolling: process.platform === "darwin",
+    },
   },
   clearScreen: false,
 });
