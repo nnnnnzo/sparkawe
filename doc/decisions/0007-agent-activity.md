@@ -75,14 +75,15 @@ groupe, et chaque ligne est indentée avec un fil d’Ariane `onglet › objet`.
 
 - Le journal reste la source pour le brief et les agents ; l’activité en est une
   projection bornée et persistée.
-- Un changement Rust est nécessaire : `activity.rs`, cinq commandes, l’événement
-  `mcp:closed`, et `rusqlite` ajouté au binaire.
-- `PRAGMA user_version` est le point de migration. Le payload contient sa propre
-  forme ; le front valide chaque étape au chargement.
+- Le backend ajoute `activity.rs`, six commandes Tauri, l’événement `mcp:closed`
+  et `rusqlite` au binaire.
+- `PRAGMA user_version` versionne le schéma SQLite. Le JSON des étapes n’a pas
+  de version propre ; le front valide chaque étape au chargement.
 - L’attribution par session dépend de `clientInfo` et de la portée asynchrone
   existante. Deux clients simultanés restent une limite documentée ; les effets
   d’un même appel sont regroupés de façon fiable.
-- Aucun nouvel outil MCP : la liste des outils et le sidecar ne changent pas.
+- Aucun nouvel outil MCP. Le sidecar conserve une connexion par processus client
+  pour que les appels successifs gardent la même session.
 
 ## Non retenu
 

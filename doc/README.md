@@ -12,7 +12,7 @@ Le code fait foi. Quand un contrat change (SDK, manifeste, index de dépôt, com
 - [Frontend](architecture/frontend.md) — SDK, core, app, UI, état et rendu.
 - [Interface multilingue](architecture/i18n.md) — langues, dictionnaires, formats, ajout d’une langue.
 - [Backend](architecture/backend.md) — modules Rust, commandes, stockage, MCP.
-- [Espace de travail](architecture/workspace.md) — onglets, tuiles, journal, brief, persistance.
+- [Espace de travail](architecture/workspace.md) — onglets, tuiles, journal, activité des agents, brief, persistance.
 - [Pont MCP](architecture/mcp.md) — outils, actions, guides, surfaces, agents.
 
 ### Extensions

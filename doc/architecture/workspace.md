@@ -84,14 +84,15 @@ Le journal ne remplace pas l’état : il raconte les changements. Il est borné
 
 ## Activité des agents
 
-`src/core/activity.ts` projette le journal en **étapes** lisibles, regroupées par `op`. Une étape garde la session, les effets, un résumé borné et les inverses disponibles. La vue `src/ui/activity.tsx` affiche les 30 dernières étapes de l’onglet actif ; le bouton se trouve à gauche des modes de disposition.
+`src/core/activity.ts` projette le journal en **étapes** lisibles, regroupées par `op`. Une étape garde la session, les effets, un résumé borné et les inverses disponibles. Le bouton **Activité**, à gauche des modes de disposition, ouvre jusqu’à 30 étapes de l’onglet actif, de la plus récente à la plus ancienne. Un point signale les étapes non consultées.
 
 - Une action est retenue si le registre l’a marquée `tracked` : soit elle est mutante, soit elle déclare un inverse. `mutates` ne sert qu’à la confirmation côté client MCP.
 - Les ouvertures, fermetures, créations et suppressions d’onglet sont retenues ; les changements de focus ne le sont pas.
 - Les déplacements et redimensionnements sont journalisés par le moteur de disposition (`layout.move`, `layout.resize`, `layout.undo`, `layout.redo`), avec la disposition d’avant et, pour un déplacement, l’ancrage précédent.
 - Une étape peut être annulée : ses effets sont rejoués à l’envers, ou la disposition d’avant est restaurée. Une action fournit son inverse via `TileAction.inverse`.
-- Une étape annulée joue une courte dispersion puis disparaît de la timeline et de `activity.db`. Une ligne déjà marquée annulée est retirée au chargement suivant.
-- La vue groupe par jour et par session. L’icône de l’agent est sur l’en-tête du groupe, pas sur chaque ligne ; chaque ligne est indentée et porte un fil d’Ariane `onglet › objet`.
+- Pour Markdown, annuler une édition restaure le texte de l’éditeur. Annuler un enregistrement réécrit le fichier seulement si son contenu n’a pas changé depuis cet enregistrement.
+- En cas de succès, la ligne se disperse, puis les lignes restantes remontent et le panneau change de hauteur dans le même mouvement. Si la réduction des animations est activée, il n’y a ni particules ni déplacement animé. L’étape disparaît aussi de `activity.db`.
+- La vue groupe par jour et par session. L’en-tête porte l’icône de l’agent ; chaque ligne indentée garde l’icône de l’action et un fil d’Ariane `onglet › objet`. La liste reste défilable sans barre visible. À vide, elle affiche « Aucune action d’agent dans cet onglet. »
 - La persistance est décrite dans [la persistance](../operations/persistence.md#activitydb). L’onglet actif charge ses étapes à la demande.
 - Les instantanés trop gros sont retirés : l’action reste visible, la flèche explique pourquoi elle ne peut pas revenir en arrière.
 

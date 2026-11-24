@@ -78,8 +78,9 @@ CREATE TABLE agent_activity_seen (
 - **30 étapes par onglet**, **2 Mio par étape** et **4 Mio au total** ; l’étape la plus récente est toujours conservée. Au-delà, les plus anciennes sont supprimées.
 - `PRAGMA journal_mode = WAL`, `synchronous = NORMAL`, `secure_delete = ON`, `busy_timeout = 5000`.
 - Le fichier est créé en `0600` sur Unix ; les fichiers WAL/SHM sont créés à côté.
-- `activity_forget` supprime une étape annulée ; `activity_clear` supprime les étapes, les vues et fait un checkpoint WAL.
-- `activity_load` retire d’abord les lignes marquées `reverted_at` : une étape annulée s’efface de la timeline et de la base. Le marqueur ne sert qu’à couvrir l’animation.
+- `activity_revert` marque une étape après l’exécution réussie de son inverse. Le front appelle ensuite `activity_forget` pour supprimer la ligne par identifiant. La commande ne vérifie pas le marqueur.
+- `activity_load` retire d’abord les lignes marquées `reverted_at`, y compris celles d’autres onglets. Cela évite de réafficher une action si Spark s’est arrêté avant sa suppression.
+- `activity_clear` supprime les étapes et les dates de dernière consultation de tous les onglets, puis fait un checkpoint WAL.
 - Une base illisible ou trop récente ne bloque pas le démarrage : les commandes renvoient une erreur, l’interface garde l’activité en mémoire pour la session.
 - Les instantanés Markdown/Données peuvent contenir du contenu local. Ils restent dans ce fichier, ne sont jamais envoyés par MCP, et s’effacent depuis la timeline.
 

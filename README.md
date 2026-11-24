@@ -35,6 +35,8 @@ opposite: the workspace is the surface, and the agent plugs into it.
   keeps its own state. A terminal keeps its PTY session across layout changes.
 - **Agents see the workspace, not a screenshot.** A local MCP server exposes fifteen tools and
   the typed actions each tile declares. No screen parsing, no computer-use heuristics.
+- **Review and undo agent actions.** The Activity button beside the layout modes shows the
+  last 30 recorded steps for the active tab, with undo for supported actions.
 - **Local by default.** The bridge is a Unix socket with `0600` permissions. No network port, no
   account, no cloud relay.
 - **Open source.** MIT, readable end to end, one dependency list.

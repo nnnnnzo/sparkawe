@@ -12,10 +12,14 @@ Les permissions sont générées par le build dans `src-tauri/permissions/autoge
 
 Commandes actuelles : voir [le backend](../architecture/backend.md#commandes-tauri).
 
+Les six commandes `activity_*` servent au panneau Activité : elles lisent et
+écrivent les étapes, marquent la consultation et l’annulation, et suppriment
+une étape ou tout l’historique. Voir [le stockage](persistence.md#activitydb).
+
 ## Fenêtres et capabilities
 
 - Une seule fenêtre `main`.
-- `capabilities/main.json` couvre le workspace, les réglages, l’Aperçu, le navigateur, les notifications, le MCP, les agents, les extensions.
+- `capabilities/main.json` couvre le workspace, les réglages, l’Aperçu, le navigateur, les notifications, le MCP, les agents, leur activité et les extensions.
 - `capabilities/markdown.json`, `explorer.json` et `terminal.json` ajoutent les commandes de leurs modules à la fenêtre `main`.
 - Toutes les extensions importées s’exécutent dans `main` : elles partagent cette surface de permissions.
 - Aucune capability n’est accordée en `remote` : la page distante du navigateur n’a pas d’IPC Tauri.
@@ -60,7 +64,7 @@ Un fichier local choisi, déposé ou ouvert depuis l’Explorateur n’entre pas
 
 - `spark-mcp` est déclaré dans `externalBin`.
 - `npm run sidecar` le reconstruit en debug ; `npm run sidecar:release` pour la distribution.
-- Il garde une connexion par processus client et rejoue la dernière `initialize` après une reconnexion, pour conserver la session et son identité.
+- Il garde une connexion par processus client et rejoue la dernière `initialize` après une reconnexion. Spark retrouve l’identité du client et crée une nouvelle session.
 - Le socket et le cache d’outils vivent dans `run/`.
 
 ## Dialogues et menus
