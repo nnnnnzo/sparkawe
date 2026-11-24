@@ -45,7 +45,7 @@ export const DOC_GROUPS: Record<"en" | "fr", readonly DocGroup[]> = {
           slug: "mcp",
           title: "MCP bridge",
           summary:
-            "The local socket, the fifteen tools, and the contracts that keep agent calls bounded and attributable.",
+            "Connect a local agent to Spark and verify direct calls or Code Mode.",
         },
       ],
     },
@@ -109,7 +109,7 @@ export const DOC_GROUPS: Record<"en" | "fr", readonly DocGroup[]> = {
           slug: "mcp",
           title: "Pont MCP",
           summary:
-            "La socket locale, les quinze outils, et les contrats qui gardent les appels d’agent bornés et attribuables.",
+            "Connecter un agent local à Spark et vérifier les appels directs ou le Code Mode.",
         },
       ],
     },
