@@ -5,6 +5,7 @@ import { text as translateText } from "../i18n/index.ts";
 import { report } from "../ui/errors.ts";
 import type { Runtime } from "./runtime.ts";
 import { runLayoutCommand } from "../ui/layoutBridge.ts";
+import { BRIEF_TILE_LIMIT, readOutputs } from "./mcpSchemas.ts";
 
 const PROTOCOL = "2025-06-18";
 
@@ -49,7 +50,7 @@ const failure = (value: string) => ({
   isError: true,
 });
 
-function tileOf(runtime: Runtime, id: unknown): Tile {
+function tileOf(runtime: Pick<Runtime, "workspace">, id: unknown): Tile {
   if (typeof id !== "string") throw new McpError(-32602, "Tuile manquante.");
   const tile = runtime.workspace
     .get()
@@ -64,7 +65,15 @@ const object = (value: unknown) =>
     ? (value as Record<string, unknown>)
     : {};
 
-export function createMcpServer(runtime: Runtime) {
+type McpRuntime = Pick<
+  Runtime,
+  "workspace" | "registry" | "journal" | "brief" | "closeTiles"
+>;
+
+export function createMcpServer(
+  runtime: McpRuntime,
+  cacheTools?: (snapshot: string) => void,
+) {
   /** Texte pour tous les clients, objet propre pour ceux qui lisent structuredContent. */
   function toolResult(value: unknown, structured?: Record<string, unknown>) {
     const shape =
@@ -93,11 +102,15 @@ export function createMcpServer(runtime: Runtime) {
     description: string | (() => string);
     inputSchema: Record<string, unknown>;
   }
+  const readOutput = (name: string) =>
+    Object.hasOwn(readOutputs, name)
+      ? readOutputs[name as keyof typeof readOutputs]
+      : undefined;
   const tools = (): Tool[] => [
     {
       name: "spark_brief",
       description:
-        "Résumé compact d’un onglet Spark : tuiles ouvertes, état de chacune, derniers événements. À appeler en premier.",
+        "Résumé compact d’un onglet Spark : tuiles ouvertes, état et derniers événements. À appeler en premier. Pour lire une tuile depuis du code, utilisez tileRefs[].ref plutôt que de parser le texte.",
       inputSchema: {
         type: "object",
         properties: {
@@ -411,6 +424,10 @@ export function createMcpServer(runtime: Runtime) {
             text: brief.text,
             tab: brief.tab.id,
             lastSeq: brief.lastSeq,
+            tileRefs: brief.tab.tiles
+              .slice(0, BRIEF_TILE_LIMIT)
+              .map(({ id, type }) => ({ ref: id, type })),
+            tileRefsTruncated: brief.tab.tiles.length > BRIEF_TILE_LIMIT,
           },
         };
       }
@@ -595,9 +612,11 @@ export function createMcpServer(runtime: Runtime) {
 
   async function callTool(params: Record<string, unknown>) {
     try {
-      return await runtime.runAs("agent", () =>
-        execute(String(params.name ?? ""), object(params.arguments)),
-      );
+      const name = String(params.name ?? "");
+      const run = () => execute(name, object(params.arguments));
+      return await (readOutput(name)
+        ? run()
+        : runtime.workspace.runAs("agent", run));
     } catch (error) {
       return failure(error instanceof Error ? error.message : String(error));
     }
@@ -643,14 +662,19 @@ export function createMcpServer(runtime: Runtime) {
       case "notifications/roots/list_changed":
         return null;
       case "tools/list": {
-        const list = tools().map(({ description, ...tool }) => ({
-          ...tool,
-          description:
-            typeof description === "function" ? description() : description,
-        }));
-        void invoke("mcp_cache_tools", {
-          snapshot: JSON.stringify(list),
-        }).catch(report);
+        const list = tools().map(({ description, ...tool }) => {
+          const outputSchema = readOutput(tool.name);
+          return {
+            ...tool,
+            description:
+              typeof description === "function" ? description() : description,
+            ...(outputSchema && {
+              outputSchema,
+              annotations: { readOnlyHint: true },
+            }),
+          };
+        });
+        cacheTools?.(JSON.stringify(list));
         return { tools: list };
       }
       case "tools/call":
@@ -695,7 +719,9 @@ export function createMcpServer(runtime: Runtime) {
 
 /** Relaie les messages du socket local vers la fenêtre et renvoie les réponses. */
 export async function attachMcp(runtime: Runtime) {
-  const server = createMcpServer(runtime);
+  const server = createMcpServer(runtime, (snapshot) => {
+    void invoke("mcp_cache_tools", { snapshot }).catch(report);
+  });
   const unlisten = await listen<{ connection: number; line: string }>(
     "mcp:message",
     async (event) => {

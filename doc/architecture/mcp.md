@@ -17,11 +17,29 @@ Client agent ──stdio JSON-RPC──► spark-mcp (sidecar)
 - `attachMcp` relaie les lignes reçues vers la fenêtre et renvoie les réponses.
 - Aucun port réseau n’est ouvert.
 
+## Appels directs et Code Mode
+
+Les deux modes utilisent la même entrée MCP `stdio`. En Code Mode, le **client**
+exécute le code qui orchestre les appels ; Spark reçoit les mêmes `tools/call`
+qu’en mode direct. Spark n’exécute pas le code généré et ne peut pas déduire son
+origine à partir d’un appel. Aucun réglage Spark ni second serveur n’est requis.
+
+| Client | Choix et état de la vérification |
+|---|---|
+| [OpenCode V2](https://opencode.ai/docs/mcp-servers) | Code Mode par défaut. Pour repasser en direct, ajouter `codemode: false` dans `mcp.servers.spark`. Lecture composée vérifiée avec OpenCode 2.3.2 et la fenêtre Spark ouverte. |
+| [Codex CLI](https://developers.openai.com/codex/config-file/config-reference) | Activer `features.code_mode.enabled = true` dans la configuration Codex, ou lancer `codex -c 'features.code_mode.enabled=true'` pour une session. Option expérimentale, désactivée par défaut. Appels directs et Code Mode vérifiés avec Codex 0.171.0 sur un workspace de test en mémoire utilisant le serveur Spark. |
+| [Claude Code](https://code.claude.com/docs/en/code-mode) | Option expérimentale en terminal interactif, `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1`, selon les conditions du client. Connexion MCP vérifiée avec Claude Code 2.1.330 ; l’appel au modèle a été bloqué par l’authentification, donc la composition n’est pas vérifiée. |
+
+Un client sans Code Mode continue d’utiliser les outils en direct. Après une
+mise à jour du catalogue, démarrer une nouvelle session si le client garde
+l’ancienne définition des outils. Ce pont local ne connecte pas ChatGPT Web
+directement.
+
 ## Outils
 
 | Outil | Rôle |
 |---|---|
-| `spark_brief` | Résumé court de l’onglet actif ou ciblé. |
+| `spark_brief` | Résumé court de l’onglet actif ou ciblé, avec les références de tuiles dans la sortie structurée. |
 | `spark_tabs` | Liste des onglets et de leur disposition. |
 | `spark_tiles` | Catalogue compact des types de tuiles, actions, disponibilité ; `detail: "full"` ajoute descriptions et schémas. |
 | `spark_tab_open` | Crée un onglet en arrière-plan. |
@@ -39,12 +57,14 @@ Client agent ──stdio JSON-RPC──► spark-mcp (sidecar)
 
 ## Contrats
 
+- **Sorties structurées** : depuis la révision 2025-06-18 du protocole, `spark_brief`, `spark_tabs`, `spark_tiles`, `spark_tile_read` et `spark_events_since` déclarent un `outputSchema` et renvoient un `structuredContent` qui y répond. Les mêmes outils continuent de renvoyer leur résultat historique sous forme de texte. Les données, surfaces et schémas d’arguments propres aux extensions restent ouverts.
+- **Références de tuiles** : `spark_brief.structuredContent.tileRefs` contient jusqu’aux 32 premières paires `{ ref, type }` de l’onglet, dans l’ordre du workspace. `tileRefsTruncated` indique si la liste est partielle. Passer `ref` à `spark_tile_read` sans extraire d’identifiant du texte ; `lastSeq` permet de reprendre le journal.
 - **Résultats bornés** : une action qui renvoie plus de 16 000 caractères est refusée ; elle doit renvoyer un identifiant ou un résumé. Le navigateur suit cette règle : `read_text` renvoie au plus 6 000 caractères et le chemin du texte complet.
 - **Surfaces** : `api.tiles.publish` reste un résumé volatil de 2 000 caractères, jamais persisté. Le navigateur n’y met que l’adresse, le titre et l’état de chargement.
-- **Guides** : le `guide` d’un type de tuile est livré une fois par session, au premier catalogue ou à la première lecture.
+- **Guides** : le `guide` d’un type de tuile est livré au premier catalogue ou à la première lecture. Le suivi est partagé par les clients de la fenêtre et réinitialisé par une nouvelle initialisation MCP.
 - **Services** : une action avec `requires` n’apparaît pas si le service est absent.
-- **Mutations** : une action `mutates` est signalée ; la confirmation appartient au harnais qui l’appelle.
-- **Source** : toute action passée par `spark_tile_call` est journalisée avec `source: "agent"`.
+- **Mutations** : les cinq lectures annoncent `readOnlyHint: true`, à titre indicatif. `spark_tile_call` peut modifier des données : une action `mutates` est signalée et la confirmation appartient au harnais, en Code Mode comme en direct.
+- **Source** : toute action passée par `spark_tile_call` est journalisée avec `source: "agent"`. La fin d’un appel ne retire pas l’attribution d’un autre appel agent encore en cours ; les lectures ne changent pas cette attribution.
 - **Onglets d’agent** : `spark_tab_open` crée un onglet en arrière-plan et un point discret dans la barre, sans voler le focus.
 
 ## Cycle de vie

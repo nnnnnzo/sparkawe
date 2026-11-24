@@ -5,7 +5,7 @@ import {
   seedCoreExtensions,
 } from "../core/extensions.ts";
 import { detectLocale } from "../core/i18n.ts";
-import { Journal, type JournalSource } from "../core/journal.ts";
+import { Journal } from "../core/journal.ts";
 import { createPersistence } from "../core/persistence.ts";
 import { Registry } from "../core/registry.ts";
 import { Settings, restoreSettings } from "../core/settings.ts";
@@ -179,16 +179,6 @@ export async function createRuntime() {
         { workspace, catalog: registry, journal, locale: getLocale() },
         tabId,
       );
-    },
-    /** Exécute une suite d'actions en attribuant leurs effets à une source. */
-    async runAs<T>(source: JournalSource, run: () => T | Promise<T>) {
-      const previous = workspace.source;
-      workspace.source = source;
-      try {
-        return await run();
-      } finally {
-        workspace.source = previous;
-      }
     },
     async closeTiles(ids: string[], apply: () => void) {
       if (closing) return false;

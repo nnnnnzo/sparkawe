@@ -17,18 +17,140 @@ const config = `{
     }
   }
 }`;
+
+const executable = `SPARK_MCP="/Applications/Spark.app/Contents/MacOS/spark-mcp"`;
+const opencodeSetup = `opencode mcp add spark -- "$SPARK_MCP"
+opencode mcp list`;
+const codexSetup = `codex mcp add spark -- "$SPARK_MCP"
+codex mcp list`;
+const claudeSetup = `claude mcp add --transport stdio spark -- "$SPARK_MCP"
+claude mcp list`;
+const readPrompt = `Utilise uniquement les outils MCP de Spark, sans rien modifier. Appelle
+spark_brief, lis la première tuile avec spark_tile_read, puis demande
+les événements après lastSeq avec spark_events_since. Donne le titre
+de la tuile et le nombre d’événements. Si l’onglet est vide, signale-le.`;
+const example = `const brief = await tools.spark.spark_brief({});
+const first = brief.tileRefs[0];
+if (!first) return { tile: null };
+
+const tile = await tools.spark.spark_tile_read({ tile: first.ref });
+const journal = await tools.spark.spark_events_since({
+  seq: brief.lastSeq,
+  limit: 10,
+});
+return { title: tile.title, events: journal.events.length };`;
 ---
 
 <Docs
   copy={FR}
   title="Pont MCP"
-  description="La socket locale, les quinze outils, et les contrats qui gardent les appels d’agent bornés et attribuables."
+  description="Connecter OpenCode, Codex ou Claude Code à Spark et vérifier les appels directs ou le Code Mode."
   slug="mcp"
 >
   <p class="docs__lead">
-    Les agents parlent à la fenêtre via le Model Context Protocol, à travers une socket Unix et un
-    petit sidecar. Aucun port réseau, aucun compte, aucun relais dans le cloud.
+    Un agent peut lire l’état de l’espace de travail et appeler les actions de ses tuiles via MCP. Les appels
+    directs et le Code Mode de l’agent utilisent la même connexion locale : pas de second serveur
+    ni de port réseau dans Spark.
   </p>
+  <p>
+    <a href="#connect">Connecter un client</a> · <a href="#code-mode">Choisir le mode</a> ·
+    <a href="#test">Tester la connexion</a> · <a href="#troubleshooting">Dépanner</a>
+  </p>
+
+  <h2 id="connect">Connecter un client local</h2>
+  <ol>
+    <li>Ouvrez Spark, puis choisissez <strong>Connecter un agent…</strong> dans le menu de l’engrenage.</li>
+    <li>Copiez le chemin absolu de <code>spark-mcp</code>. Remplacez le chemin macOS ci-dessous si Spark affiche un autre emplacement.</li>
+    <li>Dans le terminal où vous lancez l’agent, suivez la procédure de votre client. Si Spark y est déjà configuré, passez directement à la commande de vérification.</li>
+  </ol>
+  <pre><code>{executable}</code></pre>
+  <p>
+    Quand Spark détecte un agent connu dans sa tuile Terminal, il peut aussi proposer de le
+    connecter en un clic. Ce raccourci configure le serveur MCP ; il n’active pas Code Mode.
+  </p>
+
+  <h3>OpenCode V2</h3>
+  <pre><code>{opencodeSetup}</code></pre>
+  <p>
+    L’ajout concerne le projet courant. Pour une configuration manuelle, l’entrée
+    <code>mcp.servers.spark</code> utilise <code>type: "local"</code> et un tableau
+    <code>command</code> contenant le chemin du binaire. Dans une session ouverte, lancez
+    <code>/reload</code> si nécessaire ; <code>/mcps</code> permet de vérifier la connexion.
+  </p>
+
+  <h3>Codex CLI</h3>
+  <pre><code>{codexSetup}</code></pre>
+  <p>
+    Dans Codex, utilisez aussi <code>/mcp</code> pour voir les serveurs de la session.
+    Une session Codex locale dans ChatGPT Desktop peut aussi utiliser ce pont <code>stdio</code>.
+  </p>
+
+  <h3>Claude Code</h3>
+  <pre><code>{claudeSetup}</code></pre>
+  <p>
+    La commande ajoute Spark à la configuration locale du projet courant. Dans Claude Code,
+    <code>/mcp</code> affiche l’état de la connexion.
+  </p>
+
+  <h3>Autres clients <code>stdio</code></h3>
+  <p>Pour un client qui lit une configuration JSON au format <code>mcpServers</code>, comme Cursor :</p>
+  <pre><code>{config}</code></pre>
+  <p>
+    Le client doit pouvoir lancer le binaire sur la machine où tourne Spark. Ce pont local n’est
+    pas une URL pour ChatGPT Web ou pour une session d’agent hébergée.
+  </p>
+
+  <h2 id="code-mode">Choisir entre appels directs et Code Mode</h2>
+  <p>
+    En direct, l’agent appelle chaque outil séparément. En Code Mode, le client exécute un script
+    qui peut réutiliser un résultat dans l’appel suivant et ne renvoyer que le résumé final au modèle.
+    Un appel isolé n’a pas besoin de script. Pour une écriture ou une fermeture, préférez un appel
+    direct afin de pouvoir examiner la cible et la confirmation du client.
+  </p>
+  <ul>
+    <li><a href="https://opencode.ai/docs/mcp-servers">OpenCode V2</a> : Code Mode est la valeur par défaut. Ajoutez <code>"codemode": false</code> à l’entrée <code>mcp.servers.spark</code> pour n’exposer ces outils qu’en direct. Composition vérifiée avec OpenCode 2.3.2.</li>
+    <li><a href="https://developers.openai.com/codex/config-file/config-reference">Codex CLI</a> : Code Mode est expérimental et désactivé par défaut. Pour l’essayer sur une session, lancez la première commande ci-dessous. Utilisez la seconde pour forcer les appels directs. Les deux modes ont été vérifiés avec Codex 0.171.0.</li>
+  </ul>
+  <pre><code>{`codex -c 'features.code_mode.enabled=true'
+codex -c 'features.code_mode.enabled=false'`}</code></pre>
+  <p>
+    <code>codex features list</code> montre le réglage par défaut du terminal courant. Une
+    option <code>-c</code> passée au lancement peut le remplacer pour cette session.
+  </p>
+  <p>
+    Dans <a href="https://code.claude.com/docs/en/code-mode">Claude Code</a>, le mode est
+    expérimental et dépend de l’installation, du modèle et du compte. Il s’essaie dans un
+    terminal interactif avec <code>CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1 claude</code>.
+    Sans cette option, ou avec la variable définie à <code>0</code>, démarrez une nouvelle session
+    pour les appels directs. La connexion MCP a été vérifiée avec Claude Code 2.1.330 ;
+    la composition n’a pas été vérifiée.
+  </p>
+
+  <h2 id="test">Tester la connexion sans rien modifier</h2>
+  <p>Ouvrez un onglet Spark contenant au moins une tuile, puis donnez ce prompt à l’agent :</p>
+  <pre><code>{readPrompt}</code></pre>
+  <p>
+    Le résultat attendu est le titre d’une tuile et un nombre d’événements, qui peut être zéro.
+    Pour vérifier Code Mode, demandez à l’agent de faire le même test <em>dans un seul bloc
+    de code</em>, puis regardez le détail du tour quand le client l’affiche. Dans Codex, une
+    cellule <code>exec</code> qui contient les appels Spark confirme que le mode a été utilisé.
+    Voir Spark dans <code>/mcp</code> confirme seulement la connexion.
+  </p>
+  <p>
+    Voici le script équivalent dans le Code Mode d’OpenCode, si le serveur s’appelle
+    <code>spark</code>. C’est du code exécuté par le client, pas une commande de terminal.
+    Il utilise <code>tileRefs</code> et <code>lastSeq</code>, sans analyser le texte du brief.
+  </p>
+  <pre><code>{example}</code></pre>
+
+  <h2 id="troubleshooting">Dépanner</h2>
+  <ul>
+    <li><strong>Serveur absent :</strong> vérifiez la commande du binaire et la liste MCP du client. Actualisez la configuration ou ouvrez une nouvelle session après l’ajout du serveur.</li>
+    <li><strong><code>spark_not_running</code> :</strong> ouvrez Spark sur la même machine et relancez l’appel. Le catalogue mis en cache peut rester visible quand la fenêtre est fermée.</li>
+    <li><strong>Référence inconnue :</strong> relisez <code>spark_brief</code>. Une tuile peut avoir été fermée entre les deux appels. Si <code>tileRefsTruncated</code> est vrai, la liste ne couvre pas tout l’onglet.</li>
+    <li><strong><code>tileRefs</code> absent :</strong> vérifiez que le client lit la sortie structurée plutôt que le seul texte. Si le champ manque aussi dans le résultat MCP brut, vérifiez la version de Spark.</li>
+    <li><strong>Appels directs réussis, mais pas de bloc de code :</strong> vérifiez le réglage de la session, le modèle et les permissions du client. Spark ne choisit pas le mode.</li>
+  </ul>
 
   <h2>Chaîne</h2>
   <pre><code>{chain}</code></pre>
@@ -39,13 +161,13 @@ const config = `{
     <li>Si Spark est fermé, le pont répond <code>spark_not_running</code> et sert la dernière liste d’outils connue, pour qu’un client n’ait pas à redémarrer.</li>
   </ul>
 
-  <h2>Outils</h2>
+  <h2 id="tools">Outils</h2>
   <table>
     <thead>
       <tr><th>Outil</th><th>Rôle</th></tr>
     </thead>
     <tbody>
-      <tr><td><code>spark_brief</code></td><td>Résumé court de l’onglet actif ou ciblé.</td></tr>
+      <tr><td><code>spark_brief</code></td><td>Résumé court de l’onglet actif ou ciblé, avec les références de ses tuiles dans la sortie structurée.</td></tr>
       <tr><td><code>spark_tabs</code></td><td>Onglets et leur mode de disposition.</td></tr>
       <tr><td><code>spark_tiles</code></td><td>Catalogue compact des types de tuiles, actions et disponibilité ; <code>detail: "full"</code> ajoute descriptions et schémas.</td></tr>
       <tr><td><code>spark_tab_open</code></td><td>Crée un onglet en arrière-plan.</td></tr>
@@ -70,24 +192,16 @@ const config = `{
 
   <h2>Contrats</h2>
   <ul>
+    <li><strong>Sorties structurées.</strong> Les cinq outils de lecture déclarent leur schéma de sortie et gardent le résultat texte. Dans la sortie structurée de <code>spark_brief</code>, <code>tileRefs</code> donne jusqu’à 32 références pour <code>spark_tile_read</code> ; <code>tileRefsTruncated</code> indique si la liste est partielle.</li>
     <li><strong>Résultats bornés.</strong> Une action qui renvoie plus de 16 000 caractères est refusée ; elle doit renvoyer un identifiant ou un résumé.</li>
     <li><strong>Surfaces.</strong> <code>api.tiles.publish</code> est un résumé volatil de 2 000 caractères, jamais persisté.</li>
-    <li><strong>Guides.</strong> Le guide d’un type de tuile fait au plus 1 200 caractères et n’est livré qu’une fois par session, au premier catalogue ou à la première lecture.</li>
-    <li><strong>Services.</strong> Une action qui déclare <code>requires</code> est masquée quand le service manque, et refusée à l’appel.</li>
-    <li><strong>Mutations.</strong> Une action marquée <code>mutates</code> est annoncée comme telle puis exécutée ; demander confirmation revient au client qui appelle.</li>
+    <li><strong>Guides.</strong> Le guide d’un type de tuile fait au plus 1 200 caractères. Il est livré au premier catalogue ou à la première lecture après l’initialisation MCP. Le suivi est partagé entre les clients de la fenêtre.</li>
+    <li><strong>Services.</strong> Le catalogue indique qu’une action est indisponible si un service déclaré dans <code>requires</code> manque. Spark refuse alors l’appel.</li>
+    <li><strong>Mutations.</strong> Le client décide de demander une confirmation. Les indications <code>readOnlyHint</code> et <code>mutates</code> ne sont pas des permissions. Le pont est local, mais le client peut transmettre des résultats à son fournisseur de modèle.</li>
     <li><strong>Attribution.</strong> Toute action passée par <code>spark_tile_call</code> est journalisée avec <code>source: "agent"</code>.</li>
     <li><strong>Focus.</strong> Les onglets ouverts par un agent restent en arrière-plan et affichent un point discret dans la barre jusqu’à leur ouverture.</li>
     <li><strong>Contenu.</strong> Aucune action MCP ne lit ou n’écrit le contenu d’un terminal, et aucune ne renvoie un document.</li>
   </ul>
-
-  <h2>Brancher un client</h2>
-  <pre><code>{config}</code></pre>
-  <p>
-    Le chemin absolu est celui affiché par l’engrenage en bas du rail, sous
-    <strong>Connecter un agent…</strong>, avec un bouton pour copier. Spark détecte aussi une
-    commande d’agent connue dans un terminal et propose d’écrire la configuration du client en un
-    clic ; la session en cours voit le serveur à son redémarrage suivant.
-  </p>
 
   <h2>Cycle de vie</h2>
   <ul>

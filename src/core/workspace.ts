@@ -179,14 +179,27 @@ export class Workspace {
   private readonly listeners = new Set<() => void>();
   private state: WorkspaceState;
   private readonly record: WorkspaceRecord;
-  /** Provenance des mutations en cours : l'interface ou un agent MCP. */
+  private readonly sources: { source: JournalSource }[] = [];
+  /** Provenance par défaut, hors d'une portée d'attribution. */
   source: JournalSource = "human";
 
   constructor(state: WorkspaceState, record: WorkspaceRecord = () => {}) {
     this.state = state;
-    this.record = (event) => record({ ...event, source: this.source });
+    this.record = (event) =>
+      record({ ...event, source: this.sources.at(-1)?.source ?? this.source });
   }
   get = () => this.state;
+  /** Exécute une suite d'actions en attribuant leurs effets à une source. */
+  runAs = async <T>(source: JournalSource, run: () => T | Promise<T>) => {
+    const scope = { source };
+    this.sources.push(scope);
+    try {
+      return await run();
+    } finally {
+      // Deux appels de clients distincts peuvent terminer dans n'importe quel ordre.
+      this.sources.splice(this.sources.indexOf(scope), 1);
+    }
+  };
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
     return () => {
