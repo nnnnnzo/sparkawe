@@ -20,7 +20,14 @@ import {
   useMemo,
   useState,
   useSyncExternalStore,
+  type ReactNode,
 } from "react";
+import {
+  AnimatePresence,
+  motion,
+  useIsPresent,
+  useReducedMotion,
+} from "motion/react";
 import { toast } from "sonner";
 import type {
   ActivityAgent,
@@ -572,6 +579,144 @@ function StepIcon({ step }: { step: ActivityStep }) {
   return <Zap aria-hidden />;
 }
 
+function seededRandom(seed: string) {
+  let state = 2166136261;
+  for (let index = 0; index < seed.length; index += 1)
+    state = Math.imul(state ^ seed.charCodeAt(index), 16777619);
+  return () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const DUST_SWEEP = 0.44;
+const DUST_COUNT = 88;
+const DUST_LIFETIME = 0.38;
+const DUST_VARIATION = 0.06;
+const REDUCED_FADE = 0.1;
+const DUST_CLIP_START =
+  "polygon(0 0, 108% 0, 105% 24%, 110% 47%, 104% 74%, 108% 100%, 0 100%)";
+const DUST_CLIP_END =
+  "polygon(0 0, -6% 0, -9% 24%, -4% 47%, -10% 74%, -6% 100%, 0 100%)";
+const CLOSE_GAP = { duration: 0.22, ease: [0.2, 0, 0, 1] as const };
+// Le repli change la hauteur réelle : les lignes suivantes et le popover la suivent.
+const FOLD = { gridTemplateRows: "0fr" };
+const UNFOLD = { gridTemplateRows: "1fr" };
+
+function dustParticles(seed: string) {
+  const random = seededRandom(seed);
+  return Array.from({ length: DUST_COUNT }, (_, id) => {
+    const left = ((id + random()) / DUST_COUNT) * 100;
+    return {
+      id,
+      left,
+      top: (id % 2 ? 31 : 65) + (random() - 0.5) * 23,
+      dx: 10 + random() * 30,
+      dy: -8 - random() * 31,
+      size: 0.9 + random() * 2.3,
+      rotate: (random() - 0.5) * 130,
+      delay: ((108 - left) / 114) * DUST_SWEEP,
+      duration: DUST_LIFETIME + random() * DUST_VARIATION,
+    };
+  });
+}
+
+function Dust({ seed }: { seed: string }) {
+  const particles = useMemo(() => dustParticles(seed), [seed]);
+  return (
+    <span className="activity-dust" aria-hidden>
+      {particles.map((particle) => (
+        <motion.span
+          key={particle.id}
+          className="activity-particle"
+          initial={{ opacity: 0, x: 0, y: 0, scale: 0.65, rotate: 0 }}
+          animate={{
+            opacity: [0, 0.9, 0],
+            x: particle.dx,
+            y: particle.dy,
+            scale: [0.65, 1, 0.2],
+            rotate: particle.rotate,
+          }}
+          transition={{
+            duration: particle.duration,
+            delay: particle.delay,
+            ease: "easeOut",
+            opacity: {
+              duration: particle.duration,
+              delay: particle.delay,
+              ease: "linear",
+              times: [0, 0.16, 1],
+            },
+          }}
+          style={{
+            left: `${particle.left}%`,
+            top: `${particle.top}%`,
+            width: particle.size,
+            height: particle.size,
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
+function ActivityFold({
+  children,
+  reduced,
+  crossfade = false,
+}: {
+  children: ReactNode;
+  reduced: boolean;
+  crossfade?: boolean;
+}) {
+  const present = useIsPresent();
+  const closed = crossfade ? { ...FOLD, opacity: 0 } : FOLD;
+  const expanded = crossfade ? { ...UNFOLD, opacity: 1 } : UNFOLD;
+  return (
+    <motion.div
+      className="activity-fold"
+      initial={crossfade && !reduced ? closed : false}
+      animate={expanded}
+      exit={closed}
+      transition={reduced ? { duration: 0 } : CLOSE_GAP}
+    >
+      <div
+        className="activity-fold-inner"
+        data-clip={crossfade || !present || undefined}
+        inert={!present || undefined}
+      >
+        {children}
+      </div>
+    </motion.div>
+  );
+}
+
+function ActivitySession({
+  agent,
+  children,
+}: {
+  agent: ActivityAgent;
+  children: ReactNode;
+}) {
+  return (
+    <section className="activity-session-group">
+      <div className="activity-session">
+        <span className="activity-session-mark" aria-hidden>
+          <AgentMark agent={brandOf(agent)} />
+        </span>
+        <span className="activity-session-name">{agent.label}</span>
+        {agent.version && (
+          <span className="activity-session-version">{agent.version}</span>
+        )}
+      </div>
+      <div className="activity-session-body">{children}</div>
+    </section>
+  );
+}
+
 function ActivityRow({
   runtime,
   tab,
@@ -581,6 +726,8 @@ function ActivityRow({
   t,
   tp,
   text,
+  reduced,
+  busy,
   onChoose,
 }: {
   runtime: Runtime;
@@ -591,13 +738,15 @@ function ActivityRow({
   t: T;
   tp: TP;
   text: TextFn;
+  reduced: boolean;
+  busy: boolean;
   onChoose: (step: ActivityStep, choice: "action" | "instant") => void;
 }) {
   const state = revertState(runtime, tab, step, t);
+  const erasing = Boolean(step.revertedAt);
   const canChoose =
     (state.undo?.enabled ?? false) || (state.instant?.enabled ?? false);
-  const blocked =
-    state.undo?.reason ?? state.instant?.reason ?? undefined;
+  const blocked = state.undo?.reason ?? state.instant?.reason ?? undefined;
   const path = pathOf(runtime, tab, step, text, t);
   const detail = [
     detailOf(runtime, step, locale, text, t, tp),
@@ -605,88 +754,108 @@ function ActivityRow({
   ]
     .filter(Boolean)
     .join(" · ");
-
   return (
     <article
-      className={
-        step.revertedAt ? "activity-row is-dissolving" : "activity-row"
-      }
+      className={erasing ? "activity-row is-dissolving" : "activity-row"}
+      aria-hidden={erasing || undefined}
     >
-      <div className="activity-main">
-        <div
-          className="activity-path"
-          title={`${path.tab} › ${path.subject}`}
-        >
-          <span className="activity-path-tab">{path.tab}</span>
-          <ChevronRight aria-hidden />
-          <span className="activity-path-subject">{path.subject}</span>
+      <motion.div
+        className="activity-row-content"
+        initial={false}
+        animate={
+          reduced
+            ? { opacity: erasing ? 0 : 1, clipPath: "none" }
+            : {
+                opacity: 1,
+                clipPath: erasing ? [DUST_CLIP_START, DUST_CLIP_END] : "none",
+              }
+        }
+        transition={
+          erasing
+            ? {
+                duration: reduced ? REDUCED_FADE : DUST_SWEEP,
+                ease: reduced ? "easeOut" : "linear",
+              }
+            : { duration: 0 }
+        }
+      >
+        <div className="activity-main">
+          <div
+            className="activity-path"
+            title={`${path.tab} › ${path.subject}`}
+          >
+            <span className="activity-path-tab">{path.tab}</span>
+            <ChevronRight aria-hidden />
+            <span className="activity-path-subject">{path.subject}</span>
+          </div>
+          <div className="activity-title">
+            <span className="activity-glyph" aria-hidden>
+              <StepIcon step={step} />
+            </span>
+            <span className="activity-label">
+              {titleFor(runtime, step, text, t)}
+            </span>
+            {detail && <span className="activity-detail">· {detail}</span>}
+          </div>
         </div>
-        <div className="activity-title">
-          <span className="activity-glyph" aria-hidden>
-            <StepIcon step={step} />
-          </span>
-          <span className="activity-label">
-            {titleFor(runtime, step, text, t)}
-          </span>
-          {detail && <span className="activity-detail">· {detail}</span>}
+        <div className="activity-side">
+          <time
+            className="activity-time"
+            dateTime={new Date(step.at).toISOString()}
+            title={new Intl.DateTimeFormat(locale, {
+              dateStyle: "medium",
+              timeStyle: "short",
+            }).format(step.at)}
+          >
+            {relative(step.at, locale, now, t)}
+          </time>
+          {state.has ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="activity-revert size-6"
+                  aria-label={revertLabel(step, runtime, text, t)}
+                  title={canChoose ? undefined : blocked}
+                  disabled={busy || !canChoose}
+                >
+                  <Undo2 aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                {state.undo && (
+                  <DropdownMenuItem
+                    disabled={!state.undo.enabled}
+                    onSelect={() => onChoose(step, "action")}
+                  >
+                    <div className="activity-menu-item">
+                      <span>{revertLabel(step, runtime, text, t)}</span>
+                      {!state.undo.enabled && state.undo.reason && (
+                        <small>{state.undo.reason}</small>
+                      )}
+                    </div>
+                  </DropdownMenuItem>
+                )}
+                {state.instant && (
+                  <DropdownMenuItem
+                    disabled={!state.instant.enabled}
+                    onSelect={() => onChoose(step, "instant")}
+                  >
+                    <div className="activity-menu-item">
+                      <span>{t("activity.revert.instant")}</span>
+                      {!state.instant.enabled && state.instant.reason && (
+                        <small>{state.instant.reason}</small>
+                      )}
+                    </div>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </div>
-      </div>
-      <div className="activity-side">
-        <time
-          className="activity-time"
-          dateTime={new Date(step.at).toISOString()}
-          title={new Intl.DateTimeFormat(locale, {
-            dateStyle: "medium",
-            timeStyle: "short",
-          }).format(step.at)}
-        >
-          {relative(step.at, locale, now, t)}
-        </time>
-        {state.has ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="activity-revert size-6"
-                aria-label={revertLabel(step, runtime, text, t)}
-                title={canChoose ? undefined : blocked}
-                disabled={!canChoose}
-              >
-                <Undo2 aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              {state.undo && (
-                <DropdownMenuItem
-                  disabled={!state.undo.enabled}
-                  onSelect={() => onChoose(step, "action")}
-                >
-                  <div className="activity-menu-item">
-                    <span>{revertLabel(step, runtime, text, t)}</span>
-                    {!state.undo.enabled && state.undo.reason && (
-                      <small>{state.undo.reason}</small>
-                    )}
-                  </div>
-                </DropdownMenuItem>
-              )}
-              {state.instant && (
-                <DropdownMenuItem
-                  disabled={!state.instant.enabled}
-                  onSelect={() => onChoose(step, "instant")}
-                >
-                  <div className="activity-menu-item">
-                    <span>{t("activity.revert.instant")}</span>
-                    {!state.instant.enabled && state.instant.reason && (
-                      <small>{state.instant.reason}</small>
-                    )}
-                  </div>
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
-      </div>
+      </motion.div>
+      {erasing && !reduced && <Dust seed={step.id} />}
     </article>
   );
 }
@@ -712,6 +881,7 @@ export function ActivityControl({
 }) {
   const { t, tp, text, locale } = useI18n();
   const { activity } = runtime;
+  const reduced = useReducedMotion() ?? false;
   const revision = useSyncExternalStore(
     activity.subscribe,
     activity.version,
@@ -728,10 +898,7 @@ export function ActivityControl({
   );
   const steps = activity.stepsFor(tabId);
   const visible = useMemo(
-    () =>
-      steps.filter(
-        (step) => !step.revertedAt || dissolving.has(step.id),
-      ),
+    () => steps.filter((step) => !step.revertedAt || dissolving.has(step.id)),
     [dissolving, steps],
   );
 
@@ -769,8 +936,11 @@ export function ActivityControl({
         session = undefined;
       }
       if (!session || session.agent.id !== step.agent.id) {
+        const index = day.sessions.filter(
+          (group) => group.agent.id === step.agent.id,
+        ).length;
         session = {
-          key: `session:${day.key}:${day.sessions.length}`,
+          key: `session:${step.agent.id}:${index}`,
           agent: step.agent,
           steps: [],
         };
@@ -784,32 +954,32 @@ export function ActivityControl({
   if (!tab) return null;
 
   const run = (step: ActivityStep, choice: "action" | "instant") => {
+    if (dissolving.has(step.id)) return;
     setPending(undefined);
     setDissolving((previous) => new Set(previous).add(step.id));
+    const finish = () => {
+      setDissolving((previous) => {
+        const next = new Set(previous);
+        next.delete(step.id);
+        return next;
+      });
+    };
     void revertStep(runtime, step, choice)
       .then(() => {
         toast.success(t("activity.toast.reverted"));
-        const reduced = window.matchMedia?.(
-          "(prefers-reduced-motion: reduce)",
-        ).matches;
         window.setTimeout(
           () => {
-            setDissolving((previous) => {
-              const next = new Set(previous);
-              next.delete(step.id);
-              return next;
-            });
+            finish();
             void activity.forget(step.id);
           },
-          reduced ? 40 : 820,
+          1000 *
+            (reduced
+              ? REDUCED_FADE
+              : DUST_SWEEP + DUST_LIFETIME + DUST_VARIATION),
         );
       })
       .catch((error) => {
-        setDissolving((previous) => {
-          const next = new Set(previous);
-          next.delete(step.id);
-          return next;
-        });
+        finish();
         toast.error(
           t("activity.toast.failed", { reason: revertFailure(error) }),
         );
@@ -879,86 +1049,81 @@ export function ActivityControl({
               {visible.length}
             </span>
           </header>
-          {visible.length ? (
-            <>
-              <div
-                className="activity-scroll"
-                tabIndex={0}
-                aria-label={t("activity.trigger")}
-              >
-                {days.map((day) => (
-                  <div className="activity-day-group" key={day.key}>
-                    <div className="activity-day">{day.label}</div>
-                    {day.sessions.map((session) => (
-                      <section
-                        className="activity-session-group"
-                        key={session.key}
-                      >
-                        <div className="activity-session">
-                          <span className="activity-session-mark" aria-hidden>
-                            <AgentMark agent={brandOf(session.agent)} />
-                          </span>
-                          <span className="activity-session-name">
-                            {session.agent.label}
-                          </span>
-                          {session.agent.version && (
-                            <span className="activity-session-version">
-                              {session.agent.version}
-                            </span>
-                          )}
-                        </div>
-                        <div className="activity-session-body">
-                          {session.steps.map((step) => (
-                            <ActivityRow
-                              key={step.id}
-                              runtime={runtime}
-                              tab={tab}
-                              step={step}
-                              now={now}
-                              locale={locale}
-                              t={t}
-                              tp={tp}
-                              text={text}
-                              onChoose={choose}
-                            />
-                          ))}
-                        </div>
-                      </section>
-                    ))}
-                  </div>
-                ))}
-              </div>
-              <footer className="activity-foot">
-                <span>
-                  {tp("activity.footer", visible.length, {
-                    count: visible.length,
-                  })}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 shrink-0 px-2 text-xs"
-                  title={t("activity.clear.action")}
-                  aria-label={t("activity.clear.action")}
-                  onClick={() => setClearing(true)}
+          <AnimatePresence initial={false}>
+            {visible.length ? (
+              <ActivityFold key="history" reduced={reduced} crossfade>
+                <div
+                  className="activity-scroll"
+                  tabIndex={0}
+                  aria-label={t("activity.trigger")}
                 >
-                  {t("activity.clear.confirm")}
-                </Button>
-              </footer>
-            </>
-          ) : (
-            <div className="activity-empty">
-              <span className="activity-empty-icon" aria-hidden>
-                <History />
-              </span>
-              <p className="activity-empty-title">
-                {t("activity.empty.title")}
-              </p>
-              <p className="activity-empty-detail">
-                {t("activity.empty.description")}
-              </p>
-            </div>
-          )}
+                  <AnimatePresence initial={false}>
+                    {days.map((day) => (
+                      <ActivityFold key={day.key} reduced={reduced}>
+                        <div className="activity-day">{day.label}</div>
+                        <AnimatePresence initial={false}>
+                          {day.sessions.map((session) => (
+                            <ActivityFold key={session.key} reduced={reduced}>
+                              <ActivitySession agent={session.agent}>
+                                {/* Les lignes n’entrent pas en mouvement, mais leurs particules doivent pouvoir démarrer. */}
+                                <AnimatePresence>
+                                  {session.steps.map((step) => (
+                                    <ActivityFold key={step.id} reduced={reduced}>
+                                      <ActivityRow
+                                        runtime={runtime}
+                                        tab={tab}
+                                        step={step}
+                                        now={now}
+                                        locale={locale}
+                                        t={t}
+                                        tp={tp}
+                                        text={text}
+                                        reduced={reduced}
+                                        busy={dissolving.has(step.id)}
+                                        onChoose={choose}
+                                      />
+                                    </ActivityFold>
+                                  ))}
+                                </AnimatePresence>
+                              </ActivitySession>
+                            </ActivityFold>
+                          ))}
+                        </AnimatePresence>
+                      </ActivityFold>
+                    ))}
+                  </AnimatePresence>
+                </div>
+                <footer className="activity-foot">
+                  <span>
+                    {tp("activity.footer", visible.length, {
+                      count: visible.length,
+                    })}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 shrink-0 px-2 text-xs"
+                    title={t("activity.clear.action")}
+                    aria-label={t("activity.clear.action")}
+                    onClick={() => setClearing(true)}
+                  >
+                    {t("activity.clear.confirm")}
+                  </Button>
+                </footer>
+              </ActivityFold>
+            ) : (
+              <ActivityFold key="empty" reduced={reduced} crossfade>
+                <div className="activity-empty">
+                  <span className="activity-empty-icon" aria-hidden>
+                    <History />
+                  </span>
+                  <p className="activity-empty-title">
+                    {t("activity.empty.title")}
+                  </p>
+                </div>
+              </ActivityFold>
+            )}
+          </AnimatePresence>
         </PopoverContent>
       </Popover>
 

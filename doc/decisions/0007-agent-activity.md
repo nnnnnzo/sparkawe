@@ -15,8 +15,8 @@ qu’un agent vient de faire.
 Un bouton à gauche des modes ouvre un popover qui montre les **30 dernières
 étapes de l’onglet actif**. Une étape regroupe les effets d’un même appel MCP
 (`op`) : ouverture, action, déplacement, redimensionnement. Les changements de
-focus ne sont pas affichés. La marque du client MCP est sur chaque ligne, avec
-un monogramme pour un client inconnu.
+focus ne sont pas affichés. La marque du client MCP apparaît en tête de chaque
+groupe, avec un monogramme pour un client inconnu.
 
 ### SQLite plutôt qu’un fichier JSON
 
@@ -62,6 +62,9 @@ demandée pour les actions mutables, le cycle de vie et les dispositions
 anciennes ; une réorganisation récente sans suite est directe.
 
 Une action annulée se disperse puis disparaît de la timeline et de `activity.db`.
+Motion anime le balayage et les particules, puis replie la hauteur de la ligne
+ou du groupe vide : le reste de la liste et le panneau suivent le même mouvement.
+Avec la réduction des animations, seul un bref fondu est joué.
 Le marqueur `reverted_at` ne couvre que l’animation ; `activity_load` retire les
 lignes restantes au chargement suivant.
 

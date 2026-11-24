@@ -51,16 +51,6 @@ const messages = {
     ja: "このタブにはエージェントの操作がありません。",
     zh: "此标签页中没有智能体操作。",
   },
-  "activity.empty.description": {
-    fr: "Les actions MCP apparaîtront ici.",
-    en: "MCP actions will appear here.",
-    es: "Las acciones MCP aparecerán aquí.",
-    de: "MCP-Aktionen erscheinen hier.",
-    it: "Le azioni MCP appariranno qui.",
-    pt: "As ações MCP aparecerão aqui.",
-    ja: "MCP の操作がここに表示されます。",
-    zh: "MCP 操作将显示在这里。",
-  },
   "activity.day.today": {
     fr: "Aujourd’hui",
     en: "Today",
