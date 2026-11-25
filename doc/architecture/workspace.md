@@ -44,6 +44,12 @@ interface Tile {
 
 Chaque onglet garde une disposition par mode. Le mode actif est stocké dans `Tab.mode`.
 
+## Raccourcis
+
+- `⌘T` sur macOS, `Ctrl+T` ailleurs : crée un onglet et l’active.
+- `⌘K` sur macOS, `Ctrl+K` ailleurs : ouvre ou ferme la palette de commandes.
+- Ces raccourcis ne capturent pas les champs de saisie, l’éditeur Markdown ni le terminal.
+
 ## Cycle de vie
 
 - `seedCoreExtensions` active le socle lors d’une nouvelle installation et le propose une seule fois par espace.

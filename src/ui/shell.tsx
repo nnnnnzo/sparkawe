@@ -264,13 +264,26 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
       if (
         !(event.metaKey || event.ctrlKey) ||
         event.altKey ||
-        event.shiftKey ||
-        event.key.toLowerCase() !== "k"
+        event.shiftKey
       )
         return;
-      event.preventDefault();
-      if (palette) setPalette(false);
-      else openPalette();
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest(
+          "input, textarea, select, [contenteditable='true'], .cm-editor, .xterm",
+        )
+      )
+        return;
+      const key = event.key.toLowerCase();
+      if (key === "k") {
+        event.preventDefault();
+        if (palette) setPalette(false);
+        else openPalette();
+      } else if (key === "t") {
+        event.preventDefault();
+        workspace.create();
+        setStore(false);
+      }
     };
     window.addEventListener("keydown", keyboard, true);
     return () => window.removeEventListener("keydown", keyboard, true);
