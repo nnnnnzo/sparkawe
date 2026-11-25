@@ -1354,7 +1354,7 @@ export function StorePage({
             <Input
               value={sourceUrl}
               onChange={(event) => setSourceUrl(event.target.value)}
-              placeholder="https://…/registry.json"
+              placeholder={t("store.sources.add.urlPlaceholder")}
               aria-label={t("store.sources.add.urlLabel")}
             />
             <Button

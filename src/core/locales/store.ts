@@ -1091,6 +1091,16 @@ const messages = {
     ja: "ソースの URL",
     zh: "来源 URL",
   },
+  "store.sources.add.urlPlaceholder": {
+    fr: "https://…/registry.json",
+    en: "https://…/registry.json",
+    es: "https://…/registry.json",
+    de: "https://…/registry.json",
+    it: "https://…/registry.json",
+    pt: "https://…/registry.json",
+    ja: "https://…/registry.json",
+    zh: "https://…/registry.json",
+  },
   "store.sources.add.submit": {
     fr: "Ajouter",
     en: "Add",
