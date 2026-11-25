@@ -179,6 +179,51 @@ test("garde trente étapes, les plus récentes d’abord", () => {
   assert.equal(steps.at(-1)?.entries[0].tileId, "tile-1");
 });
 
+test("un effacement attend une écriture SQLite lente sans effacer les étapes suivantes", async () => {
+  const { activity, journal, persistence } = setup();
+  const append = persistence.append.bind(persistence);
+  let release!: () => void;
+  const delay = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  persistence.append = async (step) => {
+    if (step.id === "before") await delay;
+    await append(step);
+  };
+  const record = (op: string) => {
+    journal.record({ source: "agent", kind: "tile.open", tabId: "tab", op });
+  };
+
+  record("before");
+  const cleared = activity.clear();
+  record("after");
+  await Promise.resolve();
+  assert.equal(persistence.stored.size, 0);
+  release();
+  await Promise.all([cleared, activity.flush()]);
+  assert.deepEqual(
+    persistence.stored.get("tab")?.map((step) => step.id),
+    ["after"],
+  );
+});
+
+test("un chargement en cours ne réaffiche pas un historique effacé", async () => {
+  const { activity, journal } = setup();
+  journal.record({
+    source: "agent",
+    kind: "tile.open",
+    tabId: "tab",
+    op: "old",
+  });
+  await activity.flush();
+  const loading = activity.ensure("tab");
+  const cleared = activity.clear();
+  await Promise.all([loading, cleared]);
+  assert.deepEqual(activity.stepsFor("tab"), []);
+  await activity.ensure("tab");
+  assert.deepEqual(activity.stepsFor("tab"), []);
+});
+
 test("charge la suite persistée et la fusionne avec les actions fraîches", async () => {
   const { activity, journal, persistence } = setup();
   const old = restoreStep({

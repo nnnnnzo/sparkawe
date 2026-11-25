@@ -31,14 +31,12 @@ interface Tile {
 }`;
 
 const files = `~/Library/Application Support/fr.spark.desktop/
-  workspace-v1.json      tabs, tiles, layouts, extension state, theme
-  workspace-recovery.json backup written on an invalid-format recovery
-  settings-v1.json       { "dev": boolean, "locale": "fr" }
-  extensions.json        installed packages, versions, registry sources
-  extensions/<id>/<version>/
-  markdown-access.json   tokens for allowed Markdown files
-  explorer-access.json   tokens for allowed folders
-  preview-access.json    tokens for files the preview may open
+  spark.db               workspace, recovery snapshot, settings,
+                         installed packages, registry sources,
+                         file access tokens, agent activity
+  spark.db-wal           SQLite write-ahead log
+  spark.db-shm           SQLite shared memory
+  extensions/<id>/<version>-<uuid>/
   run/mcp.sock           MCP socket
   run/tools.json         tool list cache for the bridge
 
@@ -66,7 +64,7 @@ const files = `~/Library/Application Support/fr.spark.desktop/
   <ul>
     <li><code>Tile.data</code> holds strings only, so the whole document stays serialisable and bounded.</li>
     <li><code>extensions</code> is keyed by extension id; it stores whatever the extension saved through <code>api.state.save()</code>.</li>
-    <li>Installed packages and registry sources are <em>not</em> in the workspace: they live in <code>extensions.json</code>.</li>
+    <li>Installed packages and registry sources use separate tables from the workspace in <code>spark.db</code>.</li>
   </ul>
 
   <h2>Three layout modes</h2>
@@ -119,10 +117,10 @@ const files = `~/Library/Application Support/fr.spark.desktop/
   <h2>Persistence</h2>
   <pre><code>{files}</code></pre>
   <ul>
-    <li><code>workspace-v1.json</code> is written after a 180&nbsp;ms debounce.</li>
+    <li>The workspace snapshot is written to <code>spark.db</code> after a 180&nbsp;ms debounce.</li>
     <li>Writes are serialised: an older write can never overwrite a newer one.</li>
-    <li>On an invalid format, the runtime starts from a fresh workspace and marks <code>recovery</code>; the first save copies the old file to <code>workspace-recovery.json</code> instead of destroying it.</li>
-    <li>Closing the window waits for <code>persistence.flush()</code> before destroying it.</li>
+    <li>If the snapshot format is invalid, Spark opens a fresh workspace and keeps the previous snapshot in <code>workspace_recovery</code> on the first save. If the database is unavailable, Spark reports an error instead.</li>
+    <li>Closing the window waits for activity, workspace and settings writes.</li>
     <li>The pre-rename <code>fr.lab.desktop</code> folder is adopted on first launch without overwriting existing files.</li>
   </ul>
 

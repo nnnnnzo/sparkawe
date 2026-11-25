@@ -14,7 +14,9 @@ Commandes actuelles : voir [le backend](../architecture/backend.md#commandes-tau
 
 Les six commandes `activity_*` servent au panneau Activité : elles lisent et
 écrivent les étapes, marquent la consultation et l’annulation, et suppriment
-une étape ou tout l’historique. Voir [le stockage](persistence.md#activitydb).
+une étape ou tout l’historique. Voir [le stockage](persistence.md#activité-des-agents).
+
+Les commandes qui accèdent à SQLite pendant l’utilisation de Spark font le travail bloquant hors du thread de la fenêtre ; leur interface `invoke` est inchangée.
 
 ## Fenêtres et capabilities
 
@@ -58,7 +60,7 @@ La page du navigateur ne dépend pas de cette CSP : elle est rendue par une vue 
 
 Le scope extensions permet de charger les paquets importés. `convertFileSrc` produit l’URL utilisée par le loader.
 
-Un fichier local choisi, déposé ou ouvert depuis l’Explorateur n’entre pas dans le scope statique : `preview_source` et `preview_select` l’ajoutent à l’exécution avec `asset_protocol_scope().allow_file`. Cette autorisation n’est pas persistée ; elle est rétablie au chargement de la tuile. Seuls les grants de `preview-access.json` peuvent être réautorisés.
+Un fichier local choisi, déposé ou ouvert depuis l’Explorateur n’entre pas dans le scope statique : les commandes de l’Aperçu l’ajoutent à l’exécution avec `asset_protocol_scope().allow_file`. Cette portée dynamique n’est pas persistée ; au chargement de la tuile, `preview_source` la rétablit seulement à partir d’un token d’Aperçu de `spark.db`, après revalidation du fichier.
 
 ## Sidecar MCP
 

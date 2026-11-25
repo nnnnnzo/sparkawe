@@ -6,7 +6,7 @@ Accepté.
 
 ## Contexte
 
-Spark doit ouvrir des pages web complètes dans l’espace de travail. Une tuile est du DOM rendu par Dockview dans un overlay ; deux voies étaient possibles pour afficher une page :
+Spark doit ouvrir des pages web complètes dans l’espace de travail. Une tuile est hébergée dans un groupe Dockview ; deux voies étaient possibles pour afficher une page :
 
 - un `iframe` : il bute sur `X-Frame-Options` et `frame-ancestors`, n’ouvre pas la session, et demanderait d’ouvrir `frame-src` dans la CSP ;
 - une vue web native enfant de la fenêtre principale (multi-vue de Tauri), posée sur le rectangle mesuré par la tuile.
@@ -17,9 +17,9 @@ Spark doit ouvrir des pages web complètes dans l’espace de travail. Une tuile
 - La multi-vue de Tauri reste derrière la feature Cargo `unstable` : la version de Tauri est donc épinglée par `Cargo.lock` et à revoir à chaque montée de version.
 - La tuile ne rend que la barre et un **rectangle mesuré** ; le contenu de la page n’entre jamais dans le DOM de Spark.
 - `web_open` crée la vue si elle manque et la replace sinon : elle **ne navigue jamais**. Toute navigation est explicite (`web_navigate`, barre d’adresse, action), sinon déplacer une tuile rejouerait la page et perdrait son état.
-- Les animations FLIP couvrent le déplacement **et le redimensionnement** : chaque groupe dont la géométrie change est animé (translation, largeur, hauteur), pas seulement celui qu’on déplace.
-- Une vue native ne suit pas un `transform` : elle se masque pendant le glissement, comme les contenus des autres tuiles (`src/ui/layoutSignal.ts`), puis revient en fondu et se replace exactement à la fin.
-- Les coins bas de la vue sont arrondis à 8 px par son calque natif, comme l’overlay du groupe ; la barre d’onglets couvre le haut.
+- Lors d’un changement structurel animé, chaque groupe dont la géométrie change suit l’animation FLIP (translation, largeur, hauteur). Le séparateur redimensionne les groupes directement, sans cette animation.
+- Une vue native ne suit pas un `transform` : elle se masque pendant le déplacement animé d’un groupe (`src/ui/layoutSignal.ts`), puis revient en fondu à son rectangle final. Au séparateur, elle suit le rectangle mesuré.
+- Les coins bas de la vue sont arrondis à 8 px par son calque natif, comme le groupe ; la barre d’onglets couvre le haut.
 - L’apparence est imposée à chaque vue web (`web_appearance` → `NSAppearance` de la vue) : les pages reçoivent `prefers-color-scheme` selon le thème de Spark, indépendamment du réglage du système.
 - Une page apparaît en fondu de 160 ms et s’efface en 140 ms ; le masquage n’intervient qu’après le fondu, sinon une vue transparente recevrait encore les clics.
 - Un média ne démarre pas tout seul dans une page ouverte ou restaurée : il faut un geste réel dans la page. Wry ouvre le webview avec l’autoplay natif autorisé et `navigator.userActivation` est déjà actif à l’ouverture sur WebKit : le garde-fou compte donc ses propres gestes, par document, neutralise l’attribut `autoplay`, et rabat les évènements `play`, `playing` et `timeupdate`.

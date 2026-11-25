@@ -52,7 +52,7 @@ Les intégrées vivent dans `src/extensions/<nom>/`. Chacune a un `manifest.ts`,
 - Une tuile `preview.file` garde une source ; plusieurs tuiles sont possibles dans un même onglet.
 - Formats : PDF (pdf.js), images, audio, vidéo, texte, code source et HTML.
 - Markdown n’est pas rendu ici : l’Explorateur l’ouvre dans l’éditeur.
-- Sources : fichier choisi ou déposé, ou lien `https`. Un fichier local est autorisé par un grant dans `preview-access.json` et par la portée du protocole asset ; un lien non média est téléchargé dans `$APPCACHE/preview`.
+- Sources : fichier choisi ou déposé, ou lien `https`. Un fichier local est autorisé par un token d’Aperçu dans `spark.db` et par la portée du protocole asset ; un lien non média est téléchargé dans `$APPCACHE/preview`.
 - L’audio et la vidéo distants se lisent directement ; les médias locaux passent par le protocole asset, qui gère les requêtes `Range`.
 - HTML n’est jamais exécuté : le source est affiché, et « Ouvrir dans le navigateur » n’est proposé que pour une URL `https`.
 - Plafonds : PDF 30 Mo, image 50 Mo, texte 2 Mo, média 100 Mo ; un texte local est affiché sur 512 Ko au plus.

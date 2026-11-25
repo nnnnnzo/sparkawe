@@ -29,9 +29,10 @@ import { notifications, sparkNotifications } from "./notifications.ts";
 export async function createRuntime() {
   let state: WorkspaceState;
   let recovery = false;
+  const workspaceSnapshot = await invoke<string | null>("workspace_load");
   try {
-    const snapshot = await invoke<string | null>("workspace_load");
-    const parsed = snapshot ? JSON.parse(snapshot) : null;
+    const parsed =
+      workspaceSnapshot === null ? null : JSON.parse(workspaceSnapshot);
     state = restoreWorkspace(parsed);
   } catch (error) {
     report(error);
@@ -178,6 +179,7 @@ export async function createRuntime() {
     marketplace,
     views,
     persistence,
+    settingsPersistence,
     journal,
     activity,
     settings,

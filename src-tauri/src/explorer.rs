@@ -9,14 +9,14 @@ use tauri_plugin_dialog::DialogExt;
 
 use crate::{
     markdown::{self, MarkdownStorage},
-    storage::{message, PathGrants, Result},
+    storage::{message, GrantKind, PathGrants, Result, Storage},
 };
 
 pub struct ExplorerStorage(PathGrants);
 
 impl ExplorerStorage {
-    pub fn new(home: &Path) -> Self {
-        Self(PathGrants::new(home.join("explorer-access.json")))
+    pub fn new(storage: &Storage) -> Self {
+        Self(PathGrants::new(storage, GrantKind::Explorer))
     }
 
     pub(crate) fn resolve_path(&self, token: &str, segments: &[String]) -> Result<PathBuf> {
@@ -194,8 +194,12 @@ mod tests {
         fs::write(project.join("docs/Guide.MD"), "# Guide").unwrap();
         fs::write(fixture.0.join("outside.md"), "# Outside").unwrap();
 
-        let token = ExplorerStorage::new(&fixture.0).0.grant(&project).unwrap();
-        let storage = ExplorerStorage::new(&fixture.0);
+        let token = ExplorerStorage::new(&Storage::new(fixture.0.clone()))
+            .0
+            .grant(&project)
+            .unwrap();
+        let profile = Storage::new(fixture.0.clone());
+        let storage = ExplorerStorage::new(&profile);
         let folder = storage.resolve_path(&token, &["docs".into()]).unwrap();
         assert_eq!(read_directory(&folder).unwrap()[0].name, "Guide.MD");
         assert!(storage
@@ -216,7 +220,7 @@ mod tests {
         let source = storage
             .resolve_path(&token, &["docs".into(), "Guide.MD".into()])
             .unwrap();
-        let markdown = MarkdownStorage::new(&fixture.0);
+        let markdown = MarkdownStorage::new(&profile);
         let file = markdown::open_file(&markdown, &source).unwrap();
         let payload = serde_json::to_value(file).unwrap();
         assert_eq!(payload["text"], "# Guide");

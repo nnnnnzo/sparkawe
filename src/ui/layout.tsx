@@ -12,6 +12,7 @@ import { Blocks, Ellipsis, LayoutGrid, Plus, X } from "lucide-react";
 import {
   Component,
   createContext,
+  memo,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -21,8 +22,15 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import {
+  AnimatePresence,
+  motion,
+  useIsPresent,
+  useReducedMotion,
+} from "motion/react";
 import type { Runtime } from "../app/runtime.ts";
 import type { LocalizedText, Tile } from "../sdk/index.ts";
+import type { TileView } from "../sdk/react.ts";
 import type { Locale } from "../core/i18n.ts";
 import { text as resolveLocalized, t as translateNow } from "../i18n/index.ts";
 import { useI18n } from "../i18n/react.ts";
@@ -30,6 +38,7 @@ import { report } from "./errors.ts";
 import type { Tab, WorkspaceState } from "../core/workspace.ts";
 import { registerLayoutHandler } from "./layoutBridge.ts";
 import { previousPlacement } from "../core/layoutInverse.ts";
+import { inlineLayout } from "./inlineLayout.ts";
 import { takeGroupReference } from "./layoutPlacement.ts";
 import {
   beginLayoutMotion,
@@ -61,6 +70,7 @@ import {
 } from "@spark/ui/components/tooltip";
 import { Icon } from "./icons.tsx";
 import { SparkMark } from "../shared/brand/index.tsx";
+import { pageType } from "../extensions/web/manifest.ts";
 
 const sideMinimum = 220;
 /** Un menu DOM ne peut pas recouvrir une vue web : on prend celui du système
@@ -153,6 +163,29 @@ class TileBoundary extends Component<
     );
   }
 }
+
+// Les changements de disposition republient le workspace, mais ne changent
+// ni les données ni la vue des tuiles : leur DOM se redimensionne sans repasser
+// par React (et sans reparsing du Markdown, par exemple).
+const TileContent = memo(function TileContent({
+  View,
+  runtime,
+  tile,
+  active,
+  locale,
+}: {
+  View: TileView;
+  runtime: Runtime;
+  tile: Tile;
+  active: boolean;
+  locale: Locale;
+}) {
+  return (
+    <TileBoundary runtime={runtime} tile={tile} locale={locale}>
+      <View tile={tile} active={active} />
+    </TileBoundary>
+  );
+});
 
 const directionKeys = {
   left: "layout.direction.left",
@@ -400,23 +433,38 @@ function syncPanels(
  * redimensionnement par poignée n'est pas une mutation structurelle et reste
  * donc direct.
  */
-function animateGroupMovement(api: DockviewApi, enabled: () => boolean) {
+function animateGroupMovement(
+  api: DockviewApi,
+  host: HTMLElement,
+  enabled: () => boolean,
+) {
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
   let before: Map<string, DOMRect> | undefined;
   let frame: number | undefined;
-  let motion: number | undefined;
   const running = new Set<Animation>();
-  const timers = new Set<number>();
   const frameDuration = 220;
-  const will = api.onWillMutateLayout(() => {
-    // Une mutation peut arriver pendant une animation précédente : on la
-    // termine avant de mesurer, sinon le delta part d'une position déjà
-    // transformée et les tuiles sautent.
-    for (const animation of running) animation.finish();
+  const stop = () => {
+    if (frame !== undefined) cancelAnimationFrame(frame);
+    frame = undefined;
+    before = undefined;
+    if (!running.size) return;
+    for (const animation of running) animation.cancel();
     running.clear();
+    endLayoutMotion();
+    notifyLayoutChange();
+  };
+  const onSashDown = (event: PointerEvent) => {
+    if (event.target instanceof Element && event.target.closest(".dv-sash"))
+      stop();
+  };
+  host.addEventListener("pointerdown", onSashDown, true);
+  window.addEventListener("resize", stop);
+  const will = api.onWillMutateLayout(() => {
+    // Repartir du cadre réel, pas d'une position déjà transformée.
+    stop();
     // Ajouter ou retirer une tuile est structurel : on pose la nouvelle
     // disposition d'un coup, sans faire glisser puis réapparaître les autres.
-    if (!enabled() || before || reduced.matches) return;
+    if (!enabled() || reduced.matches) return;
     // Repère par panneau, pas par groupe : Dockview recrée parfois le groupe
     // pendant un déplacement, alors que l'identifiant du panneau reste.
     before = new Map();
@@ -432,8 +480,6 @@ function animateGroupMovement(api: DockviewApi, enabled: () => boolean) {
       frame = undefined;
       const movements: {
         element: Element;
-        groupElement: Element;
-        panels: Set<string>;
         from: DOMRect;
         dx: number;
         dy: number;
@@ -465,8 +511,6 @@ function animateGroupMovement(api: DockviewApi, enabled: () => boolean) {
         }
         movements.push({
           element,
-          groupElement: group.element,
-          panels: new Set(group.panels.map((panel) => panel.id)),
           from,
           dx,
           dy,
@@ -475,15 +519,9 @@ function animateGroupMovement(api: DockviewApi, enabled: () => boolean) {
         });
       }
       if (!movements.length) return;
-      // Les vues natives ne suivent pas un transform : elles se masquent le
-      // temps du glissement, comme les contenus des autres tuiles.
+      // Le contenu DOM suit directement le groupe. Seules les vues natives
+      // doivent se masquer pendant le déplacement animé.
       beginLayoutMotion();
-      if (motion !== undefined) window.clearTimeout(motion);
-      motion = window.setTimeout(() => {
-        motion = undefined;
-        endLayoutMotion();
-        notifyLayoutChange();
-      }, frameDuration + 120);
       for (const movement of movements) {
         // Une tuile qui change de taille glisse autant que celles qui se
         // déplacent : la largeur et la hauteur font partie de l’animation.
@@ -508,72 +546,21 @@ function animateGroupMovement(api: DockviewApi, enabled: () => boolean) {
         running.add(animation);
         animation.finished
           .catch(() => {})
-          .finally(() => running.delete(animation));
+          .finally(() => {
+            if (running.delete(animation) && !running.size) {
+              endLayoutMotion();
+              notifyLayoutChange();
+            }
+          });
       }
-      // Le contenu des tuiles vit dans des overlays séparés. On les masque
-      // pendant le glissement, on répare leur boîte à la fin (Dockview peut
-      // avoir échantillonné une position intermédiaire du cadre), puis on les
-      // fait revenir en fondu à la bonne place.
-      const root =
-        (api.groups[0]?.element.closest(".dv-shell") as Element | null) ??
-        document.body;
-      const repairs: { content: Element; overlays: Element[] }[] = [];
-      for (const movement of movements) {
-        const content = movement.groupElement.querySelector(
-          ":scope > .dv-content-container",
-        );
-        const overlays = [
-          ...root.querySelectorAll(".dv-render-overlay"),
-        ].filter((overlay) => {
-          const tileId = overlay
-            .querySelector("[data-tile-id]")
-            ?.getAttribute("data-tile-id");
-          return typeof tileId === "string" && movement.panels.has(tileId);
-        });
-        if (!content || !overlays.length) continue;
-        repairs.push({ content, overlays });
-        for (const overlay of overlays) {
-          overlay.animate(
-            [
-              { opacity: 0, offset: 0 },
-              { opacity: 0, offset: 0.82 },
-              { opacity: 1, offset: 1 },
-            ],
-            { duration: 340, easing: "linear" },
-          );
-        }
-      }
-      if (!repairs.length) return;
-      const timer = window.setTimeout(() => {
-        timers.delete(timer);
-        const shell = root.getBoundingClientRect();
-        for (const { content, overlays } of repairs) {
-          const rect = content.getBoundingClientRect();
-          for (const overlay of overlays) {
-            const element = overlay as HTMLElement;
-            element.style.left = `${rect.left - shell.left}px`;
-            element.style.top = `${rect.top - shell.top}px`;
-            element.style.width = `${rect.width}px`;
-            element.style.height = `${rect.height}px`;
-          }
-        }
-      }, frameDuration + 20);
-      timers.add(timer);
     });
   });
   return () => {
     will.dispose();
     did.dispose();
-    if (frame !== undefined) cancelAnimationFrame(frame);
-    // Une animation interrompue par un démontage ne doit pas laisser la vue
-    // native masquée pour toujours.
-    if (motion !== undefined) {
-      window.clearTimeout(motion);
-      motion = undefined;
-      endLayoutMotion();
-    }
-    for (const timer of timers) window.clearTimeout(timer);
-    timers.clear();
+    host.removeEventListener("pointerdown", onSashDown, true);
+    window.removeEventListener("resize", stop);
+    stop();
   };
 }
 
@@ -597,7 +584,7 @@ function Engine({
     const saved = tab.layouts[tab.mode];
     if (saved) {
       try {
-        event.api.fromJSON(saved as SerializedDockview);
+        event.api.fromJSON(inlineLayout(saved as SerializedDockview));
       } catch {
         event.api.clear();
       }
@@ -684,7 +671,7 @@ function Engine({
           .join(",");
         if (panels !== tiles)
           throw new Error(translateNow("layout.error.panels"));
-        api.fromJSON(command.snapshot as SerializedDockview, {
+        api.fromJSON(inlineLayout(command.snapshot as SerializedDockview), {
           reuseExistingPanels: true,
         });
         return;
@@ -835,7 +822,7 @@ function Engine({
         state.timer = undefined;
       }
       try {
-        api.fromJSON(snapshot, { reuseExistingPanels: true });
+        api.fromJSON(inlineLayout(snapshot), { reuseExistingPanels: true });
       } finally {
         // Le changement de disposition arrive de façon asynchrone : on ignore
         // les événements le temps qu'il retombe, sinon il vide la pile redo.
@@ -893,9 +880,13 @@ function Engine({
   }, [api, active]);
 
   useEffect(() => {
-    if (!api) return;
-    return animateGroupMovement(api, () => !skipAnimation.current);
-  }, [api]);
+    if (!api || !host.current || !active) return;
+    return animateGroupMovement(
+      api,
+      host.current,
+      () => !skipAnimation.current,
+    );
+  }, [api, active]);
 
   // Les contenus natifs mesurent leur rectangle : ils se replacent quand la
   // disposition change, y compris sans mutation structurelle (poignée).
@@ -1017,10 +1008,24 @@ function Engine({
           onReady={ready}
           watermarkComponent={Watermark}
           disableFloatingGroups
-          defaultRenderer="always"
+          defaultRenderer="onlyWhenVisible"
         />
       </div>
     </div>
+  );
+}
+
+function EmptyLayer({ children }: { children: ReactNode }) {
+  const present = useIsPresent();
+  const reduced = useReducedMotion();
+  return (
+    <motion.div
+      className="layout-empty-layer"
+      inert={!present || undefined}
+      exit={{ opacity: 0, transition: { duration: reduced ? 0 : 0.12 } }}
+    >
+      {children}
+    </motion.div>
   );
 }
 
@@ -1070,9 +1075,13 @@ export function WorkspaceLayout({
         const View = runtime.views.get(tile.type);
         return createPortal(
           View ? (
-            <TileBoundary runtime={runtime} tile={tile} locale={locale}>
-              <View tile={tile} active={tab.tiles.includes(tile)} />
-            </TileBoundary>
+            <TileContent
+              View={View}
+              runtime={runtime}
+              tile={tile}
+              active={tab.tiles.includes(tile)}
+              locale={locale}
+            />
           ) : (
             <p className="tile-message">
               {t("layout.tile.unavailable.message")}
@@ -1102,37 +1111,48 @@ export function WorkspaceLayout({
           </div>
         ) : null,
       )}
-      {tab.tiles.length === 0 && (
-        <Empty className="layout-empty">
-          <SparkMark variant="mono" className="spark-empty-mark" />
-          <EmptyHeader>
-            <EmptyMedia variant="icon" aria-hidden>
-              <LayoutGrid strokeWidth={1.5} />
-            </EmptyMedia>
-            <EmptyTitle role="heading" aria-level={2}>
-              {t("layout.empty.title")}
-            </EmptyTitle>
-            <EmptyDescription>
-              {hasTileCommands
-                ? t("layout.empty.tiles")
-                : t("layout.empty.extensions")}
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            {hasTileCommands ? (
-              <Button variant="secondary" size="sm" onClick={palette}>
-                <Plus data-icon="inline-start" /> {t("layout.empty.add")}
-                <kbd className="shortcut-key" aria-hidden>
-                  {shortcut}
-                </kbd>
-              </Button>
-            ) : (
-              <Button variant="secondary" size="sm" onClick={manageExtensions}>
-                <Blocks data-icon="inline-start" /> {t("layout.empty.manage")}
-              </Button>
-            )}
-          </EmptyContent>
-        </Empty>
+      {!tab.tiles.some((tile) => tile.type === pageType) && (
+        <AnimatePresence key={tab.id}>
+          {tab.tiles.length === 0 && (
+            <EmptyLayer key="empty">
+              <Empty className="layout-empty">
+                <SparkMark variant="mono" className="spark-empty-mark" />
+                <EmptyHeader>
+                  <EmptyMedia variant="icon" aria-hidden>
+                    <LayoutGrid strokeWidth={1.5} />
+                  </EmptyMedia>
+                  <EmptyTitle role="heading" aria-level={2}>
+                    {t("layout.empty.title")}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {hasTileCommands
+                      ? t("layout.empty.tiles")
+                      : t("layout.empty.extensions")}
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  {hasTileCommands ? (
+                    <Button variant="secondary" size="sm" onClick={palette}>
+                      <Plus data-icon="inline-start" /> {t("layout.empty.add")}
+                      <kbd className="shortcut-key" aria-hidden>
+                        {shortcut}
+                      </kbd>
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={manageExtensions}
+                    >
+                      <Blocks data-icon="inline-start" />{" "}
+                      {t("layout.empty.manage")}
+                    </Button>
+                  )}
+                </EmptyContent>
+              </Empty>
+            </EmptyLayer>
+          )}
+        </AnimatePresence>
       )}
     </main>
   );

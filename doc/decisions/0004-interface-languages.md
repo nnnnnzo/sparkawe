@@ -9,7 +9,7 @@ L’interface était entièrement en français, y compris le Store et les six ex
 - Huit langues : `fr`, `en`, `es`, `de`, `it`, `pt`, `ja`, `zh`.
 - Dictionnaires TypeScript internes, sans dépendance i18n : une clé porte les huit traductions dans le même objet.
 - `LocalizedText = string | { key }` dans le SDK : les paquets importés gardent des chaînes, les intégrées référencent le dictionnaire de l’hôte.
-- Le réglage vit dans `settings-v1.json` (`locale`), pas dans le workspace : c’est une préférence d’application.
+- Le réglage (`locale`) vit dans les préférences de l’application, pas dans le workspace. Le snapshot `settings` dans `spark.db` remplace le fichier d’origine `settings-v1.json`.
 - Sélecteur dans **Paramètres → Langue**, avec nom natif et emoji drapeau. Choix motivé par le rendu macOS ; le nom natif reste lisible si l’emoji n’est pas rendu.
 - Repli sur l’anglais quand la langue du système n’est pas prise en charge ; une langue enregistrée gagne toujours.
 - Changement à chaud, sans redémarrage. Les effets qui possèdent une ressource (PTY, CodeMirror, PDF) ne dépendent jamais de la locale.

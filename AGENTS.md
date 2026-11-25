@@ -24,9 +24,9 @@
 
 ## Dépôts et paquets
 
-- Un dépôt est un index JSON statique ; les sources sont persistées dans `extensions.json` et limitées à 20.
+- Un dépôt est un index JSON statique ; les sources sont persistées dans `spark.db` et limitées à 20.
 - Les zips sont vérifiés par SHA-256 avant extraction. En release, seules les URL HTTPS sont acceptées ; localhost est toléré en debug.
-- L’installation est atomique et validée côté Rust. Une mise à jour réinstalle le paquet puis réactive l’extension ; aucune installation automatique.
+- L’installation est validée côté Rust ; SQLite publie la nouvelle référence après le renommage du paquet, sans écraser le précédent. Une mise à jour réinstalle le paquet puis réactive l’extension ; aucune installation automatique.
 - Modifier `examples/hello-extension*.zip` impose de recalculer le SHA-256 dans `examples/registry.json`.
 - Aucune signature n’est vérifiée aujourd’hui. Ne pas afficher un sceau certifié pour un paquet communautaire.
 - La galerie d’un dépôt s’ouvre au clic sur le dépôt et après l’ajout ; elle montre les extensions sans installation préalable.

@@ -39,13 +39,13 @@ Une tuile peut aussi déléguer son contenu à une vue native : le navigateur we
 
 ## Workspace et persistance
 
-- Le workspace est sérialisé en `workspace-v1.json`.
+- Le workspace est sérialisé en JSON et sauvegardé dans `spark.db`.
 - Les snapshots d’état des extensions vivent dans `WorkspaceState.extensions`.
 - Les écritures passent par `createPersistence` : debounce de 180 ms, écritures sérialisées, récupération de la dernière version non écrite.
-- Le journal est en mémoire, borné à 512 entrées ; `src/core/activity.ts` le projette en étapes persistées dans `activity.db`.
+- Le journal est en mémoire, borné à 512 entrées ; `src/core/activity.ts` le projette en étapes persistées dans les tables d’activité de `spark.db`.
 - L’historique est chargé à la demande quand l’onglet devient actif, puis fusionné avec les actions arrivées pendant le chargement.
 - `src/app/activity.ts` relie la vue aux commandes Tauri et applique les inverses. Dans `src/ui/activity.tsx`, Motion joue la dispersion puis anime la hauteur réelle de la ligne ou du groupe retiré ; la liste et le panneau se redimensionnent ensemble.
-- Les préférences (`dev`) sont séparées dans `settings-v1.json`.
+- Les préférences (`dev`, `locale`) vivent dans un snapshot séparé du workspace.
 
 Voir [le workspace](workspace.md) et [la persistance](../operations/persistence.md).
 

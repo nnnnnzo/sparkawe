@@ -85,6 +85,13 @@
       "skillPath": "skills/explain-interface/SKILL.md",
       "computedHash": "21ac62910306392f1ba935a1fd1d80dfd87e4ba0d83fefcfc3206043fd8d2c2e"
     },
+    "hooked-ux": {
+      "source": "wondelai/skills",
+      "commit": "c37678106e63ef1c5472d848fb3d8b8c5b33fafe",
+      "sourceType": "github",
+      "skillPath": "hooked-ux/SKILL.md",
+      "computedHash": "9f55e584f531116042217282b73a8b515d939d91047fb7b9eacc94f9c8da7789"
+    },
     "interface-review": {
       "source": "jakubkrehel/skills",
       "commit": "672ae44ace6aaed65b86cbb1e2fd6fbea0e79578",

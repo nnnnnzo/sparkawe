@@ -34,7 +34,7 @@ interface Tile {
 
 - `Tile.data` ne contient que des chaînes, pour rester sérialisable et borné.
 - `WorkspaceState.extensions` est indexé par identifiant d’extension et contient ce que l’extension a sauvegardé.
-- Le workspace est un document ; les paquets installés et les sources vivent séparément dans `extensions.json`.
+- Le workspace est un document ; les paquets installés et les sources vivent dans des tables séparées de `spark.db`.
 
 ## Modes
 
@@ -50,6 +50,8 @@ Chaque onglet garde une disposition par mode. Le mode actif est stocké dans `Ta
 - `⌘K` sur macOS, `Ctrl+K` ailleurs : ouvre ou ferme la palette de commandes.
 - Ces raccourcis ne capturent pas les champs de saisie, l’éditeur Markdown ni le terminal.
 
+Pendant le glisser d’un séparateur, Dockview redimensionne les groupes sans animation. Le contenu DOM visible vit dans le groupe et suit la même géométrie ; les proportions sont enregistrées au relâchement. Les portails React des tuiles restent montés, même si Dockview détache le DOM d’un panneau masqué.
+
 ## Cycle de vie
 
 - `seedCoreExtensions` active le socle lors d’une nouvelle installation et le propose une seule fois par espace.
@@ -63,14 +65,14 @@ Chaque onglet garde une disposition par mode. Le mode actif est stocké dans `Ta
 Une tuile peut déléguer son contenu à une vue native — c’est le cas du navigateur web. Trois règles alors :
 
 - la tuile ne rend qu’un **rectangle mesuré** (`ResizeObserver`, `resize`, `scroll`, changements de disposition) et transmet sa boîte en pixels logiques ;
-- une vue native ne suit ni les animations FLIP de Dockview ni un `transform` : `src/ui/layoutSignal.ts` annonce le début et la fin d’un glissement, et la tuile masque sa vue pendant l’animation (avec son fondu) comme les autres tuiles, puis la replace exactement à la fin.
+- une vue native ne suit pas un `transform` : `src/ui/layoutSignal.ts` annonce le début et la fin du déplacement animé d’un groupe. La tuile masque sa vue pendant cette animation et la replace à la fin. Pendant le glisser du séparateur, elle suit le rectangle mesuré sans rouvrir la page.
 - Spark masque un onglet par `visibility` : un rectangle non nul ne suffit pas, la tuile vérifie aussi la visibilité calculée et que rien ne recouvre la page (Store, menu, dialogue) avant d’afficher quoi que ce soit. Une vue native passe au-dessus du DOM : toute couche flottante qui la chevauche la masque le temps qu’elle est ouverte. Pendant un glisser-déposer, la tuile navigateur remplace sa vue native par une image de la page (`web_snapshot`) : la page reste visible et la vignette d’onglet comme la cible de dépôt passent au-dessus. Le menu de déplacement d’une tuile échappe à la règle parce que c’est un menu du système, dessiné au-dessus de tout.
 
 Les panneaux restent montés quand on change d’onglet, donc une vue native survit aux re-rendus ; elle est fermée avec la tuile et à la désactivation de l’extension.
 
 ## Placement d’une tuile ouverte par une autre
 
-`src/ui/layoutPlacement.ts` transporte une demande volatile : la tuile à ouvrir et la tuile de référence. `syncPanels` la consomme en ajoutant le panneau avec `direction: "within"`, donc en onglet du même groupe, quel que soit le mode de l’espace. Rien n’entre dans `workspace-v1.json` : la place est calculée une fois, puis la disposition redevient celle de Dockview.
+`src/ui/layoutPlacement.ts` transporte une demande volatile : la tuile à ouvrir et la tuile de référence. `syncPanels` la consomme en ajoutant le panneau avec `direction: "within"`, donc en onglet du même groupe, quel que soit le mode de l’espace. La demande n’est pas enregistrée dans le snapshot : la place est calculée une fois, puis la disposition redevient celle de Dockview.
 
 ## Identifiants
 
@@ -97,9 +99,9 @@ Le journal ne remplace pas l’état : il raconte les changements. Il est borné
 - Les déplacements et redimensionnements sont journalisés par le moteur de disposition (`layout.move`, `layout.resize`, `layout.undo`, `layout.redo`), avec la disposition d’avant et, pour un déplacement, l’ancrage précédent.
 - Une étape peut être annulée : ses effets sont rejoués à l’envers, ou la disposition d’avant est restaurée. Une action fournit son inverse via `TileAction.inverse`.
 - Pour Markdown, annuler une édition restaure le texte de l’éditeur. Annuler un enregistrement réécrit le fichier seulement si son contenu n’a pas changé depuis cet enregistrement.
-- En cas de succès, la ligne se disperse, puis les lignes restantes remontent et le panneau change de hauteur dans le même mouvement. Si la réduction des animations est activée, il n’y a ni particules ni déplacement animé. L’étape disparaît aussi de `activity.db`.
+- En cas de succès, la ligne se disperse, puis les lignes restantes remontent et le panneau change de hauteur dans le même mouvement. Si la réduction des animations est activée, il n’y a ni particules ni déplacement animé. L’étape disparaît aussi de la table d’activité.
 - La vue groupe par jour et par session. L’en-tête porte l’icône de l’agent ; chaque ligne indentée garde l’icône de l’action et un fil d’Ariane `onglet › objet`. La liste reste défilable sans barre visible. À vide, elle affiche « Aucune action d’agent dans cet onglet. »
-- La persistance est décrite dans [la persistance](../operations/persistence.md#activitydb). L’onglet actif charge ses étapes à la demande.
+- L’onglet actif charge ses étapes à la demande. Voir [la persistance](../operations/persistence.md#activité-des-agents).
 - Les instantanés trop gros sont retirés : l’action reste visible, la flèche explique pourquoi elle ne peut pas revenir en arrière.
 
 ## Brief
@@ -108,10 +110,10 @@ Le journal ne remplace pas l’état : il raconte les changements. Il est borné
 
 ## Persistance
 
-- `workspace-v1.json` est écrit après un debounce de 180 ms.
+- Le snapshot du workspace est écrit dans `spark.db` après un debounce de 180 ms.
 - Les écritures sont sérialisées ; une écriture plus ancienne ne peut pas écraser une plus récente.
-- L’activité des agents vit dans `activity.db` (SQLite), séparément du document ; voir [la persistance](../operations/persistence.md#activitydb).
-- En cas de reprise après un format invalide, le runtime part d’un workspace initial et marque `recovery` ; la première sauvegarde copie l’ancien fichier dans `workspace-recovery.json`.
-- La fermeture de la fenêtre attend `persistence.flush()` avant de détruire la fenêtre.
+- L’activité des agents vit dans des tables séparées du document ; voir [la persistance](../operations/persistence.md#activité-des-agents).
+- Si le snapshot est invalide, le runtime part d’un workspace initial et marque `recovery` ; la première sauvegarde conserve l’ancien snapshot dans `workspace_recovery`.
+- La fermeture de la fenêtre attend les écritures de l’activité, du workspace et des réglages avant de la détruire.
 
 Voir [la persistance](../operations/persistence.md).

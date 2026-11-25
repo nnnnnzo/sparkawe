@@ -6,10 +6,11 @@ Le backend est local. Il n’expose pas de serveur HTTP ; la fenêtre communique
 
 | Module | Rôle |
 |---|---|
-| `storage.rs` | Dossier de configuration, écritures atomiques, workspace, grants de chemins. |
-| `activity.rs` | `activity.db` SQLite : étapes d’activité, vues par onglet, élagage et effacement. |
+| `database.rs` | Ouverture, verrouillage, schéma et migration de `spark.db`. |
+| `storage.rs` | Dossier de configuration, snapshots, autorisations de chemins et écritures de fichiers atomiques. |
+| `activity.rs` | Étapes d’activité dans SQLite, vues par onglet, élagage et effacement. |
 | `extensions.rs` | Paquets importés, sources/dépôts, index, zip, validation, état d’installation. |
-| `settings.rs` | `settings-v1.json`. |
+| `settings.rs` | Préférences applicatives dans SQLite. |
 | `markdown.rs` | Sélection, lecture et écriture de fichiers Markdown, grants. |
 | `explorer.rs` | Sélection de dossier, listage, ouverture Markdown, grants. |
 | `terminal/` | Sessions PTY, entrée/sortie, redimensionnement, zsh. |
@@ -46,22 +47,15 @@ Le dossier est `app_config_dir()`, soit sur macOS `~/Library/Application Support
 
 | Fichier/dossier | Contenu |
 |---|---|
-| `workspace-v1.json` | Espace, onglets, tuiles, disposition, état par extension. |
-| `workspace-recovery.json` | Copie de secours créée lors d’une reprise. |
-| `activity.db` | Étapes d’activité des agents (SQLite, WAL, 30 par onglet). |
-| `settings-v1.json` | Préférences applicatives. |
-| `extensions.json` | Extensions installées, versions, sources et dépôts. |
-| `extensions/<id>/<version>/` | Paquets importés extraits. |
-| `markdown-access.json` | Grants de fichiers Markdown. |
-| `explorer-access.json` | Grants de dossiers. |
-| `preview-access.json` | Grants de fichiers ouverts par l’Aperçu. |
+| `spark.db` | Workspace, copie de récupération, réglages, paquets installés, sources, autorisations et activité des agents. |
+| `extensions/<id>/<version>-<uuid>/` | Paquets importés extraits. Les chemins des paquets migrés sont inchangés. |
 | `run/mcp.sock` | Socket MCP local. |
 | `run/tools.json` | Cache d’outils MCP pour les clients. |
 | cache applicatif `preview/<id>.bin` | Fichiers téléchargés pour l’Aperçu (PDF, images, textes). |
 | cache applicatif `web/profile/` | Profil du webview sous Windows et Linux ; macOS utilise `~/Library/WebKit/<identifiant>/`. |
 | cache applicatif `web/text/<tuile>.txt` | Texte de page extrait pour un agent. |
 
-Le dossier `fr.lab.desktop` de l’ancienne identité est repris au premier lancement si `fr.spark.desktop` n’existe pas encore. Les fichiers existants ne sont jamais écrasés.
+Voir [la persistance](../operations/persistence.md) pour la reprise des anciens formats, dont le dossier `fr.lab.desktop`.
 
 ## Extensions importées
 
@@ -69,7 +63,8 @@ Le dossier `fr.lab.desktop` de l’ancienne identité est repris au premier lanc
 - Les chemins absolus, `..`, les liens symboliques, `.git` et `node_modules` sont refusés ou ignorés.
 - Limites : 256 Kio de manifeste, 400 fichiers, 25 Mio décompressés, profondeur 8, 20 types de tuiles, 8 captures.
 - Un zip est limité à 30 Mio, vérifié par SHA-256 avant extraction.
-- L’installation est atomique : staging puis renommage. L’état `extensions.json` est écrit après succès.
+- L’installation prépare un nouveau dossier et ne publie sa référence SQLite qu’après le renommage. Tant que la transaction n’est pas validée, le paquet précédent reste utilisable.
+- Au démarrage, Spark retire les anciennes extractions non référencées et les dossiers de préparation interrompus, sous le verrou du profil.
 - Les URL sont HTTPS en release ; `http://127.0.0.1` et `http://localhost` sont tolérés en debug pour les dépôts de test.
 
 Voir [le format du paquet](../extensions/package.md), [les dépôts](../extensions/registry.md) et [le modèle de confiance](../security/trust-model.md).

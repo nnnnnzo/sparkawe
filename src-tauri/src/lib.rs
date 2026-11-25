@@ -1,5 +1,6 @@
 mod activity;
 mod agents;
+mod database;
 mod explorer;
 mod extensions;
 mod markdown;
@@ -20,39 +21,43 @@ use tauri::Manager;
 /// Reprend les données laissées par l'ancien identifiant `fr.lab.desktop`.
 /// Les fichiers déjà présents ne sont jamais écrasés et l'ancien dossier reste
 /// en place comme sauvegarde. Le socket obsolète n'est pas copié.
-fn migrate_legacy_config(path: &Path) {
+fn migrate_legacy_config(path: &Path) -> std::io::Result<()> {
     let Some(parent) = path.parent() else {
-        return;
+        return Ok(());
     };
     let marker = path.join(".migrated-from-lab");
     let legacy = parent.join("fr.lab.desktop");
-    if marker.exists() || legacy == path || !legacy.is_dir() {
-        return;
+    if marker.try_exists()? || legacy == path || !legacy.try_exists()? {
+        return Ok(());
     }
-    match copy_missing(&legacy, path, Some("mcp.sock")) {
-        Ok(()) => {
-            let _ = std::fs::write(marker, "spark 0.1\n");
-        }
-        Err(error) => {
-            eprintln!("Reprise des données de l’ancienne application impossible : {error}")
-        }
-    }
+    copy_missing(&legacy, path, true)?;
+    storage::atomic_write(&marker, b"spark 0.1\n")
 }
 
-fn copy_missing(from: &Path, to: &Path, skip: Option<&str>) -> std::io::Result<()> {
+fn copy_missing(from: &Path, to: &Path, root: bool) -> std::io::Result<()> {
     std::fs::create_dir_all(to)?;
     for entry in std::fs::read_dir(from)? {
         let entry = entry?;
         let name = entry.file_name();
-        if skip == name.to_str() {
+        let name_str = name.to_str().unwrap_or_default();
+        if root
+            && (name_str.starts_with(".spark-")
+                || matches!(name_str, "run" | "mcp.sock")
+                || ["activity.db", "spark.db"].iter().any(|db| {
+                    name_str == *db
+                        || name_str
+                            .strip_prefix(db)
+                            .is_some_and(|tail| tail.starts_with('-'))
+                }))
+        {
             continue;
         }
         let target = to.join(&name);
         let file_type = entry.file_type()?;
         if file_type.is_dir() {
-            copy_missing(&entry.path(), &target, skip)?;
-        } else if file_type.is_file() && !target.exists() {
-            std::fs::copy(entry.path(), &target)?;
+            copy_missing(&entry.path(), &target, false)?;
+        } else if file_type.is_file() && !target.try_exists()? {
+            storage::atomic_write(&target, &std::fs::read(entry.path())?)?;
         }
     }
     Ok(())
@@ -78,17 +83,22 @@ pub fn run() {
         .manage(web::Pages::default())
         .setup(|app| {
             let path = app.path().app_config_dir()?;
-            migrate_legacy_config(&path);
+            let storage = storage::Storage::new(path);
+            app.manage(markdown::MarkdownStorage::new(&storage));
+            app.manage(explorer::ExplorerStorage::new(&storage));
+            app.manage(preview::PreviewStorage::new(&storage));
+            let ready = storage.db().map(|_| ());
+            app.manage(storage);
+            if let Err(error) = ready {
+                // workspace_load transmettra la même erreur à l’écran de démarrage.
+                eprintln!("{error}");
+                return Ok(());
+            }
             // Vibe met ses outils en cache : on le vide pour que la prochaine
             // session voie la liste courante, même après une mise à jour.
             if let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) {
                 agents::clear_vibe_descriptors(&home);
             }
-            app.manage(activity::ActivityDb::open(&path.join("activity.db")));
-            app.manage(markdown::MarkdownStorage::new(&path));
-            app.manage(explorer::ExplorerStorage::new(&path));
-            app.manage(preview::PreviewStorage::new(&path));
-            app.manage(storage::Storage::new(path).map_err(std::io::Error::other)?);
             match mcp::McpServer::start(app.handle().clone()) {
                 Ok(server) => {
                     app.manage(server);
@@ -252,7 +262,7 @@ mod tests {
         std::fs::create_dir_all(&current).unwrap();
         std::fs::write(current.join("workspace-v1.json"), "actuel").unwrap();
 
-        migrate_legacy_config(&current);
+        migrate_legacy_config(&current).unwrap();
 
         assert_eq!(
             std::fs::read_to_string(current.join("workspace-v1.json")).unwrap(),
@@ -262,16 +272,13 @@ mod tests {
             std::fs::read_to_string(current.join("settings.json")).unwrap(),
             "reglages"
         );
-        assert_eq!(
-            std::fs::read_to_string(current.join("run/tools.json")).unwrap(),
-            "outils"
-        );
+        assert!(!current.join("run/tools.json").exists());
         assert!(!current.join("run/mcp.sock").exists());
         assert!(legacy.join("workspace-v1.json").exists());
 
         assert!(current.join(".migrated-from-lab").exists());
         std::fs::remove_file(current.join("settings.json")).unwrap();
-        migrate_legacy_config(&current);
+        migrate_legacy_config(&current).unwrap();
         assert!(!current.join("settings.json").exists());
 
         std::fs::remove_dir_all(root).unwrap();

@@ -5,29 +5,37 @@
 - Configuration : `app_config_dir()` ; sur macOS `~/Library/Application Support/fr.spark.desktop/`.
 - Cache : `app_cache_dir()` ; aperçus dans `preview/<id>.bin`, texte extrait dans `web/text/`.
 - Profil du navigateur : `web/profile/` sous Windows et Linux. Sous macOS, WKWebView range cookies et stockage dans le magasin WebKit de l’application (`~/Library/WebKit/fr.spark.desktop/`) : `data_directory` y est ignoré.
-- L’ancien dossier `fr.lab.desktop` est repris au premier lancement, sans écraser les fichiers existants.
+- Les fichiers manquants de l’ancien dossier `fr.lab.desktop` sont repris avant de créer la base, sans recopier les fichiers SQLite ni les artefacts MCP.
 
 ## Fichiers
 
 | Chemin | Écrit par | Contenu |
 |---|---|---|
-| `workspace-v1.json` | front | Onglets, tuiles, disposition, état par extension, thème. |
-| `workspace-recovery.json` | front/Rust | Copie de secours lors d’une reprise. |
-| `activity.db` | Rust | Activité des agents (SQLite, 30 étapes par onglet). |
-| `activity.db-wal`, `activity.db-shm` | SQLite | Journal WAL et mémoire partagée de `activity.db`. |
-| `settings-v1.json` | Rust | `{ "dev": boolean, "locale": "fr" }`. |
-| `extensions.json` | Rust | Paquets installés, versions, sources. |
-| `extensions/<id>/<version>/` | Rust | Paquet extrait (`extension.json`, bundle, styles, icône, médias). |
-| `markdown-access.json` | Rust | Tokens de fichiers Markdown autorisés. |
-| `explorer-access.json` | Rust | Tokens de dossiers autorisés. |
-| `preview-access.json` | Rust | Tokens de fichiers autorisés pour l’Aperçu. |
+| `spark.db` | Rust | Workspace, récupération, réglages, paquets, sources, autorisations et activité. |
+| `spark.db-wal`, `spark.db-shm` | SQLite | Journal WAL et mémoire partagée ; peuvent exister tant que la base est ouverte. |
+| `.spark-storage.lock` | Rust | Fichier de verrouillage du profil ; le verrou est libéré à l’arrêt du processus. |
+| `.spark-db-initialized` | Rust | Témoin qui évite de recréer un profil à partir de sauvegardes obsolètes si la base disparaît. |
+| `extensions/<id>/<version>-<uuid>/` | Rust | Paquet extrait (`extension.json`, bundle, styles, icône, médias). Le chemin des paquets déjà installés est conservé. |
 | `run/mcp.sock` | Rust | Socket MCP local. |
 | `run/tools.json` | Rust | Cache d’outils pour le sidecar. |
 | `preview/<id>.bin` | Rust | Fichiers téléchargés pour l’Aperçu. |
 | `web/profile/` | webview | Profil du navigateur sous Windows et Linux ; macOS utilise `~/Library/WebKit/fr.spark.desktop/`. |
 | `web/text/<tuile>.txt` | Rust | Texte de page extrait pour un agent. |
 
-## `workspace-v1.json`
+## `spark.db`
+
+SQLite embarqué (`rusqlite`, fonctionnalités `bundled` et `backup`). `PRAGMA user_version = 2`. Une seule connexion Rust sérialisée par profil : `journal_mode = WAL`, `synchronous = FULL`, `secure_delete = ON`, `busy_timeout = 5000`. Le fichier est créé en `0600` sur Unix. La base reste locale et n’est pas chiffrée.
+
+| Table | Données |
+|---|---|
+| `snapshots` | `workspace`, `workspace_recovery` et `settings`. Les snapshots JSON sont conservés en octets pour préserver les formats existants et permettre la récupération d’un workspace invalide. |
+| `installed_packages` | Par ID de paquet : `version`, `path` relatif au dossier de configuration, `source` facultative (URL du dépôt). |
+| `registry_sources` | URL, nom et position de chaque dépôt (20 au maximum). |
+| `path_grants` | Chemin correspondant à un token dans un seul type d’accès : Markdown, Explorateur ou Aperçu. |
+| `agent_activity`, `agent_activity_seen` | Étapes d’activité et dernière consultation par onglet. |
+| `storage_migration` | Indique si le retrait de l’ancienne base d’activité doit être terminé. |
+
+### Snapshot du workspace
 
 ```json
 {
@@ -52,9 +60,7 @@
 - `extensions` contient l’état sauvegardé par chaque extension.
 - Les surfaces de tuiles et le journal ne sont pas persistés.
 
-## `activity.db`
-
-SQLite local, ouvert par `src-tauri/src/activity.rs` avec `rusqlite` (`bundled`). `PRAGMA user_version = 1`.
+### Activité des agents
 
 ```sql
 CREATE TABLE agent_activity (
@@ -76,15 +82,12 @@ CREATE TABLE agent_activity_seen (
 
 - `payload` contient une étape complète : session, effets, résumé et inverses. Le format est validé côté front au chargement.
 - **30 étapes par onglet**, **2 Mio par étape** et **4 Mio au total** ; l’étape la plus récente est toujours conservée. Au-delà, les plus anciennes sont supprimées.
-- `PRAGMA journal_mode = WAL`, `synchronous = NORMAL`, `secure_delete = ON`, `busy_timeout = 5000`.
-- Le fichier est créé en `0600` sur Unix ; les fichiers WAL/SHM sont créés à côté.
 - `activity_revert` marque une étape après l’exécution réussie de son inverse. Le front appelle ensuite `activity_forget` pour supprimer la ligne par identifiant. La commande ne vérifie pas le marqueur.
 - `activity_load` retire d’abord les lignes marquées `reverted_at`, y compris celles d’autres onglets. Cela évite de réafficher une action si Spark s’est arrêté avant sa suppression.
 - `activity_clear` supprime les étapes et les dates de dernière consultation de tous les onglets, puis fait un checkpoint WAL.
-- Une base illisible ou trop récente ne bloque pas le démarrage : les commandes renvoient une erreur, l’interface garde l’activité en mémoire pour la session.
-- Les instantanés Markdown/Données peuvent contenir du contenu local. Ils restent dans ce fichier, ne sont jamais envoyés par MCP, et s’effacent depuis la timeline.
+- `activity_clear` ne modifie pas les autres tables. Les instantanés Markdown/Données peuvent contenir du contenu local. Ils restent en base, ne sont jamais envoyés par MCP, et s’effacent depuis la timeline.
 
-## `settings-v1.json`
+### Snapshot des réglages
 
 ```json
 { "dev": false, "locale": "fr" }
@@ -94,42 +97,25 @@ CREATE TABLE agent_activity_seen (
 - `locale` vaut `fr`, `en`, `es`, `de`, `it`, `pt`, `ja` ou `zh` ; une valeur inconnue retombe sur la langue détectée du système, puis sur l’anglais.
 - Le fichier est écrit par `settings_save` à partir du snapshot du front, avec le même debounce que le workspace.
 
-## `extensions.json`
-
-```json
-{
-  "version": 1,
-  "extensions": {
-    "demo.hello": {
-      "version": "0.3.0",
-      "path": "extensions/demo.hello/0.3.0",
-      "source": "http://127.0.0.1:1420/examples/registry.json"
-    }
-  },
-  "sources": [
-    {
-      "url": "http://127.0.0.1:1420/examples/registry.json",
-      "name": "Dépôt de démonstration"
-    }
-  ]
-}
-```
-
-- `path` est relatif au dossier de configuration.
-- `source` est absent pour un import local.
-- Les versions précédentes peuvent rester sur disque ; l’état pointe la version courante.
-
 ## Écritures
 
-- `atomic_write` écrit dans un fichier temporaire, synchronise, puis renomme. Les fichiers créés sont en `0600` sur Unix.
-- Les réglages, l’état des extensions et les sources utilisent cette écriture.
+- `atomic_write` reste utilisé pour les fichiers qui ne vont pas en base (par exemple les documents Markdown et le cache MCP). Il écrit dans un fichier temporaire, synchronise, puis renomme. Les nouveaux fichiers sont créés en `0600` sur Unix.
 - Le workspace et les réglages passent par `createPersistence` : debounce de 180 ms, écritures sérialisées, réessai de la dernière version non écrite.
-- La fermeture de la fenêtre attend le flush avant `window.destroy()`.
+- Les commandes de stockage utilisent des workers Rust pour ne pas attendre l’accès à SQLite ou la synchronisation disque sur le thread de la fenêtre. Le panneau Activité envoie ses opérations dans l’ordre, y compris les lectures et l’effacement.
+- La fermeture de la fenêtre attend le flush de l’activité, du workspace et des réglages avant `window.destroy()`.
+
+## Migration vers `spark.db`
+
+1. Fermer toute ancienne instance avant le premier lancement. La nouvelle version prend un verrou par profil avant d’ouvrir ou de migrer la base.
+2. Si `spark.db` n’existe pas encore, Spark construit une copie temporaire. La sauvegarde SQLite de `activity.db` inclut les écritures validées encore dans le WAL. Les anciens JSON (`workspace-v1.json`, `workspace-recovery.json`, `settings-v1.json`, `extensions.json` et les trois `*-access.json`) sont importés dans une transaction.
+3. Après contrôle du schéma et de l’intégrité, Spark publie la base par renommage dans le même dossier. Une interruption avant la publication peut être retentée à partir des sources intactes. Un registre d’extensions ou d’autorisations illisible arrête l’import et affiche une erreur.
+4. Après publication, Spark compare les étapes et les dates de consultation sous verrou exclusif, avant d’accepter de nouvelles écritures. Si l’ancienne base a divergé, Spark affiche une erreur et conserve les deux bases sans les fusionner. Sur Unix, Spark replie le WAL dans `activity.db` avant de retirer le journal et la base ; un retrait interrompu peut reprendre au lancement suivant. Sous Windows, l’ancienne base est conservée comme sauvegarde plutôt que de la supprimer après avoir relâché le verrou.
+5. Les anciens JSON restent en place comme sauvegardes, mais ne sont plus lus ni écrits. Le retour à une ancienne version de Spark n’est pas pris en charge : elle ne voit pas les écritures dans `spark.db`.
 
 ## Reprise
 
-- Un workspace illisible ou invalide repart d’un état initial.
-- Le runtime marque `recovery` ; la première sauvegarde copie l’ancien fichier dans `workspace-recovery.json` s’il n’existe pas.
+- Un snapshot de workspace invalide repart d’un état initial. Le runtime marque `recovery` ; la première sauvegarde conserve les octets précédents dans `workspace_recovery` si la copie n’existe pas encore.
+- Si la base est indisponible ou si son schéma n’est pas pris en charge, Spark affiche une erreur au démarrage au lieu de créer un workspace vide.
 - Les identifiants `lab.*` sont migrés vers `spark.*` au chargement.
 - Les anciennes tuiles `openalex.pdf` et `preview.pdf` deviennent `preview.file` avec `kind: "pdf"`.
 

@@ -40,6 +40,7 @@ async function start() {
     try {
       await runtime.activity.flush();
       await runtime.persistence.flush();
+      await runtime.settingsPersistence.flush();
       await window.destroy();
     } catch (error) {
       report(error);

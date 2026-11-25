@@ -23,6 +23,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { KeyboardEvent } from "react";
+import { AnimatePresence } from "motion/react";
 import type { Runtime } from "../app/runtime.ts";
 import { localized } from "../core/i18n.ts";
 import { useI18n } from "../i18n/react.ts";
@@ -71,9 +72,12 @@ import { Icon } from "./icons.tsx";
 import { WorkspaceLayout } from "./layout.tsx";
 import { Rail } from "./rail.tsx";
 import { StorePage } from "./store/page.tsx";
+import { tabDropTarget } from "./tabDrop.ts";
 
 const macOS = navigator.platform.toLowerCase().includes("mac");
 const modifier = macOS ? "⌘" : "Ctrl+";
+const tabDragType = "application/x-spark-tab";
+const motionPreference = "(prefers-reduced-motion: reduce)";
 
 export function SparkShell({ runtime }: { runtime: Runtime }) {
   const { workspace, registry } = runtime;
@@ -89,6 +93,17 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
   const nextTab = state.tabs[currentIndex + 1];
   const [palette, setPalette] = useState(false);
   const [store, setStore] = useState(false);
+  const [storeLeaving, setStoreLeaving] = useState(false);
+  const restoreStoreFocus = useRef(false);
+  const tabList = useRef<HTMLDivElement>(null);
+  const tabPositions = useRef(new Map<string, number>());
+  const tabAnimations = useRef<Animation[]>([]);
+  const [draggedTab, setDraggedTab] = useState<string>();
+  const [dropEdge, setDropEdge] = useState<{
+    id: string;
+    edge: "before" | "after";
+  }>();
+  const modeControl = useRef<HTMLDivElement>(null);
   const [rename, setRename] = useState<Tab>();
   const [brief, setBrief] = useState(false);
   const [unread, setUnread] = useState<ReadonlySet<string>>(new Set());
@@ -135,19 +150,29 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
     [workspace],
   );
   const closeStore = useCallback((restoreFocus = true) => {
+    restoreStoreFocus.current = restoreFocus;
+    setStoreLeaving(true);
     setStore(false);
-    if (restoreFocus)
-      requestAnimationFrame(() =>
-        document.getElementById("store-trigger")?.focus(),
-      );
   }, []);
-  const run = useCallback((command: Command) => {
-    setPalette(false);
-    setStore(false);
-    void Promise.resolve()
-      .then(() => command.run())
-      .catch(report);
-  }, []);
+  const finishStoreExit = useCallback(() => setStoreLeaving(false), []);
+  useLayoutEffect(() => {
+    if (store || storeLeaving || !restoreStoreFocus.current) return;
+    restoreStoreFocus.current = false;
+    document.getElementById("store-trigger")?.focus();
+  }, [store, storeLeaving]);
+  const dismissStore = useCallback(() => {
+    if (store) closeStore(false);
+  }, [closeStore, store]);
+  const run = useCallback(
+    (command: Command) => {
+      setPalette(false);
+      dismissStore();
+      void Promise.resolve()
+        .then(() => command.run())
+        .catch(report);
+    },
+    [dismissStore],
+  );
 
   const [coreCommands] = useState<Command[]>(() => {
     const commands: Command[] = [
@@ -254,6 +279,61 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
       );
   }, [state.theme]);
   useLayoutEffect(() => {
+    const tabs =
+      tabList.current?.querySelectorAll<HTMLElement>("[data-tab-id]");
+    if (!tabs) return;
+    const previous = tabPositions.current;
+    const orderChanged =
+      Array.from(tabs, (tab) => tab.dataset.tabId).join("|") !==
+      Array.from(previous.keys()).join("|");
+    const reduced = window.matchMedia(motionPreference).matches;
+    if (orderChanged) {
+      for (const animation of tabAnimations.current) animation.cancel();
+      tabAnimations.current = [];
+    }
+    const next = new Map<string, number>();
+    for (const tab of tabs) {
+      const id = tab.dataset.tabId!;
+      const x = tab.offsetLeft;
+      const from = previous.get(id);
+      next.set(id, x);
+      if (reduced || !orderChanged || !previous.size || from === x) continue;
+      tabAnimations.current.push(
+        tab.animate(
+          from === undefined
+            ? [
+                { opacity: 0, transform: "translateY(2px)" },
+                { opacity: 1, transform: "none" },
+              ]
+            : [
+                { transform: `translateX(${from - x}px)` },
+                { transform: "none" },
+              ],
+          {
+            duration: from === undefined ? 140 : 160,
+            easing: "cubic-bezier(.2,.7,.2,1)",
+          },
+        ),
+      );
+    }
+    tabPositions.current = next;
+  }, [state.tabs]);
+  useLayoutEffect(() => {
+    const control = modeControl.current;
+    const selected = control?.querySelector<HTMLElement>('[data-state="on"]');
+    if (!control || !selected) return;
+    const position = () => {
+      const x = selected.offsetLeft + selected.offsetWidth / 2;
+      control.style.setProperty("--mode-x", `${x}px`);
+    };
+    position();
+    const observer = new ResizeObserver(position);
+    observer.observe(control);
+    for (const button of control.querySelectorAll("button"))
+      observer.observe(button);
+    return () => observer.disconnect();
+  }, [current.mode]);
+  useLayoutEffect(() => {
     document
       .getElementById(`tab-${current.id}`)
       ?.closest(".spark-tab")
@@ -304,7 +384,7 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
     event.preventDefault();
     const id = state.tabs[next].id;
     workspace.activate(id);
-    setStore(false);
+    dismissStore();
     document.getElementById(`tab-${id}`)?.focus();
   }
 
@@ -357,27 +437,66 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
           role="tablist"
           aria-label={t("shell.tabs.aria")}
           className="tab-list"
+          ref={tabList}
         >
           {state.tabs.map((tab, index) => (
             <div
               className="spark-tab"
               key={tab.id}
+              data-tab-id={tab.id}
+              data-dragging={draggedTab === tab.id || undefined}
+              data-drop-edge={
+                dropEdge?.id === tab.id ? dropEdge.edge : undefined
+              }
               draggable
               onDragStart={(event) => {
-                event.dataTransfer.setData("application/x-spark-tab", tab.id);
+                event.dataTransfer.setData(tabDragType, tab.id);
                 event.dataTransfer.effectAllowed = "move";
+                setDraggedTab(tab.id);
               }}
               onDragOver={(event) => {
+                if (!draggedTab || draggedTab === tab.id) return;
+                if (!event.dataTransfer.types.includes(tabDragType)) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                const rect = event.currentTarget.getBoundingClientRect();
+                const edge =
+                  event.clientX < rect.left + rect.width / 2
+                    ? "before"
+                    : "after";
+                setDropEdge((current) =>
+                  current?.id === tab.id && current.edge === edge
+                    ? current
+                    : { id: tab.id, edge },
+                );
+              }}
+              onDragLeave={(event) => {
                 if (
-                  event.dataTransfer.types.includes("application/x-spark-tab")
+                  event.relatedTarget instanceof Node &&
+                  event.currentTarget.contains(event.relatedTarget)
                 )
-                  event.preventDefault();
+                  return;
+                setDropEdge((current) =>
+                  current?.id === tab.id ? undefined : current,
+                );
+              }}
+              onDragEnd={() => {
+                setDraggedTab(undefined);
+                setDropEdge(undefined);
               }}
               onDrop={(event) => {
-                const id = event.dataTransfer.getData(
-                  "application/x-spark-tab",
-                );
-                if (id) workspace.reorder(id, tab.id);
+                const id = event.dataTransfer.getData(tabDragType);
+                if (!id || id !== draggedTab || id === tab.id) return;
+                event.preventDefault();
+                const rect = event.currentTarget.getBoundingClientRect();
+                const edge =
+                  event.clientX < rect.left + rect.width / 2
+                    ? "before"
+                    : "after";
+                const target = tabDropTarget(state.tabs, id, tab.id, edge);
+                if (target) workspace.reorder(id, target);
+                setDraggedTab(undefined);
+                setDropEdge(undefined);
               }}
             >
               <Tooltip delayDuration={500}>
@@ -391,7 +510,7 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
                     tabIndex={current.id === tab.id ? 0 : -1}
                     onClick={() => {
                       workspace.activate(tab.id);
-                      setStore(false);
+                      dismissStore();
                     }}
                     onDoubleClick={() => setRename(tab)}
                     onKeyDown={(event) => navigateTabs(event, index)}
@@ -443,7 +562,7 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
                 value={current.id}
                 onValueChange={(id) => {
                   workspace.activate(id);
-                  setStore(false);
+                  dismissStore();
                 }}
               >
                 {state.tabs.map((tab) => (
@@ -481,7 +600,7 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
               aria-label={t("shell.tabs.new")}
               onClick={() => {
                 workspace.create();
-                setStore(false);
+                dismissStore();
               }}
             >
               <Plus data-icon="inline-start" />
@@ -500,6 +619,7 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
             type="single"
             value={current.mode}
             className="mode-control shadow-none"
+            ref={modeControl}
             aria-label={t("shell.tabs.layout")}
             variant="outline"
             size="sm"
@@ -555,8 +675,8 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
       <div className="spark-content">
         <div
           className="spark-surface"
-          inert={store || undefined}
-          aria-hidden={store || undefined}
+          inert={store || storeLeaving || undefined}
+          aria-hidden={store || storeLeaving || undefined}
         >
           <div className="spark-body">
             <Rail
@@ -579,13 +699,16 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
             />
           </div>
         </div>
-        {store && (
-          <StorePage
-            runtime={runtime}
-            onClose={closeStore}
-            dev={settings.dev}
-          />
-        )}
+        <AnimatePresence onExitComplete={finishStoreExit}>
+          {store && (
+            <StorePage
+              key="store"
+              runtime={runtime}
+              onClose={closeStore}
+              dev={settings.dev}
+            />
+          )}
+        </AnimatePresence>
       </div>
       <Dialog open={palette} onOpenChange={setPalette}>
         <DialogContent
@@ -594,8 +717,9 @@ export function SparkShell({ runtime }: { runtime: Runtime }) {
           className="overflow-hidden p-0"
           onCloseAutoFocus={(event) => {
             event.preventDefault();
-            const storeMain =
-              document.querySelector<HTMLElement>(".store-main");
+            const storeMain = document.querySelector<HTMLElement>(
+              ".spark-store:not([inert]) .store-main",
+            );
             if (storeMain) {
               storeMain.focus();
               return;

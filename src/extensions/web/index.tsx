@@ -134,9 +134,8 @@ interface Presentation {
  * vue native passe au-dessus du DOM, il faut aussi que rien ne la recouvre
  * (Store, menu, dialogue, infobulle) et qu’elle tienne dans la fenêtre.
  */
-function presentation(element: HTMLElement): Presentation {
+function presentation(element: HTMLElement, rect: DOMRect): Presentation {
   if (!element.isConnected) return { shown: false, blocked: false };
-  const rect = element.getBoundingClientRect();
   if (rect.width < 8 || rect.height < 8) {
     return { shown: false, blocked: false };
   }
@@ -174,6 +173,16 @@ function presentation(element: HTMLElement): Presentation {
     if (box.width < 2 || box.height < 2) continue;
     if (overlaps(box, rect)) return { shown: false, blocked: true };
   }
+  // Dockview désactive les événements dans les branches du split pendant
+  // le glisser de la poignée. Ce n'est pas une couche qui recouvre la page.
+  for (
+    let view = element.closest<HTMLElement>(".dv-view");
+    view;
+    view = view.parentElement?.closest<HTMLElement>(".dv-view") ?? null
+  ) {
+    if (view.style.pointerEvents === "none")
+      return { shown: true, blocked: false };
+  }
   const x = Math.round(rect.left + rect.width / 2);
   const y = Math.round(rect.top + rect.height / 2);
   const top = document.elementFromPoint(x, y);
@@ -182,28 +191,7 @@ function presentation(element: HTMLElement): Presentation {
   }
   return { shown: true, blocked: false };
 }
-
-
-/**
- * Boîte de la vue native. Pendant une animation de disposition, c’est le
- * conteneur du groupe qui bouge : l’overlay du panneau garde une géométrie
- * périmée jusqu’à la réparation. On se cale donc sur le conteneur et on y
- * reporte la position de la page.
- */
-function boxOf(element: HTMLElement): Bounds | undefined {
-  const rect = element.getBoundingClientRect();
-  const container = element.closest(".dv-content-container");
-  const overlay = element.closest(".dv-render-overlay");
-  if (container && overlay) {
-    const frame = container.getBoundingClientRect();
-    const stale = overlay.getBoundingClientRect();
-    return {
-      x: Math.round(frame.left + (rect.left - stale.left)),
-      y: Math.round(frame.top + (rect.top - stale.top)),
-      width: Math.round(rect.width),
-      height: Math.round(rect.height),
-    };
-  }
+function boxOf(rect: DOMRect): Bounds {
   return {
     x: Math.round(rect.left),
     y: Math.round(rect.top),
@@ -241,20 +229,31 @@ function Page({ tile, active, api }: TileViewProps & { api: ExtensionAPI }) {
     setPage(current.current);
   }, []);
 
+  // Une action d’agent met l’URL dans les données de la tuile avant que la
+  // vue native soit forcément montée. Rejoindre cette source de vérité permet
+  // alors à l’effet de présentation de créer la vue avec cette adresse.
+  useEffect(() => {
+    const url = tile.data.url ?? "";
+    const title = tile.data.title ?? "";
+    if (current.current.url !== url || current.current.title !== title)
+      merge({ url, title });
+  }, [merge, tile.data.title, tile.data.url]);
+
   // Mesure du rectangle de la page : glisser, redimensionner, défiler, animer
-  // une disposition et changer d’onglet changent tous sa position. Pendant une
-  // animation, on suit le conteneur du groupe image par image : la page glisse
-  // avec son cadre au lieu de disparaître ou de sauter à l’arrivée.
+  // une disposition et changer d’onglet changent tous sa position. Mesurer
+  // le rectangle du DOM, pas la géométrie intermédiaire du moteur de grille.
   useEffect(() => {
     const element = host.current;
     if (!element) return;
     let scheduled = 0;
-    let follow = 0;
-
     const measure = () => {
       scheduled = 0;
-      const next = boxOf(element);
-      if (!next) return;
+      const rect = element.getBoundingClientRect();
+      const state = presentation(element, rect);
+      setShown(state.shown);
+      setBlocked(state.blocked);
+      if (!rect.width || !rect.height) return;
+      const next = boxOf(rect);
       box.current = next;
       setBounds((previous) =>
         previous &&
@@ -263,32 +262,13 @@ function Page({ tile, active, api }: TileViewProps & { api: ExtensionAPI }) {
           ? previous
           : next,
       );
-      const state = presentation(element);
-      setShown(state.shown);
-      setBlocked(state.blocked);
       const last = placed.current;
       if (last && same(last, next)) return;
       placed.current = next;
       void placePage(tile.id, next).catch(() => {});
     };
-    /**
-     * La bascule d’un onglet du groupe est appliquée par Dockview dans son
-     * propre cycle : une seule image peut mesurer un état encore périmé. On
-     * mesure donc tout de suite, puis encore après la bascule.
-     */
     const schedule = () => {
-      measure();
       if (!scheduled) scheduled = requestAnimationFrame(measure);
-      if (follow) window.clearTimeout(follow);
-      follow = window.setTimeout(() => {
-        follow = 0;
-        measure();
-      }, 90);
-    };
-
-    const motion = () => {
-      // Le signal sert à remasurer : le masquage passe par `visible`.
-      schedule();
     };
 
     const observer = new ResizeObserver(schedule);
@@ -302,9 +282,7 @@ function Page({ tile, active, api }: TileViewProps & { api: ExtensionAPI }) {
       attributes: true,
       attributeFilter: ["inert", "aria-hidden"],
     });
-    // Une bascule d’onglet du groupe change la visibilité de l’overlay et la
-    // classe du groupe : on surveille la chaîne d’ancêtres, sinon la nouvelle
-    // page reste cachée tant que quelqu’un ne retouche pas l’onglet.
+    // Un changement d’onglet peut modifier la visibilité sans changer la taille.
     const ancestors = new MutationObserver(schedule);
     for (
       let node = element.parentElement;
@@ -318,7 +296,7 @@ function Page({ tile, active, api }: TileViewProps & { api: ExtensionAPI }) {
     }
     window.addEventListener("resize", schedule);
     window.addEventListener("scroll", schedule, true);
-    const stopMotion = subscribeLayoutMotion(motion);
+    const stopMotion = subscribeLayoutMotion(schedule);
     const stopChange = subscribeLayoutChange(schedule);
     schedule();
     return () => {
@@ -330,7 +308,6 @@ function Page({ tile, active, api }: TileViewProps & { api: ExtensionAPI }) {
       stopMotion();
       stopChange();
       if (scheduled) cancelAnimationFrame(scheduled);
-      if (follow) window.clearTimeout(follow);
     };
   }, [tile.id]);
 
@@ -394,7 +371,7 @@ function Page({ tile, active, api }: TileViewProps & { api: ExtensionAPI }) {
       window.clearTimeout(hideTimer.current);
       hideTimer.current = 0;
     }
-    const url = current.current.url;
+    const url = page.url;
     const target = box.current;
     if (!url || !target) return;
     let cancelled = false;
@@ -411,7 +388,7 @@ function Page({ tile, active, api }: TileViewProps & { api: ExtensionAPI }) {
     return () => {
       cancelled = true;
     };
-  }, [tile.id, visible, moving, blocked]);
+  }, [tile.id, visible, moving, blocked, page.url]);
 
   // Surface bornée pour le brief et les agents : jamais le contenu de la page.
   useEffect(() => {

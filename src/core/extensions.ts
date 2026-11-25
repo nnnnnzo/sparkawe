@@ -127,9 +127,16 @@ export function createExtensionManager(
       return addEntry(await installEntry(source));
     },
     async uninstall(id: string) {
-      if (!entries.has(id)) return;
+      const entry = entries.get(id);
+      if (!entry) return;
+      const wasActive = isActive(id);
       await registry.deactivate(id);
-      await removeEntry(id);
+      try {
+        await removeEntry(id);
+      } catch (error) {
+        if (wasActive) await enable(entry).catch(onError);
+        throw error;
+      }
       entries.delete(id);
       saveInstalled(
         (getInstalled() ?? []).filter((installed) => installed !== id),

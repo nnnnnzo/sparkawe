@@ -31,14 +31,12 @@ interface Tile {
 }`;
 
 const files = `~/Library/Application Support/fr.spark.desktop/
-  workspace-v1.json      onglets, tuiles, dispositions, état, thème
-  workspace-recovery.json copie écrite lors d'une reprise de format invalide
-  settings-v1.json       { "dev": boolean, "locale": "fr" }
-  extensions.json        paquets installés, versions, sources de dépôt
-  extensions/<id>/<version>/
-  markdown-access.json   jetons des fichiers Markdown autorisés
-  explorer-access.json   jetons des dossiers autorisés
-  preview-access.json    jetons des fichiers que l’Aperçu peut ouvrir
+  spark.db               workspace, copie de récupération, réglages,
+                         paquets installés, sources de dépôt,
+                         jetons d’accès et activité des agents
+  spark.db-wal           journal SQLite
+  spark.db-shm           mémoire partagée SQLite
+  extensions/<id>/<version>-<uuid>/
   run/mcp.sock           socket MCP
   run/tools.json         cache de la liste d'outils pour le pont
 
@@ -66,7 +64,7 @@ const files = `~/Library/Application Support/fr.spark.desktop/
   <ul>
     <li><code>Tile.data</code> ne contient que des chaînes : le document reste sérialisable et borné.</li>
     <li><code>extensions</code> est indexé par identifiant d’extension et contient ce que l’extension a enregistré via <code>api.state.save()</code>.</li>
-    <li>Les paquets installés et les sources de dépôt ne sont <em>pas</em> dans l’espace : ils vivent dans <code>extensions.json</code>.</li>
+    <li>Les paquets installés et les sources de dépôt vivent dans des tables séparées du workspace dans <code>spark.db</code>.</li>
   </ul>
 
   <h2>Trois modes</h2>
@@ -118,10 +116,10 @@ const files = `~/Library/Application Support/fr.spark.desktop/
   <h2>Persistance</h2>
   <pre><code>{files}</code></pre>
   <ul>
-    <li><code>workspace-v1.json</code> est écrit après un debounce de 180&nbsp;ms.</li>
+    <li>Le snapshot du workspace est écrit dans <code>spark.db</code> après un debounce de 180&nbsp;ms.</li>
     <li>Les écritures sont sérialisées : une écriture plus ancienne ne peut jamais écraser une plus récente.</li>
-    <li>Sur un format invalide, le runtime repart d’un espace neuf et marque <code>recovery</code> ; la première sauvegarde copie l’ancien fichier dans <code>workspace-recovery.json</code> au lieu de le détruire.</li>
-    <li>La fermeture de la fenêtre attend <code>persistence.flush()</code> avant de la détruire.</li>
+    <li>Si le snapshot est invalide, Spark ouvre un espace neuf et conserve le snapshot précédent dans <code>workspace_recovery</code> à la première sauvegarde. Si la base est indisponible, Spark affiche une erreur à la place.</li>
+    <li>La fermeture de la fenêtre attend les écritures de l’activité, du workspace et des réglages.</li>
     <li>Le dossier <code>fr.lab.desktop</code> d’avant le renommage est repris au premier lancement, sans écraser les fichiers existants.</li>
   </ul>
 

@@ -202,6 +202,29 @@ test("extensions load on demand and keep their state when disabled", async () =>
   assert.deepEqual(restored, { draft: "notes" });
 });
 
+test("un échec de désinstallation laisse l’extension active", async () => {
+  const { registry, workspace } = setup();
+  const entry = catalogEntry("demo", "community");
+  workspace.patch({ installedExtensions: ["demo"] });
+  const manager = createExtensionManager(
+    registry,
+    [entry],
+    () => workspace.get().installedExtensions!,
+    (installedExtensions) => workspace.patch({ installedExtensions }),
+    (error) => assert.fail(String(error)),
+    undefined,
+    async () => {
+      throw new Error("suppression refusée");
+    },
+  );
+
+  await manager.restore();
+  await assert.rejects(manager.uninstall("demo"), /suppression refusée/);
+  assert.deepEqual(registry.getExtensions().map(({ id }) => id), ["demo"]);
+  assert.deepEqual(workspace.get().installedExtensions, ["demo"]);
+  assert.deepEqual(manager.catalog, [entry.manifest]);
+});
+
 test("un espace sans choix active le socle et récupère les tuiles existantes", () => {
   const catalog = [
     catalogEntry("core.one", "core"),

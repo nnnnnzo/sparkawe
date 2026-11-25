@@ -59,8 +59,8 @@ const pipeline = `registry_fetch(url)
   → compare SHA-256
   → bounded extraction
   → validate extension.json
-  → staging → extensions/<id>/<version>/
-  → extensions.json (version, path, source)
+  → staging → extensions/<id>/<version>-<uuid>/
+  → spark.db (version, path, source)
   → ExtensionManager.addEntry
   → activation`;
 
@@ -155,16 +155,16 @@ const index = `{
   <h2>Install</h2>
   <pre><code>{pipeline}</code></pre>
   <p>
-    A download, checksum, extraction or manifest error leaves the previous installation intact.
-    State is written to <code>extensions.json</code> with <code>version</code>,
-    <code>path</code> and <code>source</code> (absent for a local import). A new version goes into a
-    new folder; the old folder is not deleted automatically.
+    A download, checksum, extraction, manifest or database write error leaves the previous installation intact.
+    <code>spark.db</code> records the <code>version</code>, <code>path</code> and
+    <code>source</code> (absent for a local import). Each install uses a new folder, even
+    when reinstalling the same version.
   </p>
 
   <h2>Registry index</h2>
   <pre><code>{index}</code></pre>
   <ul>
-    <li>A source is an HTTPS URL to a static JSON file. Up to 20 sources, saved in <code>extensions.json</code>.</li>
+    <li>A source is an HTTPS URL to a static JSON file. Up to 20 sources, saved in <code>spark.db</code>.</li>
     <li>In release, only HTTPS is accepted; in debug, <code>http://127.0.0.1</code> and <code>http://localhost</code> are allowed.</li>
     <li>Indexes are not cached on disk: refresh reloads them, a restart asks again.</li>
     <li>The latest version is chosen by numeric comparison of <code>x.y.z</code>. A version must provide <code>version</code>, <code>url</code> and <code>sha256</code>.</li>

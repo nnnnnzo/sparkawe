@@ -1,26 +1,22 @@
 //! Historique des actions d'agents.
 //!
-//! SQLite local, une seule connexion sérialisée. Le payload est une étape JSON
+//! SQLite local, connexion partagée avec le reste de Spark. Le payload est une étape JSON
 //! complète (avec ses instantanés) ; les colonnes ne servent qu'aux requêtes,
 //! aux bornes et à la reprise.
-
-use std::{fs, path::Path, sync::Mutex};
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use serde_json::Value;
 use tauri::State;
 
-type Result<T> = std::result::Result<T, String>;
+use crate::{
+    database::Database,
+    storage::{message, Result, Storage},
+};
 
 const PER_TAB: i64 = 30;
 const MAX_STEP_BYTES: usize = 2 * 1024 * 1024;
 const MAX_TOTAL_BYTES: i64 = 4 * 1024 * 1024;
-const SCHEMA_VERSION: i32 = 1;
-
-fn message(error: impl std::fmt::Display) -> String {
-    error.to_string()
-}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,69 +25,7 @@ pub struct ActivityLoad {
     last_seen_at: i64,
 }
 
-pub struct ActivityDb {
-    conn: Mutex<Option<Connection>>,
-}
-
-impl ActivityDb {
-    pub fn open(path: &Path) -> Self {
-        match Self::try_open(path) {
-            Ok(conn) => Self {
-                conn: Mutex::new(Some(conn)),
-            },
-            Err(error) => {
-                eprintln!("Historique d’activité indisponible : {error}");
-                Self {
-                    conn: Mutex::new(None),
-                }
-            }
-        }
-    }
-
-    fn try_open(path: &Path) -> Result<Connection> {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(message)?;
-        }
-        if !path.exists() {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::OpenOptionsExt;
-                fs::OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .mode(0o600)
-                    .open(path)
-                    .map_err(message)?;
-            }
-            #[cfg(not(unix))]
-            {
-                fs::OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .open(path)
-                    .map_err(message)?;
-            }
-        }
-        let mut conn = Connection::open(path).map_err(message)?;
-        conn.execute_batch(
-            "PRAGMA journal_mode = WAL;
-             PRAGMA synchronous = NORMAL;
-             PRAGMA secure_delete = ON;
-             PRAGMA busy_timeout = 5000;",
-        )
-        .map_err(message)?;
-        init(&mut conn)?;
-        Ok(conn)
-    }
-
-    fn with<T>(&self, run: impl FnOnce(&mut Connection) -> Result<T>) -> Result<T> {
-        let mut guard = self.conn.lock().map_err(message)?;
-        let conn = guard
-            .as_mut()
-            .ok_or_else(|| "Historique d’activité indisponible.".to_string())?;
-        run(conn)
-    }
-
+impl Database {
     fn load(&self, tab: &str, limit: i64) -> Result<ActivityLoad> {
         let limit = limit.clamp(1, PER_TAB);
         self.with(|conn| {
@@ -270,19 +204,9 @@ impl ActivityDb {
     }
 }
 
-fn init(conn: &mut Connection) -> Result<()> {
-    let version: i32 = conn
-        .pragma_query_value(None, "user_version", |row| row.get(0))
-        .map_err(message)?;
-    if version > SCHEMA_VERSION {
-        return Err("Base d’activité plus récente que cette version de Spark.".into());
-    }
-    if version >= 1 {
-        return Ok(());
-    }
+pub(crate) fn create_schema(conn: &Connection) -> Result<()> {
     conn.execute_batch(
-        "BEGIN;
-         CREATE TABLE IF NOT EXISTS agent_activity (
+        "CREATE TABLE IF NOT EXISTS agent_activity (
            id          TEXT PRIMARY KEY,
            tab_id      TEXT NOT NULL,
            at          INTEGER NOT NULL,
@@ -300,58 +224,62 @@ fn init(conn: &mut Connection) -> Result<()> {
          CREATE TABLE IF NOT EXISTS agent_activity_seen (
            tab_id TEXT PRIMARY KEY,
            at     INTEGER NOT NULL
-         );
-         PRAGMA user_version = 1;
-         COMMIT;",
+         );",
     )
     .map_err(message)
 }
 
 #[tauri::command]
-pub fn activity_load(
-    db: State<'_, ActivityDb>,
+pub async fn activity_load(
+    storage: State<'_, Storage>,
     tab: String,
     limit: Option<u32>,
 ) -> Result<ActivityLoad> {
-    db.load(&tab, limit.unwrap_or(PER_TAB as u32) as i64)
+    storage
+        .on_worker(move |storage| {
+            storage
+                .db()?
+                .load(&tab, limit.unwrap_or(PER_TAB as u32) as i64)
+        })
+        .await
 }
 
 #[tauri::command]
-pub fn activity_append(db: State<'_, ActivityDb>, payload: String) -> Result<()> {
-    db.append(&payload)
+pub async fn activity_append(storage: State<'_, Storage>, payload: String) -> Result<()> {
+    storage
+        .on_worker(move |storage| storage.db()?.append(&payload))
+        .await
 }
 
 #[tauri::command]
-pub fn activity_revert(db: State<'_, ActivityDb>, id: String, at: i64) -> Result<()> {
-    db.revert(&id, at)
+pub async fn activity_revert(storage: State<'_, Storage>, id: String, at: i64) -> Result<()> {
+    storage
+        .on_worker(move |storage| storage.db()?.revert(&id, at))
+        .await
 }
 
 #[tauri::command]
-pub fn activity_forget(db: State<'_, ActivityDb>, id: String) -> Result<()> {
-    db.forget(&id)
+pub async fn activity_forget(storage: State<'_, Storage>, id: String) -> Result<()> {
+    storage
+        .on_worker(move |storage| storage.db()?.forget(&id))
+        .await
 }
 
 #[tauri::command]
-pub fn activity_seen(db: State<'_, ActivityDb>, tab: String, at: i64) -> Result<()> {
-    db.seen(&tab, at)
+pub async fn activity_seen(storage: State<'_, Storage>, tab: String, at: i64) -> Result<()> {
+    storage
+        .on_worker(move |storage| storage.db()?.seen(&tab, at))
+        .await
 }
 
 #[tauri::command]
-pub fn activity_clear(db: State<'_, ActivityDb>) -> Result<()> {
-    db.clear()
+pub async fn activity_clear(storage: State<'_, Storage>) -> Result<()> {
+    storage.on_worker(|storage| storage.db()?.clear()).await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn memory() -> ActivityDb {
-        let mut conn = Connection::open_in_memory().expect("base en mémoire");
-        init(&mut conn).expect("schéma");
-        ActivityDb {
-            conn: Mutex::new(Some(conn)),
-        }
-    }
 
     fn step(id: &str, tab: &str, at: i64) -> String {
         serde_json::json!({
@@ -368,7 +296,7 @@ mod tests {
 
     #[test]
     fn garde_trente_etapes_par_onglet() {
-        let db = memory();
+        let db = Database::in_memory();
         for index in 0..31 {
             db.append(&step(&format!("step-{index}"), "tab", index))
                 .unwrap();
@@ -381,7 +309,7 @@ mod tests {
 
     #[test]
     fn les_onglets_ont_chacun_leur_historique() {
-        let db = memory();
+        let db = Database::in_memory();
         db.append(&step("a", "left", 1)).unwrap();
         db.append(&step("b", "right", 2)).unwrap();
         assert_eq!(db.load("left", 30).unwrap().steps.len(), 1);
@@ -390,7 +318,7 @@ mod tests {
 
     #[test]
     fn marque_une_etape_annulee_et_la_vue() {
-        let db = memory();
+        let db = Database::in_memory();
         db.append(&step("a", "tab", 10)).unwrap();
         db.revert("a", 20).unwrap();
         db.seen("tab", 30).unwrap();
@@ -402,7 +330,7 @@ mod tests {
 
     #[test]
     fn une_etape_annulee_est_effacee_au_chargement() {
-        let db = memory();
+        let db = Database::in_memory();
         db.append(&step("a", "tab", 10)).unwrap();
         db.revert("a", 20).unwrap();
         let loaded = db.load("tab", 30).unwrap();
@@ -411,7 +339,7 @@ mod tests {
 
     #[test]
     fn une_etape_peut_etre_effacee_immediatement() {
-        let db = memory();
+        let db = Database::in_memory();
         db.append(&step("a", "tab", 10)).unwrap();
         db.forget("a").unwrap();
         assert!(db.load("tab", 30).unwrap().steps.is_empty());
@@ -419,7 +347,7 @@ mod tests {
 
     #[test]
     fn refuse_un_payload_invalide_ou_sans_onglet() {
-        let db = memory();
+        let db = Database::in_memory();
         assert!(db.append("{}").is_err());
         assert!(db.append("pas du json").is_err());
         let missing = serde_json::json!({ "id": "a", "at": 1 }).to_string();
@@ -428,12 +356,22 @@ mod tests {
 
     #[test]
     fn efface_tout() {
-        let db = memory();
+        let db = Database::in_memory();
+        db.with(|conn| crate::storage::save_snapshot(conn, "workspace", b"workspace"))
+            .unwrap();
         db.append(&step("a", "tab", 1)).unwrap();
         db.seen("tab", 2).unwrap();
         db.clear().unwrap();
         let loaded = db.load("tab", 30).unwrap();
         assert!(loaded.steps.is_empty());
         assert_eq!(loaded.last_seen_at, 0);
+        db.with(|conn| {
+            assert_eq!(
+                crate::storage::load_snapshot(conn, "workspace")?.as_deref(),
+                Some(b"workspace".as_slice())
+            );
+            Ok(())
+        })
+        .unwrap();
     }
 }

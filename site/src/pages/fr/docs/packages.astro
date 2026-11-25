@@ -59,8 +59,8 @@ const pipeline = `registry_fetch(url)
   → comparaison SHA-256
   → extraction contrôlée
   → validation de extension.json
-  → staging → extensions/<id>/<version>/
-  → extensions.json (version, chemin, source)
+  → staging → extensions/<id>/<version>-<uuid>/
+  → spark.db (version, chemin, source)
   → ExtensionManager.addEntry
   → activation`;
 
@@ -156,16 +156,16 @@ const index = `{
   <h2>Installation</h2>
   <pre><code>{pipeline}</code></pre>
   <p>
-    Une erreur de téléchargement, d’empreinte, d’extraction ou de manifeste laisse l’installation
-    précédente intacte. L’état est écrit dans <code>extensions.json</code> avec
+    Une erreur de téléchargement, d’empreinte, d’extraction, de manifeste ou d’écriture en base
+    laisse l’installation précédente intacte. <code>spark.db</code> conserve
     <code>version</code>, <code>path</code> et <code>source</code> (absent pour un import local).
-    Une nouvelle version va dans un nouveau dossier ; l’ancien n’est pas supprimé automatiquement.
+    Chaque installation utilise un nouveau dossier, même pour une version identique.
   </p>
 
   <h2>Index de dépôt</h2>
   <pre><code>{index}</code></pre>
   <ul>
-    <li>Une source est une URL HTTPS vers un fichier JSON statique. Jusqu’à 20 sources, enregistrées dans <code>extensions.json</code>.</li>
+    <li>Une source est une URL HTTPS vers un fichier JSON statique. Jusqu’à 20 sources, enregistrées dans <code>spark.db</code>.</li>
     <li>En release, seul HTTPS est accepté ; en debug, <code>http://127.0.0.1</code> et <code>http://localhost</code> sont tolérés.</li>
     <li>Les index ne sont pas mis en cache sur disque : vérifier les recharge, un redémarrage les redemande.</li>
     <li>La dernière version est choisie par comparaison numérique de <code>x.y.z</code>. Une version doit fournir <code>version</code>, <code>url</code> et <code>sha256</code>.</li>

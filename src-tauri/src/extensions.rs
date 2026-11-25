@@ -1,11 +1,12 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs,
     io::{Cursor, Read},
     path::{Component, Path, PathBuf},
     time::Duration,
 };
 
+use rusqlite::{params, Connection, Transaction};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -13,7 +14,7 @@ use tauri::State;
 use uuid::Uuid;
 use zip::ZipArchive;
 
-use crate::storage::{atomic_write, Result, Storage};
+use crate::storage::{message, read_optional, Result, Storage};
 
 const MAX_MANIFEST_BYTES: u64 = 256 * 1024;
 const MAX_FILES: usize = 400;
@@ -34,7 +35,7 @@ pub struct InstalledExtension {
     source: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Deserialize)]
 struct StateFile {
     version: u32,
     extensions: BTreeMap<String, StateEntry>,
@@ -42,7 +43,7 @@ struct StateFile {
     sources: Vec<SourceEntry>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Deserialize)]
 struct StateEntry {
     version: String,
     /// Chemin relatif au dossier de configuration, pour rester portable.
@@ -57,25 +58,39 @@ pub struct SourceEntry {
     name: String,
 }
 
-fn state_path(storage: &Storage) -> PathBuf {
-    storage.path("extensions.json")
-}
-
-fn read_state(storage: &Storage) -> Result<StateFile> {
-    match fs::read(state_path(storage)) {
-        Ok(bytes) => serde_json::from_slice(&bytes).map_err(|error| error.to_string()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(StateFile {
-            version: 1,
-            extensions: BTreeMap::new(),
-            sources: Vec::new(),
-        }),
-        Err(error) => Err(error.to_string()),
+pub(crate) fn import_legacy(tx: &Transaction<'_>, home: &Path) -> Result<()> {
+    let Some(bytes) = read_optional(&home.join("extensions.json"))? else {
+        return Ok(());
+    };
+    let state: StateFile =
+        serde_json::from_slice(&bytes).map_err(|error| format!("extensions.json : {error}"))?;
+    if state.version != 1 {
+        return Err(format!(
+            "extensions.json : version {} non prise en charge.",
+            state.version
+        ));
     }
-}
-
-fn write_state(storage: &Storage, state: &StateFile) -> Result<()> {
-    let bytes = serde_json::to_vec(state).map_err(|error| error.to_string())?;
-    atomic_write(&state_path(storage), &bytes).map_err(|error| error.to_string())
+    for (id, entry) in state.extensions {
+        if !valid_id(&id)
+            || !valid_version(&entry.version)
+            || entry.path != format!("extensions/{id}/{}", entry.version)
+        {
+            return Err("extensions.json : emplacement de paquet invalide.".into());
+        }
+        tx.execute(
+            "INSERT INTO installed_packages (id, version, path, source) VALUES (?1, ?2, ?3, ?4)",
+            params![id, entry.version, entry.path, entry.source],
+        )
+        .map_err(|error| format!("extensions.json : {error}"))?;
+    }
+    for (position, source) in state.sources.into_iter().enumerate() {
+        tx.execute(
+            "INSERT INTO registry_sources (url, name, position) VALUES (?1, ?2, ?3)",
+            params![source.url, source.name, position],
+        )
+        .map_err(|error| format!("extensions.json : {error}"))?;
+    }
+    Ok(())
 }
 
 fn valid_id(value: &str) -> bool {
@@ -108,6 +123,85 @@ fn valid_version(value: &str) -> bool {
         && parts.iter().all(|part| {
             !part.is_empty() && part.chars().all(|character| character.is_ascii_digit())
         })
+}
+
+fn package_directory(name: &str) -> bool {
+    valid_version(name)
+        || name.split_once('-').is_some_and(|(version, generation)| {
+            valid_version(version) && Uuid::parse_str(generation).is_ok()
+        })
+}
+
+/// À l’ouverture du profil, avant tout install et sous le verrou de profil.
+/// Une extraction reste intacte tant que SQLite la référence.
+pub(crate) fn cleanup_packages(home: &Path, conn: &Connection) -> Result<()> {
+    fn directory(path: &Path) -> Result<bool> {
+        match fs::symlink_metadata(path) {
+            Ok(metadata) => Ok(metadata.is_dir()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(error) => Err(message(error)),
+        }
+    }
+
+    let root = home.join("extensions");
+    if !directory(&root)? {
+        return Ok(());
+    }
+    let mut statement = conn
+        .prepare("SELECT id, version, path FROM installed_packages")
+        .map_err(message)?;
+    let mut rows = statement.query([]).map_err(message)?;
+    let mut referenced = BTreeSet::new();
+    while let Some(row) = rows.next().map_err(message)? {
+        let id: String = row.get(0).map_err(message)?;
+        let version: String = row.get(1).map_err(message)?;
+        let path: String = row.get(2).map_err(message)?;
+        if !valid_id(&id) || !valid_version(&version) || !installed_path(&id, &version, &path) {
+            return Err("Emplacement de paquet enregistré invalide.".into());
+        }
+        // Ne pas confondre deux graphies du même chemin sur un volume qui
+        // ignore la casse.
+        referenced.insert(path.to_ascii_lowercase());
+    }
+
+    for entry in fs::read_dir(&root).map_err(message)? {
+        let entry = entry.map_err(message)?;
+        if !entry.file_type().map_err(message)?.is_dir() {
+            continue;
+        }
+        let name = entry.file_name();
+        let Some(id) = name.to_str() else { continue };
+        if id != ".staging" && !valid_id(id) {
+            continue;
+        }
+        for package in fs::read_dir(entry.path()).map_err(message)? {
+            let package = package.map_err(message)?;
+            if !package.file_type().map_err(message)?.is_dir() {
+                continue;
+            }
+            let name = package.file_name();
+            let Some(name) = name.to_str() else { continue };
+            let managed = if id == ".staging" {
+                Uuid::parse_str(name).is_ok()
+            } else {
+                package_directory(name)
+            };
+            let path = format!("extensions/{id}/{name}").to_ascii_lowercase();
+            if managed && !referenced.contains(&path) {
+                fs::remove_dir_all(package.path()).map_err(message)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn installed_path(id: &str, version: &str, path: &str) -> bool {
+    let base = format!("extensions/{id}/{version}");
+    path == base
+        || path
+            .strip_prefix(&base)
+            .and_then(|tail| tail.strip_prefix('-'))
+            .is_some_and(|suffix| Uuid::parse_str(suffix).is_ok())
 }
 
 /// Couleur d'extension : injectée dans une variable CSS, donc un hexadécimal
@@ -329,9 +423,32 @@ fn copy_dir(from: &Path, to: &Path, budget: &mut Budget, depth: usize) -> Result
 }
 
 fn list_from(storage: &Storage) -> Result<Vec<InstalledExtension>> {
-    let state = read_state(storage)?;
+    let entries = storage.db()?.with(|conn| {
+        let mut statement = conn
+            .prepare("SELECT id, version, path, source FROM installed_packages ORDER BY id")
+            .map_err(message)?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    StateEntry {
+                        version: row.get(1)?,
+                        path: row.get(2)?,
+                        source: row.get(3)?,
+                    },
+                ))
+            })
+            .map_err(message)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(message)
+    })?;
     let mut installed = Vec::new();
-    for (id, entry) in state.extensions {
+    for (id, entry) in entries {
+        if !valid_id(&id) || !valid_version(&entry.version) {
+            continue;
+        }
+        if !installed_path(&id, &entry.version, &entry.path) {
+            continue;
+        }
         let directory = storage.path(&entry.path);
         let bytes = match fs::read(directory.join("extension.json")) {
             Ok(bytes) => bytes,
@@ -406,28 +523,23 @@ fn finalize_install(
         .and_then(Value::as_str)
         .ok_or("Version manquante.")?
         .to_string();
-    let root = storage.path("extensions");
-    let target = root.join(&id).join(&version);
-    if let Some(parent) = target.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
-    if target.exists() {
-        fs::remove_dir_all(&target).map_err(|error| error.to_string())?;
-    }
-    fs::rename(staging, &target).map_err(|error| error.to_string())?;
-
-    let relative = format!("extensions/{id}/{version}");
-    let mut state = read_state(storage)?;
-    state.version = 1;
-    state.extensions.insert(
-        id,
-        StateEntry {
-            version,
-            path: relative,
-            source: source.clone(),
-        },
-    );
-    write_state(storage, &state)?;
+    // Un répertoire neuf même pour une réinstallation de la même version :
+    // l’ancien reste utilisable si Spark s’arrête avant l’upsert.
+    let relative = format!("extensions/{id}/{version}-{}", Uuid::new_v4());
+    let target = storage.path(&relative);
+    storage.db()?.with(|conn| {
+        let tx = conn.transaction().map_err(message)?;
+        tx.execute(
+            "INSERT INTO installed_packages (id, version, path, source) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(id) DO UPDATE SET version = excluded.version, path = excluded.path,
+                                           source = excluded.source",
+            params![id, version, relative, source],
+        )
+        .map_err(message)?;
+        fs::create_dir_all(storage.path(&format!("extensions/{id}"))).map_err(message)?;
+        fs::rename(staging, &target).map_err(message)?;
+        tx.commit().map_err(message)
+    })?;
     Ok(InstalledExtension {
         manifest,
         path: target.to_string_lossy().into_owned(),
@@ -439,13 +551,32 @@ fn remove_from(storage: &Storage, id: &str) -> Result<()> {
     if !valid_id(id) {
         return Err(format!("Identifiant d’extension invalide : {id}"));
     }
-    let mut state = read_state(storage)?;
-    state.extensions.remove(id);
     let directory = storage.path(&format!("extensions/{id}"));
-    if directory.exists() {
-        fs::remove_dir_all(&directory).map_err(|error| error.to_string())?;
+    let trash = storage.path(&format!("extensions/.staging/{}", Uuid::new_v4()));
+    let moved = storage.db()?.with(|conn| {
+        // Ne jamais retirer les fichiers désignés par une ligne encore active.
+        conn.execute("DELETE FROM installed_packages WHERE id = ?1", [id])
+            .map_err(message)?;
+        match (|| {
+            if !directory.try_exists()? {
+                return Ok(false);
+            }
+            fs::create_dir_all(storage.path("extensions/.staging"))?;
+            fs::rename(&directory, &trash).map(|()| true)
+        })() {
+            Ok(moved) => Ok(moved),
+            Err(error) => {
+                eprintln!("Nettoyage du paquet désinstallé {id} impossible : {error}");
+                Ok(false)
+            }
+        }
+    })?;
+    if moved {
+        if let Err(error) = fs::remove_dir_all(trash) {
+            eprintln!("Nettoyage du paquet désinstallé {id} impossible : {error}");
+        }
     }
-    write_state(storage, &state)
+    Ok(())
 }
 
 fn allowed_url(url: &str) -> bool {
@@ -595,7 +726,22 @@ fn registry_from(url: &str) -> Result<Value> {
 }
 
 fn sources_from(storage: &Storage) -> Result<Vec<SourceEntry>> {
-    Ok(read_state(storage)?.sources)
+    storage.db()?.with(|conn| read_sources(conn))
+}
+
+fn read_sources(conn: &Connection) -> Result<Vec<SourceEntry>> {
+    let mut statement = conn
+        .prepare("SELECT url, name FROM registry_sources ORDER BY position")
+        .map_err(message)?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok(SourceEntry {
+                url: row.get(0)?,
+                name: row.get(1)?,
+            })
+        })
+        .map_err(message)?;
+    rows.collect::<rusqlite::Result<Vec<_>>>().map_err(message)
 }
 
 fn add_source(storage: &Storage, url: &str, name: &str) -> Result<Vec<SourceEntry>> {
@@ -607,44 +753,58 @@ fn add_source(storage: &Storage, url: &str, name: &str) -> Result<Vec<SourceEntr
     if name.is_empty() || name.len() > 80 {
         return Err("Le nom du dépôt doit contenir entre 1 et 80 caractères.".into());
     }
-    let mut state = read_state(storage)?;
-    if state.sources.iter().any(|source| source.url == url) {
-        return Ok(state.sources);
-    }
-    if state.sources.len() >= MAX_SOURCES {
-        return Err(format!("Limite de {MAX_SOURCES} dépôts atteinte."));
-    }
-    state.sources.push(SourceEntry {
-        url: url.to_string(),
-        name: name.to_string(),
-    });
-    write_state(storage, &state)?;
-    Ok(state.sources)
+    storage.db()?.with(|conn| {
+        let tx = conn.transaction().map_err(message)?;
+        let existing = read_sources(&tx)?;
+        if existing.iter().any(|source| source.url == url) {
+            return Ok(existing);
+        }
+        if existing.len() >= MAX_SOURCES {
+            return Err(format!("Limite de {MAX_SOURCES} dépôts atteinte."));
+        }
+        tx.execute(
+            "INSERT INTO registry_sources (url, name, position)
+             SELECT ?1, ?2, COALESCE(MAX(position) + 1, 0) FROM registry_sources",
+            params![url, name],
+        )
+        .map_err(message)?;
+        let sources = read_sources(&tx)?;
+        tx.commit().map_err(message)?;
+        Ok(sources)
+    })
 }
 
 fn remove_source(storage: &Storage, url: &str) -> Result<Vec<SourceEntry>> {
-    let mut state = read_state(storage)?;
-    state.sources.retain(|source| source.url != url);
-    write_state(storage, &state)?;
-    Ok(state.sources)
+    storage.db()?.with(|conn| {
+        let tx = conn.transaction().map_err(message)?;
+        tx.execute("DELETE FROM registry_sources WHERE url = ?1", [url])
+            .map_err(message)?;
+        let sources = read_sources(&tx)?;
+        tx.commit().map_err(message)?;
+        Ok(sources)
+    })
 }
 
 #[tauri::command]
-pub fn extension_list(storage: State<'_, Storage>) -> Result<Vec<InstalledExtension>> {
-    list_from(&storage)
+pub async fn extension_list(storage: State<'_, Storage>) -> Result<Vec<InstalledExtension>> {
+    storage.on_worker(|storage| list_from(&storage)).await
 }
 
 #[tauri::command]
-pub fn extension_install(
+pub async fn extension_install(
     storage: State<'_, Storage>,
     source: String,
 ) -> Result<InstalledExtension> {
-    install_from(&storage, &source)
+    storage
+        .on_worker(move |storage| install_from(&storage, &source))
+        .await
 }
 
 #[tauri::command]
-pub fn extension_remove(storage: State<'_, Storage>, id: String) -> Result<()> {
-    remove_from(&storage, &id)
+pub async fn extension_remove(storage: State<'_, Storage>, id: String) -> Result<()> {
+    storage
+        .on_worker(move |storage| remove_from(&storage, &id))
+        .await
 }
 
 #[tauri::command]
@@ -654,10 +814,9 @@ pub async fn extension_install_zip(
     sha256: String,
     source: String,
 ) -> Result<InstalledExtension> {
-    let storage = (*storage).clone();
-    tauri::async_runtime::spawn_blocking(move || install_zip_from(&storage, &url, &sha256, &source))
+    storage
+        .on_worker(move |storage| install_zip_from(&storage, &url, &sha256, &source))
         .await
-        .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -668,25 +827,29 @@ pub async fn registry_fetch(url: String) -> Result<Value> {
 }
 
 #[tauri::command]
-pub fn extension_sources(storage: State<'_, Storage>) -> Result<Vec<SourceEntry>> {
-    sources_from(&storage)
+pub async fn extension_sources(storage: State<'_, Storage>) -> Result<Vec<SourceEntry>> {
+    storage.on_worker(|storage| sources_from(&storage)).await
 }
 
 #[tauri::command]
-pub fn extension_source_add(
+pub async fn extension_source_add(
     storage: State<'_, Storage>,
     url: String,
     name: String,
 ) -> Result<Vec<SourceEntry>> {
-    add_source(&storage, &url, &name)
+    storage
+        .on_worker(move |storage| add_source(&storage, &url, &name))
+        .await
 }
 
 #[tauri::command]
-pub fn extension_source_remove(
+pub async fn extension_source_remove(
     storage: State<'_, Storage>,
     url: String,
 ) -> Result<Vec<SourceEntry>> {
-    remove_source(&storage, &url)
+    storage
+        .on_worker(move |storage| remove_source(&storage, &url))
+        .await
 }
 
 #[cfg(test)]
@@ -716,7 +879,8 @@ mod tests {
 
     fn temporary_storage() -> (Storage, PathBuf) {
         let home = std::env::temp_dir().join(format!("spark-extensions-{}", Uuid::new_v4()));
-        let storage = Storage::new(home.clone()).unwrap();
+        let storage = Storage::new(home.clone());
+        assert!(storage.db().is_ok());
         (storage, home)
     }
 
@@ -895,5 +1059,141 @@ mod tests {
         remove_from(&storage, "demo.hello").unwrap();
         assert!(list_from(&storage).unwrap().is_empty());
         assert!(!home.join("extensions/demo.hello").exists());
+    }
+
+    #[test]
+    fn un_paquet_migre_reste_chargeable_sans_deplacer_ses_fichiers() {
+        let home = std::env::temp_dir().join(format!("spark-extensions-{}", Uuid::new_v4()));
+        let target = home.join("extensions/demo.hello/0.1.0");
+        write_package(&target, manifest());
+        fs::write(
+            home.join("extensions.json"),
+            br#"{"version":1,"extensions":{
+                "demo.hello":{"version":"0.1.0","path":"extensions/demo.hello/0.1.0"}
+            }}"#,
+        )
+        .unwrap();
+        let storage = Storage::new(home.clone());
+        let installed = list_from(&storage).unwrap();
+        assert_eq!(installed.len(), 1);
+        assert_eq!(Path::new(&installed[0].path), target);
+        assert!(installed[0].source.is_none());
+        drop(storage);
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn un_echec_sqlite_ne_remplace_pas_et_ne_supprime_pas_le_paquet_actif() {
+        let (storage, home) = temporary_storage();
+        let source = home.join("source");
+        write_package(&source, manifest());
+        fs::write(source.join("index.js"), "previous").unwrap();
+        let previous = install_from(&storage, source.to_str().unwrap()).unwrap();
+        let entry = Path::new(&previous.path).join("index.js");
+        fs::write(source.join("index.js"), "replacement").unwrap();
+        let db = storage.db().unwrap();
+        db.with(|conn| {
+            conn.execute_batch(
+                "CREATE TRIGGER fail_update BEFORE UPDATE ON installed_packages
+                 BEGIN SELECT RAISE(ABORT, 'update failed'); END;
+                 CREATE TRIGGER fail_remove BEFORE DELETE ON installed_packages
+                 BEGIN SELECT RAISE(ABORT, 'remove failed'); END;",
+            )
+            .map_err(message)
+        })
+        .unwrap();
+        assert!(install_from(&storage, source.to_str().unwrap()).is_err());
+        assert!(remove_from(&storage, "demo.hello").is_err());
+        assert_eq!(list_from(&storage).unwrap()[0].path, previous.path);
+        assert_eq!(fs::read_to_string(&entry).unwrap(), "previous");
+
+        db.with(|conn| {
+            conn.execute_batch("DROP TRIGGER fail_update; DROP TRIGGER fail_remove;")
+                .map_err(message)
+        })
+        .unwrap();
+        let next = install_from(&storage, source.to_str().unwrap()).unwrap();
+        assert_ne!(next.path, previous.path);
+        assert_eq!(list_from(&storage).unwrap()[0].path, next.path);
+        assert!(entry.is_file());
+        assert_eq!(
+            fs::read_to_string(Path::new(&next.path).join("index.js")).unwrap(),
+            "replacement"
+        );
+        remove_from(&storage, "demo.hello").unwrap();
+        assert!(!home.join("extensions/demo.hello").exists());
+    }
+
+    #[test]
+    fn recharge_le_paquet_actif_et_nettoie_les_extractions_orphelines() {
+        let (storage, home) = temporary_storage();
+        let source = home.join("source");
+        write_package(&source, manifest());
+        let source = source.to_str().unwrap();
+        let first = install_from(&storage, source).unwrap();
+        let second = install_from(&storage, source).unwrap();
+        let active = install_from(&storage, source).unwrap();
+        let staged = home
+            .join("extensions/.staging")
+            .join(Uuid::new_v4().to_string());
+        let unrelated = home.join("extensions/demo.hello/notes");
+        fs::create_dir_all(&staged).unwrap();
+        fs::create_dir_all(&unrelated).unwrap();
+        storage
+            .db()
+            .unwrap()
+            .with(|conn| {
+                conn.execute_batch(
+                    "PRAGMA foreign_keys = ON;
+                 CREATE TABLE required (id INTEGER PRIMARY KEY);
+                 CREATE TABLE invalid (id INTEGER REFERENCES required
+                     DEFERRABLE INITIALLY DEFERRED);
+                 CREATE TRIGGER fail_commit AFTER UPDATE ON installed_packages
+                 BEGIN INSERT INTO invalid VALUES (1); END;",
+                )
+                .map_err(message)
+            })
+            .unwrap();
+
+        let error = install_from(&storage, source).err().unwrap();
+        assert!(error.contains("FOREIGN KEY"), "{error}");
+        assert_eq!(list_from(&storage).unwrap()[0].path, active.path);
+        let root = home.join("extensions/demo.hello");
+        // Trois versions publiées, la copie du commit refusé et les notes.
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 5);
+        drop(storage);
+        let storage = Storage::new(home.clone());
+        assert_eq!(list_from(&storage).unwrap()[0].path, active.path);
+        assert!(Path::new(&active.path).join("index.js").is_file());
+        assert!(!Path::new(&first.path).exists());
+        assert!(!Path::new(&second.path).exists());
+        assert!(!staged.exists());
+        assert!(unrelated.is_dir());
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 2);
+        drop(storage);
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn conserve_l_ordre_des_sources_et_le_plafond() {
+        let (storage, _) = temporary_storage();
+        for index in 0..MAX_SOURCES {
+            add_source(
+                &storage,
+                &format!("https://example.com/{index}"),
+                &index.to_string(),
+            )
+            .unwrap();
+        }
+        assert!(add_source(&storage, "https://example.com/new", "New").is_err());
+        assert_eq!(
+            add_source(&storage, "https://example.com/2", "Duplicate").unwrap()[2].name,
+            "2"
+        );
+        remove_source(&storage, "https://example.com/1").unwrap();
+        let sources = add_source(&storage, "https://example.com/new", "New").unwrap();
+        assert_eq!(sources.len(), MAX_SOURCES);
+        assert_eq!(sources[1].name, "2");
+        assert_eq!(sources.last().unwrap().name, "New");
     }
 }

@@ -1,4 +1,4 @@
-import { Blocks, Copy, Settings2 } from "lucide-react";
+import { Blocks, Check, Copy, Settings2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import type { Runtime } from "../app/runtime.ts";
@@ -86,6 +86,7 @@ function ExtensionButton({
         <PopoverTrigger asChild>
           <SidebarMenuButton
             aria-label={text(extension.name)}
+            data-extension-pinned-open={mode === "click" || undefined}
             onPointerEnter={(event) => {
               if (event.pointerType !== "mouse") return;
               onEnter();
@@ -112,8 +113,12 @@ function ExtensionButton({
           onCloseAutoFocus={(event) => {
             if (mode !== "click") event.preventDefault();
           }}
-          onPointerEnter={onEnter}
-          onPointerLeave={onLeave}
+          onPointerEnter={(event) => {
+            if (event.pointerType === "mouse") onEnter();
+          }}
+          onPointerLeave={(event) => {
+            if (event.pointerType === "mouse") onLeave();
+          }}
         >
           {commands.map((command) => (
             <Button
@@ -159,33 +164,69 @@ export function Rail({
     id: string;
     mode: "hover" | "click";
   } | null>(null);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+  const hoverTimer = useRef<{ id: string; timer: number } | undefined>(
     undefined,
   );
-  const clearClose = () => clearTimeout(closeTimer.current);
+  const closeTimer = useRef<{ id: string; timer: number } | undefined>(
+    undefined,
+  );
+  const copyTimer = useRef<number | undefined>(undefined);
+  const copying = useRef(false);
   const enterExtension = (id: string) => {
-    clearClose();
-    setExtensionMenu((current) =>
-      current?.id === id ? current : { id, mode: "hover" },
-    );
+    if (closeTimer.current?.id === id) {
+      window.clearTimeout(closeTimer.current.timer);
+      closeTimer.current = undefined;
+    }
+    if (extensionMenu?.id === id || extensionMenu?.mode === "click") return;
+    window.clearTimeout(hoverTimer.current?.timer);
+    hoverTimer.current = {
+      id,
+      timer: window.setTimeout(() => {
+        hoverTimer.current = undefined;
+        setExtensionMenu((current) =>
+          current?.mode === "click" ? current : { id, mode: "hover" },
+        );
+      }, 90),
+    };
   };
   const leaveExtension = (id: string) => {
-    clearClose();
-    closeTimer.current = setTimeout(() => {
-      setExtensionMenu((current) =>
-        current?.id === id && current.mode === "hover" ? null : current,
-      );
-    }, 180);
+    if (hoverTimer.current?.id === id) {
+      window.clearTimeout(hoverTimer.current.timer);
+      hoverTimer.current = undefined;
+    }
+    if (extensionMenu?.id !== id || extensionMenu.mode !== "hover") return;
+    window.clearTimeout(closeTimer.current?.timer);
+    closeTimer.current = {
+      id,
+      timer: window.setTimeout(() => {
+        closeTimer.current = undefined;
+        setExtensionMenu((current) =>
+          current?.id === id && current.mode === "hover" ? null : current,
+        );
+      }, 180),
+    };
   };
   const pinExtension = (id: string) => {
-    clearClose();
+    window.clearTimeout(hoverTimer.current?.timer);
+    window.clearTimeout(closeTimer.current?.timer);
+    hoverTimer.current = closeTimer.current = undefined;
     setExtensionMenu({ id, mode: "click" });
   };
   const closeExtension = (id: string) => {
-    clearClose();
+    if (closeTimer.current?.id === id) {
+      window.clearTimeout(closeTimer.current.timer);
+      closeTimer.current = undefined;
+    }
     setExtensionMenu((current) => (current?.id === id ? null : current));
   };
-  useEffect(() => () => clearTimeout(closeTimer.current), []);
+  useEffect(
+    () => () => {
+      window.clearTimeout(hoverTimer.current?.timer);
+      window.clearTimeout(closeTimer.current?.timer);
+      window.clearTimeout(copyTimer.current);
+    },
+    [],
+  );
   const [link, setLink] = useState<AgentLink | null>(null);
   const [copied, setCopied] = useState(false);
   const { t, locale } = useI18n();
@@ -215,23 +256,40 @@ export function Rail({
     return () => window.removeEventListener("spark:connect-agent", open);
   }, []);
   async function copyLink() {
-    if (!link) return;
+    if (!link || copying.current) return;
+    copying.current = true;
     try {
-      await navigator.clipboard.writeText(link.config);
-    } catch {
-      // Certains webviews refusent l'API presse-papiers : repli sans plugin.
-      const area = document.createElement("textarea");
-      area.value = link.config;
-      area.setAttribute("readonly", "");
-      area.style.position = "fixed";
-      area.style.opacity = "0";
-      document.body.append(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
+      try {
+        await navigator.clipboard.writeText(link.config);
+      } catch (error) {
+        // Le repli doit rester dans le dialogue pour respecter son piège à focus.
+        const focused = document.activeElement;
+        const host = focused?.closest('[data-slot="dialog-content"]');
+        if (!host) throw error;
+        const area = document.createElement("textarea");
+        area.value = link.config;
+        area.readOnly = true;
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        host.append(area);
+        try {
+          area.select();
+          if (!document.execCommand("copy")) throw error;
+        } finally {
+          area.remove();
+          if (focused instanceof HTMLElement)
+            focused.focus({ preventScroll: true });
+        }
+      }
+      setCopied(true);
+      window.clearTimeout(copyTimer.current);
+      copyTimer.current = window.setTimeout(() => setCopied(false), 1600);
+    } catch (error) {
+      setCopied(false);
+      report(error);
+    } finally {
+      copying.current = false;
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
   }
   return (
     <aside className="spark-rail" aria-label={t("rail.extensions")}>
@@ -414,9 +472,22 @@ export function Rail({
                 className="self-end"
                 onClick={() => void copyLink()}
               >
-                <Copy data-icon="inline-start" />
-                {copied ? t("rail.agent.copied") : t("rail.agent.copy")}
+                <span
+                  className="agent-copy"
+                  data-copied={copied || undefined}
+                  aria-hidden
+                >
+                  <Copy />
+                  <Check />
+                </span>
+                <span className="agent-copy-label">
+                  <span aria-hidden={copied}>{t("rail.agent.copy")}</span>
+                  <span aria-hidden={!copied}>{t("rail.agent.copied")}</span>
+                </span>
               </Button>
+              <span className="sr-only" role="status">
+                {copied ? t("rail.agent.copied") : ""}
+              </span>
             </div>
           ) : (
             <p className="text-muted-foreground text-sm">

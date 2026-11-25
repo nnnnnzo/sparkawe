@@ -121,11 +121,11 @@ Le paquet est un **script classique**, pas un module ES :
 
 ## Installation et état
 
-- Cible : `extensions/<id>/<version>/`.
+- Cible : `extensions/<id>/<version>-<uuid>/`. Les paquets migrés gardent leur dossier `extensions/<id>/<version>/`.
 - Staging : `extensions/.staging/<uuid>`, puis renommage atomique.
-- État : `extensions.json` avec `version`, `path`, `source` (URL du dépôt, absente pour un import local).
-- Une nouvelle version est installée dans un nouveau dossier ; l’ancien dossier n’est pas supprimé automatiquement.
-- Une désinstallation supprime `extensions/<id>/` et l’entrée d’état.
+- État : `spark.db` avec `version`, `path`, `source` (URL du dépôt, absente pour un import local).
+- Chaque installation publie un nouveau dossier ; le précédent n’est pas écrasé. Au prochain démarrage, Spark retire les dossiers de paquets non référencés par SQLite et les extractions interrompues dans `.staging`, sous le verrou du profil.
+- Une désinstallation retire d’abord l’entrée en base, puis nettoie `extensions/<id>/`. Un échec de nettoyage est journalisé ; le paquet n’est plus chargé.
 
 ## Mise à jour
 

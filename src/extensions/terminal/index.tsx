@@ -222,14 +222,16 @@ export default function createTerminal(): ExtensionModule {
         if (!disposed) toast.error(String(error));
       };
 
-      function resize() {
+      function resize(start = false) {
         if (
-          !element.isConnected ||
-          !element.clientWidth ||
-          !element.clientHeight
-        )
+          element.isConnected &&
+          element.clientWidth &&
+          element.clientHeight
+        ) {
+          fit.fit();
+        } else if (!start) {
           return;
-        fit.fit();
+        }
         const { cols: columns, rows } = terminal;
         if (!session) {
           const nativeId = crypto.randomUUID();
@@ -323,8 +325,11 @@ export default function createTerminal(): ExtensionModule {
           )
           .catch(report);
       });
-      const observer = new ResizeObserver(resize);
+      const observer = new ResizeObserver(() => resize());
       observer.observe(element);
+      // Un panneau masqué n'a pas de rectangle, mais son shell doit rester
+      // disponible aux agents. xterm le remet à la bonne taille à l'affichage.
+      resize(true);
       const refreshTheme = () => {
         terminal.options.theme = terminalTheme();
       };

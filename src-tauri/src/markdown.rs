@@ -1,16 +1,19 @@
-use std::{fs, path::Path};
+use std::{fs, path::Path, sync::Mutex};
 
 use serde::Serialize;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
-use crate::storage::{atomic_write, message, PathGrants, Result};
+use crate::storage::{atomic_write, message, GrantKind, PathGrants, Result, Storage};
 
-pub struct MarkdownStorage(PathGrants);
+pub struct MarkdownStorage(PathGrants, Mutex<()>);
 
 impl MarkdownStorage {
-    pub fn new(home: &Path) -> Self {
-        Self(PathGrants::new(home.join("markdown-access.json")))
+    pub fn new(storage: &Storage) -> Self {
+        Self(
+            PathGrants::new(storage, GrantKind::Markdown),
+            Mutex::new(()),
+        )
     }
 }
 
@@ -116,25 +119,37 @@ fn verify_path(path: &Path, must_exist: bool) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn markdown_read(storage: State<'_, MarkdownStorage>, token: String) -> Result<String> {
-    let path = storage.0.resolve(&token)?;
-    verify_path(&path, true)?;
-    fs::read_to_string(path).map_err(message)
+pub async fn markdown_read(app: AppHandle, token: String) -> Result<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = app.state::<MarkdownStorage>().0.resolve(&token)?;
+        verify_path(&path, true)?;
+        fs::read_to_string(path).map_err(message)
+    })
+    .await
+    .map_err(message)?
 }
 
 #[tauri::command]
-pub fn markdown_write(
-    storage: State<'_, MarkdownStorage>,
+pub async fn markdown_write(
+    app: AppHandle,
     token: String,
     text: String,
     expected: Option<String>,
 ) -> Result<()> {
-    let path = storage.0.resolve(&token)?;
-    verify_path(&path, false)?;
-    if let Some(expected) = expected {
-        if fs::read_to_string(&path).map_err(message)? != expected {
-            return Err("Le fichier a changé sur le disque. Utilise « Enregistrer sous » pour conserver tes modifications.".into());
+    tauri::async_runtime::spawn_blocking(move || {
+        let storage = app.state::<MarkdownStorage>();
+        // Le contrôle de la version et son remplacement restent solidaires
+        // face à d’autres sauvegardes de cette instance.
+        let _write = storage.1.lock().map_err(message)?;
+        let path = storage.0.resolve(&token)?;
+        verify_path(&path, false)?;
+        if let Some(expected) = expected {
+            if fs::read_to_string(&path).map_err(message)? != expected {
+                return Err("Le fichier a changé sur le disque. Utilise « Enregistrer sous » pour conserver tes modifications.".into());
+            }
         }
-    }
-    atomic_write(&path, text.as_bytes()).map_err(message)
+        atomic_write(&path, text.as_bytes()).map_err(message)
+    })
+    .await
+    .map_err(message)?
 }

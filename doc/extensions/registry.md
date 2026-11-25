@@ -5,7 +5,7 @@
 Un dépôt est une URL HTTPS vers un index JSON statique. Il peut être ajouté dans **Store › Sources**, avec un nom facultatif (sinon l’hôte de l’URL est utilisé).
 
 - Maximum 20 dépôts.
-- Les sources sont persistées dans `extensions.json`, avec les paquets installés.
+- Les sources sont persistées dans `spark.db`, séparément des paquets installés et dans leur ordre d’ajout.
 - En release, seules les URL HTTPS sont acceptées ; en debug, `http://127.0.0.1` et `http://localhost` sont tolérés pour les tests locaux.
 - Aucun index n’est mis en cache sur disque : `Vérifier` recharge, un redémarrage redemande les index.
 
@@ -60,15 +60,15 @@ registry_fetch(url)
   → SHA-256 attendu
   → extraction contrôlée
   → extension.json validé
-  → staging → extensions/<id>/<version>/
-  → extensions.json (version, chemin, source)
+  → staging → extensions/<id>/<version>-<uuid>/
+  → spark.db (version, chemin, source)
   → ExtensionManager.addEntry
   → activation
 ```
 
 - Si le paquet était déjà actif, il est désactivé puis rechargé.
-- Le dossier de l’ancienne version n’est pas supprimé ; l’état pointe la version courante.
-- Une erreur de téléchargement, d’empreinte, d’extraction ou de manifeste laisse l’installation précédente intacte.
+- Le dossier précédent n’est pas écrasé, même lors d’une réinstallation de la même version. SQLite pointe vers l’installation courante.
+- Une erreur de téléchargement, d’empreinte, d’extraction, de manifeste ou de validation de la transaction laisse l’installation précédente intacte.
 - La fiche distante propose **Installer**, puis **Réinstaller** si le paquet est présent, ou **Mettre à jour** si une version supérieure est publiée.
 
 ## Mises à jour

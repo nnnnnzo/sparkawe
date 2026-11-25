@@ -17,7 +17,7 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::explorer::ExplorerStorage;
-use crate::storage::{atomic_write, message, PathGrants, Result};
+use crate::storage::{atomic_write, message, GrantKind, PathGrants, Result, Storage};
 
 type PreviewFileOrError<T> = std::result::Result<T, String>;
 
@@ -43,8 +43,8 @@ const HTML_EXTENSIONS: &[&str] = &["html", "htm"];
 pub struct PreviewStorage(PathGrants);
 
 impl PreviewStorage {
-    pub fn new(home: &Path) -> Self {
-        Self(PathGrants::new(home.join("preview-access.json")))
+    pub fn new(storage: &Storage) -> Self {
+        Self(PathGrants::new(storage, GrantKind::Preview))
     }
 }
 

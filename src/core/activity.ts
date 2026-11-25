@@ -312,8 +312,8 @@ export class Activity {
   private readonly seen = new Map<string, number>();
   private readonly loaded = new Set<string>();
   private readonly loading = new Set<string>();
-  private readonly pending = new Set<number>();
-  private readonly writes = new Set<Promise<void>>();
+  private tail = Promise.resolve();
+  private storageEpoch = 0;
   private revision = 0;
 
   private readonly persistence?: ActivityPersistence;
@@ -361,11 +361,17 @@ export class Activity {
   }
 
   async ensure(tabId: string) {
-    if (this.loaded.has(tabId) || this.loading.has(tabId) || !this.persistence)
+    const persistence = this.persistence;
+    if (this.loaded.has(tabId) || this.loading.has(tabId) || !persistence)
       return;
+    const epoch = this.storageEpoch;
     this.loading.add(tabId);
     try {
-      const loaded = await this.persistence.load(tabId, ACTIVITY_PER_TAB);
+      const loaded = await this.enqueue(() =>
+        persistence.load(tabId, ACTIVITY_PER_TAB),
+      );
+      // Un effacement demandé pendant cette lecture doit rester visible.
+      if (epoch !== this.storageEpoch) return;
       const persisted = loaded.steps
         .map(restoreStep)
         .filter((step): step is ActivityStep => !!step);
@@ -387,7 +393,7 @@ export class Activity {
     } catch (error) {
       this.onError(error);
     } finally {
-      this.loading.delete(tabId);
+      if (epoch === this.storageEpoch) this.loading.delete(tabId);
     }
   }
 
@@ -555,54 +561,59 @@ export class Activity {
     const at = this.stepsFor(tabId)[0]?.at;
     if (!at || at <= this.seenAt(tabId)) return;
     this.seen.set(tabId, at);
-    if (this.persistence)
-      this.track(this.persistence.seen(tabId, at));
+    const persistence = this.persistence;
+    if (persistence)
+      void this.enqueue(() => persistence.seen(tabId, at)).catch(this.onError);
     this.notify();
   }
 
   markReverted(step: ActivityStep) {
     if (step.revertedAt) return;
-    step.revertedAt = Date.now();
-    if (this.persistence)
-      this.track(this.persistence.revert(step.id, step.revertedAt));
+    const at = Date.now();
+    step.revertedAt = at;
+    const persistence = this.persistence;
+    if (persistence)
+      void this.enqueue(() => persistence.revert(step.id, at)).catch(this.onError);
     this.notify();
   }
 
   /** Efface une étape annulée, une fois son animation terminée. */
   async forget(id: string) {
+    const persistence = this.persistence;
+    const write = persistence && this.enqueue(() => persistence.forget(id));
     for (const [tabId, list] of this.steps) {
       const next = list.filter((step) => step.id !== id);
       if (next.length !== list.length) this.steps.set(tabId, next);
     }
     this.notify();
-    if (!this.persistence) return;
     try {
-      await this.persistence.forget(id);
+      await write;
     } catch (error) {
       this.onError(error);
     }
   }
 
   async clear() {
+    const persistence = this.persistence;
+    const write = persistence && this.enqueue(() => persistence.clear());
+    this.storageEpoch += 1;
     this.steps.clear();
     this.seen.clear();
     this.loaded.clear();
+    this.loading.clear();
     this.notify();
-    if (!this.persistence) return;
     try {
-      await this.persistence.clear();
+      await write;
     } catch (error) {
       this.onError(error);
     }
   }
 
   private schedule(step: ActivityStep) {
-    const id = (this.revision + 1) * 1_000_003 + this.pending.size;
-    this.pending.add(id);
-    queueMicrotask(() => {
-      this.pending.delete(id);
-      void this.persist(step);
-    });
+    if (!this.persistence) return;
+    // Prendre sa place immédiatement, mais sérialiser après les effets
+    // synchrones de l'action (capture de son inverse, notamment).
+    void this.enqueue(() => this.persist(step)).catch(this.onError);
   }
 
   private async persist(step: ActivityStep) {
@@ -639,30 +650,24 @@ export class Activity {
       this.notify();
       if (payload.length > ACTIVITY_STEP_CHARS) return;
     }
-    const write = this.persistence.append(step);
-    this.writes.add(write);
-    try {
-      await write;
-    } catch (error) {
-      this.onError(error);
-    } finally {
-      this.writes.delete(write);
-    }
+    await this.persistence.append(step);
   }
 
-  private track(write: Promise<void>) {
-    this.writes.add(write);
-    void write
-      .catch((error) => this.onError(error))
-      .finally(() => this.writes.delete(write));
-    return write;
+  private enqueue<T>(run: () => Promise<T>): Promise<T> {
+    const task = this.tail.then(run);
+    this.tail = task.then(
+      () => {},
+      () => {}, // Une erreur ne doit pas empêcher les commandes suivantes.
+    );
+    return task;
   }
 
   async flush() {
-    // Laisse partir les écritures programmées dans la même tâche.
-    await Promise.resolve();
-    while (this.writes.size)
-      await Promise.allSettled([...this.writes]);
+    for (;;) {
+      const pending = this.tail;
+      await pending;
+      if (pending === this.tail) return;
+    }
   }
 }
 

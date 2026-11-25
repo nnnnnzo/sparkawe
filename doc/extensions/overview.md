@@ -25,7 +25,7 @@ Le champ `certification: "spark"` décrit un paquet publié et signé par Spark.
 Le catalogue initial est construit au démarrage :
 
 - intégrées : `import.meta.glob` sur `src/extensions/*/manifest.ts` et `index.tsx` ;
-- importées : `extension_list` lit `extensions.json` et les dossiers `extensions/<id>/<version>/`.
+- importées : `extension_list` lit les références de paquets dans `spark.db` et les manifestes des dossiers extraits.
 
 Chaque entrée contient un `Manifest` et un `load()` qui renvoie un `SparkExtension`. Le catalogue est mutable : une installation ajoute une entrée, une désinstallation la retire.
 

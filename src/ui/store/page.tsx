@@ -7,6 +7,7 @@ import {
   Compass,
   FolderSearch,
   Library,
+  LoaderCircle,
   PackageCheck,
   Pin,
   RefreshCw,
@@ -17,14 +18,17 @@ import {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   useSyncExternalStore,
+  type ComponentProps,
   type CSSProperties,
   type FormEvent,
   type ReactNode,
 } from "react";
+import { motion, useIsPresent, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
 import type { RemoteExtension } from "../../app/marketplace.ts";
 import type { Runtime } from "../../app/runtime.ts";
@@ -75,6 +79,40 @@ import "./style.css";
 
 const extensionColor = (manifest: Manifest) => manifest.color ?? SPECTRUM.blue;
 
+function StoreAction({
+  busy,
+  confirmed,
+  children,
+  onClick,
+  ...props
+}: ComponentProps<typeof Button> & { busy?: boolean; confirmed?: boolean }) {
+  return (
+    <>
+      <Button
+        {...props}
+        aria-busy={busy || undefined}
+        aria-disabled={busy || undefined}
+        onClick={(event) => {
+          if (busy) event.preventDefault();
+          else onClick?.(event);
+        }}
+      >
+        <span className="store-action-icon" aria-hidden>
+          {busy ? (
+            <LoaderCircle className="store-action-spinner" />
+          ) : confirmed ? (
+            <CheckCircle2 />
+          ) : null}
+        </span>
+        {children}
+      </Button>
+      <span className="sr-only" role="status">
+        {busy ? children : null}
+      </span>
+    </>
+  );
+}
+
 const STATE_KEY: Record<StoreState, string> = {
   active: "store.state.active",
   inactive: "store.state.inactive",
@@ -116,7 +154,7 @@ function StoreRow({
   manifest,
   active,
   pinned,
-  busy,
+  pendingEnabled,
   onOpen,
   onToggle,
   onPin,
@@ -124,7 +162,7 @@ function StoreRow({
   manifest: Manifest;
   active: boolean;
   pinned: boolean;
-  busy: boolean;
+  pendingEnabled?: boolean;
   onOpen: () => void;
   onToggle: () => void;
   onPin: () => void;
@@ -181,9 +219,20 @@ function StoreRow({
           <Pin fill={pinned ? "currentColor" : "none"} />
         </Button>
       )}
-      <Button variant="outline" size="sm" disabled={busy} onClick={onToggle}>
-        {busy ? "…" : active ? t("store.row.disable") : t("store.row.enable")}
-      </Button>
+      <StoreAction
+        variant="outline"
+        size="sm"
+        busy={pendingEnabled !== undefined}
+        onClick={onToggle}
+      >
+        {pendingEnabled === undefined
+          ? t(active ? "store.row.disable" : "store.row.enable")
+          : t(
+              pendingEnabled
+                ? "store.detail.enabling"
+                : "store.detail.disabling",
+            )}
+      </StoreAction>
       <Button
         variant="ghost"
         size="sm"
@@ -393,13 +442,18 @@ export function StorePage({
     () => runtime.marketplace.version,
   );
   const { locale, t, tp, text } = useI18n();
+  const present = useIsPresent();
+  const reduced = useReducedMotion();
   const [route, setRoute] = useState<StoreRoute>({ view: "home" });
+  const previousRoute = useRef(route);
   /** Carte qui a ouvert la fiche ou le dépôt, et carte à refocaliser au retour. */
   const originKey = useRef<string | undefined>(undefined);
   const returnFocus = useRef<string | undefined>(undefined);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>(ALL_CATEGORIES);
-  const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
+  const [pending, setPending] = useState<ReadonlyMap<string, boolean>>(
+    new Map(),
+  );
   const [source, setSource] = useState("");
   const [installing, setInstalling] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -409,8 +463,22 @@ export function StorePage({
   const [sourceName, setSourceName] = useState("");
   const [addingSource, setAddingSource] = useState(false);
   const [remoteBusy, setRemoteBusy] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    id: string;
+    local: boolean;
+  }>();
+  const confirmationTimer = useRef<number | undefined>(undefined);
   const searchRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+  const confirmInstall = useCallback((id: string, local: boolean) => {
+    window.clearTimeout(confirmationTimer.current);
+    setConfirmation({ id, local });
+    confirmationTimer.current = window.setTimeout(
+      () => setConfirmation(undefined),
+      900,
+    );
+  }, []);
+  useEffect(() => () => window.clearTimeout(confirmationTimer.current), []);
   const origin = activeStoreView(route);
   const back = useCallback(() => {
     returnFocus.current = originKey.current;
@@ -535,7 +603,7 @@ export function StorePage({
 
   const setEnabled = useCallback(
     async (id: string, enabled: boolean) => {
-      setPending((current) => new Set([...current, id]));
+      setPending((current) => new Map(current).set(id, enabled));
       try {
         await runtime.extensions.setEnabled(id, enabled);
       } catch (error) {
@@ -548,7 +616,7 @@ export function StorePage({
         );
       } finally {
         setPending((current) => {
-          const next = new Set(current);
+          const next = new Map(current);
           next.delete(id);
           return next;
         });
@@ -562,10 +630,12 @@ export function StorePage({
       event.preventDefault();
       const path = source.trim();
       if (!path || installing) return;
+      setConfirmation(undefined);
       setInstalling(true);
       try {
         const manifest = await runtime.extensions.install(path);
         setSource("");
+        confirmInstall(manifest.id, true);
         toast.success(
           t("store.toast.installed", { name: text(manifest.name) }),
         );
@@ -575,7 +645,7 @@ export function StorePage({
         setInstalling(false);
       }
     },
-    [installing, runtime, source, t, text],
+    [confirmInstall, installing, runtime, source, t, text],
   );
 
   const browseSource = useCallback(async () => {
@@ -655,6 +725,7 @@ export function StorePage({
     setRemoteBusy(remote.extension.id);
     try {
       const manifest = await runtime.marketplace.install(remote);
+      confirmInstall(manifest.id, false);
       toast.success(t("store.toast.installed", { name: text(manifest.name) }));
     } catch (error) {
       report(error);
@@ -713,6 +784,7 @@ export function StorePage({
   );
 
   useEffect(() => {
+    if (!present) return;
     const restore = returnFocus.current;
     returnFocus.current = undefined;
     const frame = requestAnimationFrame(() => {
@@ -729,13 +801,25 @@ export function StorePage({
       target?.focus();
     });
     return () => cancelAnimationFrame(frame);
-  }, [route]);
+  }, [present, route]);
 
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 });
   }, [route]);
 
+  useLayoutEffect(() => {
+    const changed = previousRoute.current !== route;
+    previousRoute.current = route;
+    if (!changed || reduced || !present) return;
+    const animation = mainRef.current?.animate(
+      [{ opacity: 0.35 }, { opacity: 1 }],
+      { duration: 120, easing: "ease-out" },
+    );
+    return () => animation?.cancel();
+  }, [present, reduced, route]);
+
   useEffect(() => {
+    if (!present) return;
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       if (document.querySelector('[data-slot="dialog-content"]')) return;
@@ -744,7 +828,7 @@ export function StorePage({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [back, onClose, route.view]);
+  }, [back, onClose, present, route.view]);
 
   const renderHeader = (subtitle?: string) => (
     <header className="store-header">
@@ -956,7 +1040,9 @@ export function StorePage({
     const active = activeIds.has(manifest.id);
     const isInstalled = installed.has(manifest.id);
     const bundled = tierOf(manifest) !== "community";
-    const busy = pending.has(manifest.id);
+    const pendingEnabled = pending.get(manifest.id);
+    const busy = pendingEnabled !== undefined;
+    const initiallyActive = busy ? !pendingEnabled : active;
     const pinned = selected.has(manifest.id);
     const certified = isCertified(manifest);
     const name = text(manifest.name);
@@ -1013,43 +1099,43 @@ export function StorePage({
               </p>
             </div>
             <div className="store-detail-actions">
-              {remote && (
-                <Button
-                  disabled={remoteBusy === manifest.id}
-                  onClick={() => void installRemote(remote)}
+              {(remote || !initiallyActive || command) && (
+                <StoreAction
+                  busy={remoteBusy === manifest.id || pendingEnabled === true}
+                  confirmed={confirmation?.id === manifest.id}
+                  disabled={
+                    (!!remote && !!remoteBusy && remoteBusy !== manifest.id) ||
+                    pendingEnabled === false
+                  }
+                  onClick={() => {
+                    if (remote) void installRemote(remote);
+                    else if (active) openExtension(manifest.id);
+                    else void setEnabled(manifest.id, true);
+                  }}
                 >
                   {remoteBusy === manifest.id
                     ? t("store.detail.installing")
-                    : t("store.detail.install")}
-                </Button>
+                    : remote
+                      ? t("store.detail.install")
+                      : initiallyActive
+                        ? t("store.detail.open")
+                        : busy
+                          ? t("store.detail.enabling")
+                          : isInstalled || bundled
+                            ? t("store.detail.enable")
+                            : t("store.detail.install")}
+                </StoreAction>
               )}
-              {!remote && active && command && (
-                <Button onClick={() => openExtension(manifest.id)}>
-                  {t("store.detail.open")}
-                </Button>
-              )}
-              {!remote && !active && (
-                <Button
-                  disabled={busy}
-                  onClick={() => void setEnabled(manifest.id, true)}
-                >
-                  {busy
-                    ? t("store.detail.enabling")
-                    : isInstalled || bundled
-                      ? t("store.detail.enable")
-                      : t("store.detail.install")}
-                </Button>
-              )}
-              {!remote && active && (
-                <Button
+              {!remote && initiallyActive && (
+                <StoreAction
                   variant="outline"
-                  disabled={busy}
+                  busy={pendingEnabled === false}
                   onClick={() => void setEnabled(manifest.id, false)}
                 >
-                  {busy
+                  {pendingEnabled === false
                     ? t("store.detail.disabling")
                     : t("store.detail.disable")}
-                </Button>
+                </StoreAction>
               )}
               {!remote && active && command && (
                 <Button
@@ -1163,7 +1249,7 @@ export function StorePage({
                 manifest={manifest}
                 active={activeIds.has(manifest.id)}
                 pinned={selected.has(manifest.id)}
-                busy={pending.has(manifest.id)}
+                pendingEnabled={pending.get(manifest.id)}
                 onOpen={() => openDetail(manifest.id)}
                 onToggle={() =>
                   void setEnabled(manifest.id, !activeIds.has(manifest.id))
@@ -1243,16 +1329,17 @@ export function StorePage({
                       {remote.source.name}
                     </span>
                   </span>
-                  <Button
+                  <StoreAction
                     size="sm"
                     variant="outline"
-                    disabled={busy}
+                    busy={busy}
+                    disabled={!!remoteBusy && !busy}
                     onClick={() => void installRemote(remote)}
                   >
                     {busy
                       ? t("store.updates.updating")
                       : t("store.updates.update")}
-                  </Button>
+                  </StoreAction>
                 </div>
               );
             })}
@@ -1326,15 +1413,17 @@ export function StorePage({
                 ? t("store.sources.import.browsing")
                 : t("store.sources.import.browse")}
             </Button>
-            <Button
+            <StoreAction
               type="submit"
               variant="outline"
-              disabled={installing || !source.trim()}
+              busy={installing}
+              confirmed={confirmation?.local}
+              disabled={!installing && !source.trim()}
             >
               {installing
                 ? t("store.detail.installing")
                 : t("store.detail.install")}
-            </Button>
+            </StoreAction>
           </form>
         )}
         <section className="store-sources">
@@ -1502,7 +1591,21 @@ export function StorePage({
   };
 
   return (
-    <section className="spark-store" aria-label={t("store.a11y")}>
+    <motion.section
+      className="spark-store"
+      aria-label={t("store.a11y")}
+      inert={!present || undefined}
+      initial={reduced ? false : { opacity: 0, y: 6 }}
+      animate={{
+        opacity: 1,
+        y: 0,
+        transition: { duration: reduced ? 0 : 0.16, ease: "easeOut" },
+      }}
+      exit={{
+        opacity: 0,
+        transition: { duration: reduced ? 0 : 0.12, ease: "easeIn" },
+      }}
+    >
       <aside className="store-sidebar">
         <div className="store-brand">
           <Blocks />
@@ -1555,7 +1658,7 @@ export function StorePage({
       {route.view === "sources" && renderSources()}
       {route.view === "repository" && renderRepository()}
       <Dialog
-        open={!!removeTarget}
+        open={present && !!removeTarget}
         onOpenChange={(open) => {
           if (!open && !removing) setRemoveTarget(null);
         }}
@@ -1593,6 +1696,6 @@ export function StorePage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </section>
+    </motion.section>
   );
 }

@@ -3,7 +3,7 @@
  *
  * Une vue native — la page du navigateur, par exemple — ne suit ni les
  * animations FLIP de Dockview ni les mutations du DOM. Elle est donc masquée
- * pendant le glissement, comme les contenus des autres tuiles.
+ * pendant le déplacement animé d'un groupe, pas pendant son redimensionnement direct.
  */
 
 let moving = false;

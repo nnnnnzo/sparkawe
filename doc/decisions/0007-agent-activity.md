@@ -20,8 +20,8 @@ groupe, avec un monogramme pour un client inconnu.
 
 ### SQLite plutôt qu’un fichier JSON
 
-L’activité est persistée dans `activity.db` avec `rusqlite` (`bundled`), pas dans
-`workspace-v1.json` :
+L’activité est persistée avec `rusqlite` (`bundled`), dans des tables distinctes
+du snapshot du workspace. La [migration vers `spark.db`](../operations/persistence.md#migration-vers-sparkdb) reprend les tables de l’ancienne base `activity.db` :
 
 - le payload d’une étape est un document JSON, mais les colonnes `tab_id`, `at`,
   `kind` et `size` servent aux requêtes et à l’élagage ;
@@ -42,7 +42,7 @@ durabilité et de propriété du dossier de configuration.
 - 2 Mio par étape, 4 Mio au total ; la plus récente est toujours conservée ;
 - une étape trop grosse perd ses instantanés mais reste lisible ;
 - effacement explicite depuis le pied du popover ;
-- `activity.db` est créé en `0600` sur Unix, avec `secure_delete=ON`.
+- `spark.db` est créé en `0600` sur Unix, avec `secure_delete=ON`.
 
 ### Inverses
 
@@ -61,7 +61,7 @@ La flèche ouvre un menu : « annuler cette action » rejoue les effets à l’e
 demandée pour les actions mutables, le cycle de vie et les dispositions
 anciennes ; une réorganisation récente sans suite est directe.
 
-Une action annulée se disperse puis disparaît de la timeline et de `activity.db`.
+Une action annulée se disperse puis disparaît de la timeline et de la table d’activité.
 Motion anime le balayage et les particules, puis replie la hauteur de la ligne
 ou du groupe vide : le reste de la liste et le panneau suivent le même mouvement.
 Avec la réduction des animations, seul un bref fondu est joué.
@@ -92,4 +92,4 @@ groupe, et chaque ligne est indentée avec un fil d’Ariane `onglet › objet`.
   affichés.
 - Une restauration de session terminal : rouvrir une tuile Terminal démarre une
   nouvelle session.
-- Le chiffrement au repos de `activity.db`.
+- Le chiffrement au repos de la base locale.
