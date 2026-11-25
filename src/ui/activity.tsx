@@ -897,6 +897,12 @@ export function ActivityControl({
     () => new Set(),
   );
   const steps = activity.stepsFor(tabId);
+  useEffect(() => {
+    if (!open) return;
+    setNow(Date.now());
+    const interval = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(interval);
+  }, [open]);
   const visible = useMemo(
     () => steps.filter((step) => !step.revertedAt || dissolving.has(step.id)),
     [dissolving, steps],
