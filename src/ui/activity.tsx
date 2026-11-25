@@ -784,9 +784,14 @@ function ActivityRow({
             className="activity-path"
             title={`${path.tab} › ${path.subject}`}
           >
-            <span className="activity-path-tab">{path.tab}</span>
+            <span className="sr-only">{`${path.tab} › ${path.subject}`}</span>
+            <span className="activity-path-tab" aria-hidden>
+              {path.tab}
+            </span>
             <ChevronRight aria-hidden />
-            <span className="activity-path-subject">{path.subject}</span>
+            <span className="activity-path-subject" aria-hidden>
+              {path.subject}
+            </span>
           </div>
           <div className="activity-title">
             <span className="activity-glyph" aria-hidden>
