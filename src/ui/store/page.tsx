@@ -539,7 +539,13 @@ export function StorePage({
       try {
         await runtime.extensions.setEnabled(id, enabled);
       } catch (error) {
-        report(error);
+        const manifest = catalog.find((candidate) => candidate.id === id);
+        toast.error(
+          t(enabled ? "store.toast.enableFailed" : "store.toast.disableFailed", {
+            name: manifest ? text(manifest.name) : id,
+          }),
+          { description: error instanceof Error ? error.message : String(error) },
+        );
       } finally {
         setPending((current) => {
           const next = new Set(current);
@@ -548,7 +554,7 @@ export function StorePage({
         });
       }
     },
-    [runtime],
+    [catalog, runtime, t, text],
   );
 
   const installExtension = useCallback(
