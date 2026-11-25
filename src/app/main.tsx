@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/react";
 import { detectLocale } from "../core/i18n.ts";
 import { setLocale } from "../i18n/index.ts";
 import { SparkShell } from "../ui/shell.tsx";
@@ -49,6 +50,7 @@ async function start() {
     <>
       <SparkShell runtime={runtime} />
       <Toaster theme="system" position="bottom-right" />
+      <Analytics />
     </>,
   );
   await wait(Math.max(0, minimumSplash - (performance.now() - bootedAt)));

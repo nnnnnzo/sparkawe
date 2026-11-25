@@ -22,6 +22,7 @@
     "@codemirror/state": "^6",
     "@codemirror/view": "^6",
     "@tauri-apps/api": "^2",
+    "@vercel/analytics": "^2.0.1",
     "@xterm/addon-fit": "^0.10",
     "@xterm/xterm": "^5.5",
     "class-variance-authority": "^0.7",
