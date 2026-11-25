@@ -33,6 +33,7 @@ import type {
 import { localized } from "../../core/i18n.ts";
 import { t as translateNow } from "../../i18n/index.ts";
 import { useI18n } from "../../i18n/react.ts";
+import { webBrowser } from "../web/api.ts";
 import manifest, { editorType, previewType } from "./manifest.ts";
 import "./style.css";
 
@@ -425,12 +426,30 @@ export default function createMarkdown(): ExtensionModule {
               skipHtml
               components={{
                 a: ({ children, href }) => (
-                  <a
-                    href={href?.startsWith("#") ? href : undefined}
-                    title={href}
-                  >
-                    {children}
-                  </a>
+                  href?.startsWith("https://") ? (
+                    <button
+                      type="button"
+                      className="markdown-external-link"
+                      title={href}
+                      onClick={() => {
+                        const browser = api.services.get(webBrowser);
+                        if (browser) browser.open(href, tile.id);
+                        else
+                          toast.error(
+                            translateNow("markdown.error.browserUnavailable"),
+                          );
+                      }}
+                    >
+                      {children}
+                    </button>
+                  ) : (
+                    <a
+                      href={href?.startsWith("#") ? href : undefined}
+                      title={href}
+                    >
+                      {children}
+                    </a>
+                  )
                 ),
               }}
             >

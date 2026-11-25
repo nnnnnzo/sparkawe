@@ -24,6 +24,7 @@ Les intégrées vivent dans `src/extensions/<nom>/`. Chacune a un `manifest.ts`,
 
 - Éditeur CodeMirror, aperçu `react-markdown` + GFM.
 - `markdown.open@1` ouvre un fichier ; `markdown.documents@1` expose le texte et les sauvegardes.
+- Les liens `https` de l’aperçu ouvrent une tuile Navigateur web à côté de la note ; si cette extension est désactivée, Spark l’indique sans ouvrir d’adresse hors de la fenêtre.
 - `canClose` demande confirmation si le document est modifié.
 - Accès disque via les commandes `markdown_*` et les grants de chemins.
 - Actions réversibles : `write`, `append`, `insert`, `replace`, `delete` capturent le texte avant et le restaurent dans le tampon. `save` capture l’ancien contenu et le réécrit sur disque avec `expected`, donc seulement si le fichier n’a pas changé depuis.

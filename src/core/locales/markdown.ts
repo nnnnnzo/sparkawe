@@ -81,6 +81,16 @@ const messages = {
     ja: "ドキュメントを利用できません。",
     zh: "文档不可用。",
   },
+  "markdown.error.browserUnavailable": {
+    fr: "Activez Navigateur web pour ouvrir ce lien.",
+    en: "Enable Web Browser to open this link.",
+    es: "Active Navegador web para abrir este enlace.",
+    de: "Aktivieren Sie den Webbrowser, um diesen Link zu öffnen.",
+    it: "Attivi Navigatore web per aprire questo link.",
+    pt: "Ative o Navegador web para abrir esta ligação.",
+    ja: "このリンクを開くには、Web ブラウザを有効にしてください。",
+    zh: "请启用网页浏览器以打开此链接。",
+  },
   "markdown.error.integers": {
     fr: "Les lignes doivent être des entiers.",
     en: "Line numbers must be integers.",
